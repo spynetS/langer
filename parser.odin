@@ -178,16 +178,19 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
         expr.op = op
         return expr
         }
-    else {
+    else if parser_peek(p).kind != .SEMICOLON {
         panic(fmt.tprintf("Unexpected token, got {}", parser_peek(p).kind))
     }
     return left
 }
 parse_block :: proc(p: ^Parser) -> ^Block {
+    fmt.println("LOOKING FOR START")
     parser_expect(p, .START)
     block := new(Block)
+    fmt.println("FOUND START")
     append(&block.statements, parse_stmt(p))
     fmt.println("check for end")
+    p.pos -= 1
     parser_expect(p, .END)
 
     return block
@@ -195,10 +198,10 @@ parse_block :: proc(p: ^Parser) -> ^Block {
 
 parse_if :: proc(p: ^Parser) -> ^If_Stmt {
     condition := parse_expression(p)
-    fmt.println(condition)
-
+    fmt.println("IF-CONDITION: ", condition)
+    
     block := parse_block(p)
-
+    
     stmt := new(If_Stmt)
     stmt.condition = condition
     stmt.block = block

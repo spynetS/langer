@@ -4,7 +4,7 @@ import "core:strings"
 import "core:os"
 
 main :: proc() {
-    input := "(2+2) + (1+1)"
+    input := "puts(\"hej\")"
     l := Lexer({input=input})
     tokens := make([dynamic]Token)
 
@@ -32,13 +32,13 @@ main :: proc() {
     fmt.println("assm")
     fmt.println(gen_stmt(stmt))
     
-    file, ok := os.open("./main.asm", {os.File_Flag.Write, os.File_Flag.Create})
+    file, ok := os.open("./main.asm", {os.File_Flag.Write, os.File_Flag.Create, os.File_Flag.Trunc})
     os.write_string(file, start_gen())
-
     os.write_string(file, gen_stmt(stmt))
-    
-    os.write_string(file, end_gen())
     os.close(file)
+    
+//    os.write_string(file, end_gen())
+
 
 
 }
