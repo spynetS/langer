@@ -1,6 +1,7 @@
 package main;
 
 import "core:strings"
+import "core:fmt"
 
 emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
     strings.write_string(builder, str)
@@ -8,34 +9,38 @@ emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
     strings.write_string(builder, "\n")
 }
 
-gen_expression :: proc(expr: Expr) -> string {
-    b: = strings.builder_make()
-    
+gen_expression :: proc(expr: Expr, b:  ^strings.Builder) -> string {
+    fmt.println("generating for", expr.kind)
     #partial switch expr.kind {
+        case .Integer:
+        emit(b, "push ", expr.value)
         case .Binary:
-        emit(&b, "mov eax, ", gen_expression(expr.left^))
-        emit(&b, "mov eax, ", gen_expression(expr.right^))
+        gen_expression(expr.left^ ,b)
+        gen_expression(expr.right^,b)
+
+        emit(b, "pop rbx")
+        emit(b, "pop rax")
 
         #partial switch expr.op {
-            case .PLUS:  emit(&b, "add eax, ebx")
-            case .MINUS:  emit(&b, "sub eax, ebx")
+            case .PLUS:  emit(b, "add rax, rbx")
+            case .MINUS:  emit(b, "sub rax, rbx")
         }
-
-    case .Integer:
-        emit(&b, expr.value)
+        
+        emit(b, "push rax")
         case: panic("TODO expr")
     }
-    return strings.to_string(b)
+    return strings.to_string(b^)
 }
 gen_stmt :: proc(stmt: Stmt) -> string {
+    b: = strings.builder_make()
     #partial switch v in stmt {
     case Expr:
-        return gen_expression(v)
+        return gen_expression(v, &b)
         case:
         panic("TODO stmt")
 
     }
-    return ""
+    return strings.to_string(b)
 }
 
 start_gen :: proc() -> string {
