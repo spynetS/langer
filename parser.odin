@@ -1,5 +1,6 @@
 package main;
 import "core:fmt"
+import "core:strings"
 
 /*
 Expression → produces a value
@@ -8,15 +9,6 @@ Block      → contains statements
 Function   → contains a block
 Program    → contains top-level declarations
 */
-
-Stmt_Kind :: enum {
-    Variable_Decl,
-    Expression,
-    Return,
-    If,
-    While,
-    Block,
-}
 
 Variable_Decl :: struct {
     name: string,
@@ -84,13 +76,19 @@ parser_advance :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
     return token, true
 }
 
-parser_expect :: proc(p: ^Parser, kind: Token_Kind) -> Token {
+parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind) -> Token {
     token := parser_peek(p)
-
-    if token.kind != kind {
-        // syntax error
-        panic(fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, kind))
+    none := true
+    s_kinds := strings.builder_make()
+    for kind in kinds {
+        strings.write_string(&s_kinds, fmt.tprintf("%s",kind))
+        strings.write_string(&s_kinds, ",")
+        if token.kind == kind {
+            // syntax error
+            none = false
+        }
     }
+    if none do  panic(fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
 
     return parser_advance(p)
 }
@@ -100,6 +98,11 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
     next_token := parser_advance(p)
     fmt.println("parsing factor: ", next_token)
     #partial switch next_token.kind {
+    case .STRING:
+        expr.kind = .Identifier
+        expr.value = next_token.lexeme.(string)
+        return expr
+
     case .NUMBER:
         expr.kind = .Integer
         expr.value = next_token.lexeme.(string)
@@ -111,10 +114,11 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
         parser_expect(p, .RPAR)
         fmt.println("found expr", expr)
         return expr
-        case .IDENTIFER:
+    case .IDENTIFER:
         expr.kind = .Identifier
         expr.value = next_token.lexeme.(string)
-        case .RPAR:
+        return expr
+    case .RPAR:
         fmt.println("found right param, expression done")
         return expr
     }
@@ -122,17 +126,32 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
     return nil
 }
 
+parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
+    
+
+    return nil
+}
+
 parse_term :: proc(p: ^Parser) -> ^Expr {
 
     left := parse_factor(p)
-    if left == nil do return nil
-    
-    if parser_peek(p).kind == Token_Kind.MULT || parser_peek(p).kind == Token_Kind.DIVIDE {
-        op := parser_advance(p).kind
         
+    if parser_peek(p).kind == Token_Kind.MULT ||
+        parser_peek(p).kind == Token_Kind.DIVIDE
+    {
+        op := parser_advance(p).kind
         right := parse_factor(p)
-        if right == nil do return nil
-    
+        expr := new(Expr)
+        expr.kind = Expr_Kind.Binary
+        expr.left = left
+        expr.right = right
+        expr.op = op
+        return expr
+    }
+    else if parser_peek(p).kind == .LPAR { // we are a function call
+        
+        arguments := parse_args(p)
+
         expr := new(Expr)
         expr.kind = Expr_Kind.Binary
         expr.left = left
@@ -225,7 +244,7 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         case .RETURN:
         fmt.println("parsing return stmt")
         stmt = parse_return(p)^
-            case:
+        case:
         p.pos -= 1
         fmt.println("parsing other stmt")
         fmt.println("PARSING-EXPR:", parser_peek(p).kind)
@@ -255,6 +274,8 @@ print_expr :: proc(expr: Expr, depth: int = 0) {
 
     case .Integer:
         fmt.println("Integer ", expr.value)
+    case .Call:
+        fmt.println("Call \n", expr.left.value, expr.right.value)
 
     case .Identifier:
         fmt.println("Identifier ", expr.value)

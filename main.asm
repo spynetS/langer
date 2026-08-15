@@ -1,22 +1,12 @@
-global _start
+extern puts
+section .data
+data1 db "Hello World!" , 10
+data0 db "Hello World!" , 10
 section .text
-_start:
-push 2
-push 2
-pop rbx
-pop rax
-add rax, rbx
-push rax
-push 1
-push 1
-pop rbx
-pop rax
-add rax, rbx
-push rax
-pop rbx
-pop rax
-add rax, rbx
-push rax
-mov edi, eax
-mov eax, 60
-syscall
+global main
+main:sub rsp, 8 
+mov rdi, data1
+call puts
+xor eax, eax
+add rsp, 8
+ret

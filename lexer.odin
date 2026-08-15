@@ -35,6 +35,7 @@ Token_Kind :: enum {
     COLON,
     SEMICOLON,
     IDENTIFER,
+    STRING,
     INT,
     FLOAT,
     DOUBLE,
@@ -142,14 +143,30 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     return Token({kind=kind, lexeme=val})
 }
 
+read_string :: proc(lexer: ^Lexer) -> Token {
+    advance(lexer)
+
+    buffer := strings.builder_make()
+    for peek(lexer) != '"' {
+        strings.write_byte(&buffer, peek(lexer))
+        if !advance(lexer) do break
+    }
+
+//    if peek(lexer) != '"' do panic(fmt.tprintf("Unexpected char, expected \", got %c", peek(lexer)))
+    advance(lexer)
+    return Token({kind=.STRING, lexeme=fmt.tprintf("\"%s\"", strings.to_string(buffer))})
+}
+
 read_token :: proc (lexer: ^Lexer) -> Token {
     tokens := make([dynamic]Token)
 
     skip_whitespace(lexer)
     c := peek(lexer)
+
     
     if is_char(c)       do return read_identifier(lexer)
     else if is_digit(c) do return read_number(lexer)
+    else if c == '"'    do return read_string(lexer)
 
     // we defer adnave after the if statements to advanve the switch
     defer advance(lexer)
