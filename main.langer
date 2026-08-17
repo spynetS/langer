@@ -1,1 +1,1 @@
-printf("Hello World, %d!", 10);
+printf("Hello World %s!", "Alfred here")

@@ -84,7 +84,7 @@ advance :: proc(lexer: ^Lexer) ->  bool {
 skip_whitespace :: proc(lexer: ^Lexer) {
     c := peek(lexer,0)
     count := 0
-    for c == ' ' {
+    for c == ' ' || c == '\n' {
         if !advance(lexer) do break
         c = peek(lexer)
         count += 1

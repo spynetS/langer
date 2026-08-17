@@ -3,6 +3,7 @@ package main;
 import "core:strings"
 import "core:fmt"
 
+
 Data :: struct {
     data : map[string]string,
     id : int
@@ -18,7 +19,7 @@ init_data :: proc() {
 save_data :: proc (data: string) -> string {
     id := fmt.tprintf("data%d", data_table.id)
     data_table.id += 1
-    data_table.data[id] = fmt.tprintf("%s db %s , 10", id, data)
+    data_table.data[id] = fmt.tprintf("%s db %s , 0", id, data)
     return id
 }
 
@@ -28,23 +29,20 @@ emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
     strings.write_string(builder, "\n")
 }
 
-gen_expression :: proc(expr: Expr, b:  ^strings.Builder) -> string {
-    fmt.println("generating for", expr.kind)
-    #partial switch expr.kind {
-        case .Identifier:
+gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> string {
+    switch expr in expr_u {
+        case Expr_Identifier:
         id := save_data(expr.value)
-        emit(b, "mov rdi, ", id)
-        case .Call:
-        emit(b, "sub rsp, 8 ")
-        gen_expression(expr.right^, b)
-        emit(b, "call ", expr.left.value)
-        emit(b, "xor eax, eax")
-        emit(b, "add rsp, 8")
-        emit(b, "ret")
-
-        case .Integer:
-        emit(b, "push ", expr.value)
-        case .Binary:
+        emit(b, "lea rdi, [rel ", id, "]")
+        case Expr_Call:
+        for arg in expr.args {
+            gen_expression(arg^, b)
+        }
+        emit(b, "xor eax, eax") // only for variadic calls (any amount of args)
+        emit(b, "call ", expr.name)
+        case Expr_Integer:
+        emit(b, "mov rsi, ", expr.value)
+        case Expr_Binary:
         gen_expression(expr.left^ ,b)
         gen_expression(expr.right^,b)
 
@@ -72,22 +70,13 @@ gen_expression :: proc(expr: Expr, b:  ^strings.Builder) -> string {
 
 
 gen_block :: proc(block: Block, b: ^strings.Builder) {
-    emit(b,"mov rax, 1")
-    emit(b,"mov rdi, 1")
-    emit(b,"mov rsi, msg")
-    emit(b,"mov rdx, len")
-    emit(b,"syscall")
+    panic("TODO")
 }
     
 gen_if :: proc(stmt: If_Stmt, b: ^strings.Builder){
     gen_expression(stmt.condition^, b)
     gen_block(stmt.block^, b)
-    // else block fornow
-    emit(b, ".L_end:")
-    emit(b,"mov rax, 60")
-    emit(b,"xor rdi, rdi")
-    emit(b,"syscall")
-    //gen_block(stmt.else_block^, b)
+    gen_block(stmt.else_block^, b)
 }
 
 gen_stmt :: proc(stmt: Stmt) -> string {
@@ -106,7 +95,7 @@ gen_stmt :: proc(stmt: Stmt) -> string {
 
 start_gen :: proc() -> string {
     b := strings.builder_make()
-    strings.write_string(&b, "extern puts\nsection .data\n")
+    strings.write_string(&b, "extern puts\nextern printf\nsection .data\n")
     for key, data in data_table.data {
         strings.write_string(&b, fmt.tprintf("%s\n", data))
     }
@@ -115,6 +104,6 @@ start_gen :: proc() -> string {
 }
 
 end_gen :: proc() -> string {
-    return "mov edi, eax\nmov eax, 60\nsyscall"
+    return "\nxor eax, eax\nret"
 }
 
