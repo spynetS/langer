@@ -1,14 +1,12 @@
 extern puts
 extern printf
 section .data
-data3 db "Alfred here" , 0
-data0 db "Hello World %s!" , 0
-data2 db "Hello World %s!" , 0
-data1 db "Alfred here" , 0
+data1 db "Hello World im %d years old!" , 0
+data0 db "Hello World im %d years old!" , 0
 section .text
 global main
-main:lea rdi, [rel data2]
-lea rdi, [rel data3]
+main:lea rdi, [rel data1]
+mov rsi, 22
 xor eax, eax
 call printf
 
