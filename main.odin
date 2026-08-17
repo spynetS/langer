@@ -28,14 +28,18 @@ main :: proc() {
     parser := Parser({})
     parser.tokens = tokens
 
-    stmt := parse_stmt(&parser)
-    fmt.println("\n===Parsed statment===")
-    print_stmt(stmt)
-    fmt.println("\n===generated asm===")
-    init_data()
-    fmt.println(gen_stmt(stmt))
+    block := parse_block(&parser)
+    fmt.println("\n===Parsed block===")
+    print_block(block^)    
 
-    gen_asm := gen_stmt(stmt)
+    // stmt := parse_stmt(&parser)
+    // fmt.println("\n===Parsed statment===")
+    // print_stmt(stmt)
+    fmt.println("\n===generated asm===")
+    init_generator()
+//    fmt.println(gen_block(block^))
+
+    gen_asm := gen_block(block^)
 
     fmt.println(start_gen())
     fmt.println(gen_asm)
@@ -49,7 +53,6 @@ main :: proc() {
     os.write_string(file, end_gen())
     os.close(file)
     
-
 
 
 }

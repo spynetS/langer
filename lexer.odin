@@ -163,7 +163,15 @@ read_token :: proc (lexer: ^Lexer) -> Token {
     skip_whitespace(lexer)
     c := peek(lexer)
 
-    
+    switch c {
+    case '{':
+        advance(lexer)
+        return Token({kind=.START, lexeme="{"})
+    case '}':
+        advance(lexer)
+        return Token({kind=.END, lexeme="}"})
+    }
+
     if is_char(c)       do return read_identifier(lexer)
     else if is_digit(c) do return read_number(lexer)
     else if c == '"'    do return read_string(lexer)

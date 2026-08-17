@@ -1,1 +1,6 @@
-printf("Hello World im %d years old!", 22)
+{
+    int age = 20+1;
+    printf("Hello world im %s and im %d years old", "alfred", age+1)
+    
+
+}

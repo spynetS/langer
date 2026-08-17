@@ -13,7 +13,14 @@ Program    → contains top-level declarations
 Variable_Decl :: struct {
     name: string,
     type: string,
-    initlizer: string,    
+    initlizer: ^Expr,    
+}
+
+Function_Decl :: struct {
+    name: string,
+    type: string,
+    args: [dynamic]^Expr,
+    block: Block
 }
 
 If_Stmt :: struct {
@@ -25,15 +32,24 @@ While_Stmt :: struct {
     condition: ^Expr,
     block: Block,   
 }
+
+BlockItem :: union {
+    Decl,
+    Stmt,
+}
+
 Block :: struct {
-    statements: [dynamic]Stmt,
+    items: [dynamic]BlockItem,
 }
 Return_Stmt :: struct {
     value: ^Expr,
 }
 
-Stmt :: union {
+Decl :: union {
     Variable_Decl,
+}
+
+Stmt :: union {
     Expr,
     Return_Stmt,
     If_Stmt,
@@ -52,6 +68,9 @@ Expr_Kind :: enum {
 Expr_Integer :: struct {
     value: string,
 }
+Expr_String :: struct {
+    value: string,
+}
 Expr_Identifier :: struct {
     value: string,
 }
@@ -67,6 +86,7 @@ Expr_Call :: struct {
 
 Expr :: union {
     Expr_Integer,
+    Expr_String,
     Expr_Identifier,
     Expr_Binary,
     Expr_Call,
@@ -75,6 +95,11 @@ Expr :: union {
 Parser :: struct {
     tokens: [dynamic]Token,
     pos:    int,
+}
+
+parser_next :: proc(p: ^Parser, amnt: int = 1) -> (Token, bool) #optional_ok {
+    if p.pos+amnt >= len(p.tokens) do return Token({}), false
+    return p.tokens[p.pos+amnt], true
 }
 
 parser_peek :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
@@ -112,7 +137,7 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
     #partial switch next_token.kind {
         case .STRING:
         expr := new(Expr)
-        expr^ = Expr_Identifier{
+        expr^ = Expr_String{
             value = next_token.lexeme.(string),
         }
         return expr
@@ -141,7 +166,7 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
         fmt.println("found right param, expression done")
         return nil
     }
-    panic("Unexpected token")
+    panic(fmt.tprintf("Unexpected token {}", next_token.kind))
 }
 
 parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
@@ -192,11 +217,13 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
                 
             })
             return new_expr
-            case Expr_Integer:
+        case Expr_String:
+            panic("Expected identifer, got STRING")
+        case Expr_Integer:
             panic("Expected identifer, got INT")
-            case Expr_Binary:
+        case Expr_Binary:
             panic("Expected identifer, got BIN")
-            case Expr_Call:
+        case Expr_Call:
             panic("Expected identifer, got CALL")
         }
 
@@ -223,6 +250,7 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
 
     if parser_peek(p).kind == Token_Kind.PLUS ||
         parser_peek(p).kind == Token_Kind.MINUS ||
+        parser_peek(p).kind == Token_Kind.EQUAL ||
         parser_peek(p).kind == Token_Kind.GREATER ||
         parser_peek(p).kind == Token_Kind.LESS {
             op := parser_advance(p).kind
@@ -248,13 +276,23 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
 
     return left
 }
+
+is_decl :: proc (kind: Token_Kind) -> bool {
+    #partial switch kind { case .INT, .FLOAT, .FUNC: return true }
+    return false
+}
+
 parse_block :: proc(p: ^Parser) -> ^Block {
     fmt.println("LOOKING FOR START")
     parser_expect(p, .START)
     block := new(Block)
+
     fmt.println("FOUND START")
     for parser_peek(p).kind != .END {
-        append(&block.statements, parse_stmt(p))
+        if is_decl(parser_peek(p).kind) do append(&block.items, parse_decl(p))
+        else do append(&block.items, parse_stmt(p))
+        p.pos -= 1
+        fmt.println("next stmt in block is", parser_peek(p).kind)
     }
 
     return block
@@ -262,10 +300,12 @@ parse_block :: proc(p: ^Parser) -> ^Block {
 
 parse_if :: proc(p: ^Parser) -> ^If_Stmt {
     condition := parse_expression(p)
-    fmt.println("IF-CONDITION: ", condition)
+    fmt.println("===IF-CONDITION===")
+    print_expr(condition^)
     
     block := parse_block(p)
-    
+    fmt.println("===block===")
+    print_block(block^)
     stmt := new(If_Stmt)
     stmt.condition = condition
     stmt.block = block
@@ -275,13 +315,62 @@ parse_if :: proc(p: ^Parser) -> ^If_Stmt {
 parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
     ret := new(Return_Stmt)
     ret.value = parse_expression(p)
-    
     return ret
+}
+
+parse_func_decl :: proc(p: ^Parser) -> Decl {
+    decl := Function_Decl({})
+    
+    panic("Functions not implemeted yet. (We dont need them)")
+}
+
+
+parse_variable_decl :: proc(p: ^Parser) -> Decl {
+    decl := Variable_Decl({})
+    token := parser_advance(p)
+    decl.type = token.lexeme.(string)
+    // we advance one more step after getting the type
+    token = parser_advance(p)
+    if token.kind == .IDENTIFER {
+        decl.name = token.lexeme.(string)
+        token = parser_advance(p)
+        if token.kind == .EQUAL {
+            init := parse_expression(p)
+            fmt.println("init is", init)
+            decl.initlizer = init
+            parser_expect(p, .SEMICOLON)
+            parser_advance(p)
+            return decl
+        }
+    }
+    panic("This is not how you declare a variable. Should be int x = 10;")
+}
+
+parse_decl :: proc(p: ^Parser) -> Decl {
+    token := parser_advance(p)
+    decl := Decl({})
+    #partial switch token.kind {
+        case .INT, .FLOAT:
+        p.pos -= 1 // to go back so peek is on int
+        fmt.println("parsing int decl")
+        return parse_variable_decl(p)
+        case .FUNC:
+        fmt.println("parsing func decl")
+        return parse_func_decl(p)
+    }
+    return decl
 }
 
 parse_stmt :: proc(p: ^Parser) -> Stmt {
     token := parser_advance(p)
     stmt := Stmt({})
+    fmt.println("stmt next is ", parser_next(p).kind)
+    #partial switch parser_next(p).kind {
+        case .EQUAL:
+        fmt.println("assigment")
+    }
+
+
     #partial switch token.kind {
         case .IF:
         fmt.println("parsing if stmt")
@@ -297,11 +386,12 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         if expr == nil do break
         print_expr(expr^)
         parser_skip(p, .RPAR)
-
         stmt = expr^
-        
-        
     }
+
+ 
+
+
     parser_skip(p,.SEMICOLON)
     return stmt
 }
@@ -324,7 +414,8 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
         for arg in expr.args {
             print_expr(arg^, depth+1)
         }
-
+    case Expr_String:
+        fmt.println("String ", expr.value)
     case Expr_Identifier:
         fmt.println("Identifier ", expr.value)
     }
@@ -340,9 +431,23 @@ print_stmt :: proc (stmt: Stmt) {
         fmt.println("IF")
         print_expr(v.condition^)
         fmt.println("")
-        for stmt in v.block.statements {
-            fmt.println("block statement")
-            print_stmt(stmt)
+        print_block(v.block^)
+    }
+
+}
+
+print_block :: proc(block: Block) {
+    for item_u in block.items {
+        switch item in item_u {
+        case Decl:
+            switch decl in item {
+            case Variable_Decl:
+                fmt.println("DECL", decl.type, decl.name, "=", decl.initlizer)
+            }
+        case Stmt:
+            fmt.print("STMT ")
+            print_stmt(item)
+            
         }
     }
 
