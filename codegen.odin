@@ -9,9 +9,9 @@ import "core:fmt"
 Generator :: struct {
     data : map[string]string,
     data_id : int,
-    scratch_name:   [7]string,
-    scratch_inuse:  [7]bool,
-    arg_registers:  [7]string,
+    scratch_name:   [8]string,
+    scratch_inuse:  [8]bool,
+    arg_registers:  [8]string,
     variables    :  map[string]string,
 }
 
@@ -67,6 +67,7 @@ init_generator :: proc() {
     generator.scratch_name[4] = "r13"
     generator.scratch_name[5] = "r14"
     generator.scratch_name[6] = "r15"
+    generator.scratch_name[7] = "rax"
 
     generator.arg_registers[0] = "rdi"
     generator.arg_registers[1] = "rsi"
@@ -80,6 +81,7 @@ init_generator :: proc() {
 
 
 emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
+    fmt.println("EMIT:",str)
     strings.write_string(builder, str)
     for arg in args do strings.write_string(builder, arg)
     strings.write_string(builder, "\n")
@@ -106,7 +108,6 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
                 id := save_string(v.value)
                 emit(b, "lea ", generator.arg_registers[i], ", [rel ",id, "]")
                 case:
-                
                 index := gen_expression(v, b)
                 emit(b, "mov ", generator.arg_registers[i], ", ", scratch_name(index))
 
@@ -116,7 +117,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         }
         emit(b, "xor eax, eax") // only for variadic calls (any amount of args)
         emit(b, "call ", expr.name)
-        return -1
+        return 7
     case Expr_Integer:
         index := scratch_alloc();
         emit(b, "mov ", scratch_name(index), ", ", expr.value)
@@ -167,7 +168,11 @@ gen_stmt :: proc(stmt: Stmt) -> string {
         gen_expression(v, &b)
         case If_Stmt:
         gen_if(v, &b)
+        case Return_Stmt:
+        index := gen_expression(v.value^, &b)
+        emit(&b, "mov rax,", scratch_name(index))
         case:
+        fmt.println(stmt)
         panic("TODO stmt")
 
     }
@@ -175,21 +180,32 @@ gen_stmt :: proc(stmt: Stmt) -> string {
 }
 
 
-gen_block :: proc(block: Block) -> string {
-    b := strings.builder_make()
-    emit(&b, "main:\n")
+gen_block :: proc(block: Block, b: ^strings.Builder) -> string {
     for item_u in block.items {
         switch item in item_u {
         case Decl:
             switch decl in item {
+            case Function_Decl:
+                panic("TODO")
+            
             case Variable_Decl:
                 gen_var(decl.name, "dq 0")
-                index := gen_expression(decl.initlizer^, &b)
-                emit(&b, "mov qword [rel ",decl.name,"], ", scratch_name(index))
+                index := gen_expression(decl.initlizer^, b)
+                emit(b, "mov qword [rel ",decl.name,"], ", scratch_name(index))
             }
         case Stmt:
-            strings.write_string(&b, gen_stmt(item))
+            strings.write_string(b, gen_stmt(item))
         }
+    }
+    return strings.to_string(b^)
+}
+
+gen_program :: proc(program: Program) -> string {
+    b := strings.builder_make()
+    for func in program.functions {
+        emit(&b, func.name, ":\n")
+        gen_block(func.block, &b)
+        emit(&b, "ret")
     }
     return strings.to_string(b)
 }

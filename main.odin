@@ -28,23 +28,20 @@ main :: proc() {
     parser := Parser({})
     parser.tokens = tokens
 
-    block := parse_block(&parser)
-    fmt.println("\n===Parsed block===")
-    print_block(block^)    
+    program := parse_program(&parser)
+    fmt.println("\n===Parsed program===")
+    print_program(program)    
 
     // stmt := parse_stmt(&parser)
     // fmt.println("\n===Parsed statment===")
     // print_stmt(stmt)
     fmt.println("\n===generated asm===")
     init_generator()
-//    fmt.println(gen_block(block^))
-
-    gen_asm := gen_block(block^)
+    gen_asm := gen_program(program)
 
     fmt.println(start_gen())
     fmt.println(gen_asm)
     fmt.println(end_gen())
-
 
     file, ok := os.open("./main.asm", {os.File_Flag.Write, os.File_Flag.Create, os.File_Flag.Trunc})
 

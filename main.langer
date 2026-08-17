@@ -1,6 +1,10 @@
-{
-    int age = 20+1;
-    printf("Hello world im %s and im %d years old", "alfred", age+1)
-    
+func add() {
+    int age = 10;
+    return age + 1;
+}
 
+func main() {
+    int age = add()+add();
+    printf("Hello world im %d years old", age);
+    return 0;
 }

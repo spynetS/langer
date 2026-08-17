@@ -10,6 +10,11 @@ Function   → contains a block
 Program    → contains top-level declarations
 */
 
+Program :: struct {
+    functions: [dynamic]Function_Decl,
+    variables: [dynamic]Variable_Decl
+}
+
 Variable_Decl :: struct {
     name: string,
     type: string,
@@ -46,6 +51,7 @@ Return_Stmt :: struct {
 }
 
 Decl :: union {
+    Function_Decl,
     Variable_Decl,
 }
 
@@ -126,7 +132,7 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind) -> Token {
             none = false
         }
     }
-    if none do  panic(fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
+    if none do panic(fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
 
     return parser_advance(p)
 }
@@ -216,6 +222,9 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
                 args = arguments
                 
             })
+            parser_skip(p, .RPAR)
+            //parser_advance(p)
+            fmt.println("AFTER CALL PEEK", parser_peek(p))
             return new_expr
         case Expr_String:
             panic("Expected identifer, got STRING")
@@ -234,7 +243,8 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
 parser_skip :: proc (p: ^Parser, kind: Token_Kind) -> Token {
     token := parser_peek(p)
     count := 0
-    for token.kind == kind {
+    for parser_peek(p).kind == kind {
+        fmt.println("SKIPING", token.kind)
         token = parser_advance(p)
         count += 1
         if count > MAX_DEPTH do break
@@ -244,7 +254,7 @@ parser_skip :: proc (p: ^Parser, kind: Token_Kind) -> Token {
 
 parse_expression :: proc (p: ^Parser) -> ^Expr {
     left := parse_term(p)
-    fmt.println("== LEFT IS ===")
+    fmt.println("== LEFT expr IS ===")
     print_expr(left^)
     fmt.println("== ======= ===")
 
@@ -254,8 +264,8 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
         parser_peek(p).kind == Token_Kind.GREATER ||
         parser_peek(p).kind == Token_Kind.LESS {
             op := parser_advance(p).kind
-            
-            right := parse_term(p)
+            fmt.println("===PARSING RIGHT===")
+            right := parse_expression(p)
             fmt.println("== RIGHT IS ===")
             print_expr(right^)
             fmt.println("== ======= ===")
@@ -271,7 +281,8 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
     else if parser_peek(p).kind == .COMMA {}
     else if parser_peek(p).kind == .RPAR {}
     else if parser_peek(p).kind != .SEMICOLON {
-        panic(fmt.tprintf("Unexpected token, got {}, wanted ;", parser_peek(p).kind))
+        //panic(fmt.tprintf("Unexpected token, got {}", parser_peek(p).kind))
+        return left
     }
 
     return left
@@ -291,10 +302,9 @@ parse_block :: proc(p: ^Parser) -> ^Block {
     for parser_peek(p).kind != .END {
         if is_decl(parser_peek(p).kind) do append(&block.items, parse_decl(p))
         else do append(&block.items, parse_stmt(p))
-        p.pos -= 1
         fmt.println("next stmt in block is", parser_peek(p).kind)
     }
-
+    fmt.println("block done")
     return block
 }
 
@@ -318,14 +328,31 @@ parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
     return ret
 }
 
-parse_func_decl :: proc(p: ^Parser) -> Decl {
+parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl := Function_Decl({})
+    parser_skip(p, .FUNC)
+    token := parser_expect(p, .IDENTIFER)
+    decl.name = token.lexeme.(string)
     
-    panic("Functions not implemeted yet. (We dont need them)")
+    // args := parse_args(p)
+    // for arg in args do print_expr(arg^)
+    // decl.args = args
+
+    parser_advance(p)
+    
+    parser_advance(p)
+
+    block := parse_block(p)
+    print_block(block^)
+
+    decl.block = block^;
+    decl.type="void" // FIXME
+
+    return decl
 }
 
 
-parse_variable_decl :: proc(p: ^Parser) -> Decl {
+parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
     decl := Variable_Decl({})
     token := parser_advance(p)
     decl.type = token.lexeme.(string)
@@ -338,8 +365,9 @@ parse_variable_decl :: proc(p: ^Parser) -> Decl {
             init := parse_expression(p)
             fmt.println("init is", init)
             decl.initlizer = init
-            parser_expect(p, .SEMICOLON)
-            parser_advance(p)
+            fmt.println(parser_peek(p))
+            parser_skip(p, .SEMICOLON)
+            //parser_advance(p)
             return decl
         }
     }
@@ -353,11 +381,12 @@ parse_decl :: proc(p: ^Parser) -> Decl {
         case .INT, .FLOAT:
         p.pos -= 1 // to go back so peek is on int
         fmt.println("parsing int decl")
-        return parse_variable_decl(p)
+        decl = parse_variable_decl(p)
         case .FUNC:
         fmt.println("parsing func decl")
-        return parse_func_decl(p)
+        decl = parse_func_decl(p)
     }
+    parser_skip(p, .SEMICOLON)
     return decl
 }
 
@@ -395,6 +424,27 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
     parser_skip(p,.SEMICOLON)
     return stmt
 }
+
+parse_program :: proc(p: ^Parser) -> Program {
+    token := parser_advance(p);
+    program := Program({})
+    for parser_peek(p).kind != .EOF  {
+        #partial switch token.kind {
+            case .FUNC:
+            p.pos -= 1
+            func := parse_func_decl(p)
+            fmt.println("===FUNC===")
+            fmt.println(func.name)
+            
+            append(&program.functions, func)
+        }
+        parser_skip(p, .END)
+        parser_advance(p)
+    }
+    return program
+
+}
+
 
 print_expr :: proc(expr_u: Expr, depth: int = 0) {
     for _ in 0..<depth {
@@ -441,6 +491,8 @@ print_block :: proc(block: Block) {
         switch item in item_u {
         case Decl:
             switch decl in item {
+            case Function_Decl:
+                fmt.println("DECL func", decl.type, decl.name,)
             case Variable_Decl:
                 fmt.println("DECL", decl.type, decl.name, "=", decl.initlizer)
             }
@@ -451,4 +503,12 @@ print_block :: proc(block: Block) {
         }
     }
 
+}
+
+print_program :: proc(program: Program) {
+    fmt.println("program\n functions")
+    for func in program.functions {
+        fmt.println(func.name)
+        for arg in func.args do print_expr(arg^)
+    }
 }
