@@ -115,9 +115,24 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
 
             i += 1
         }
+        pops := make([dynamic]string)
+        for i in 0..<len(generator.scratch_inuse) {
+            if generator.scratch_inuse[i] {
+                emit(b, "push ", generator.scratch_name[i])
+                append(&pops, generator.scratch_name[i])
+            }
+        }
         emit(b, "xor eax, eax") // only for variadic calls (any amount of args)
-        emit(b, "call ", expr.name)
-        return 7
+        emit(b, "call ", expr.name, "\n")
+        // pop backwards
+        for i in 0..<len(pops) {
+            if generator.scratch_inuse[i] {
+                emit(b, "pop ", pops[(len(pops)-1)-i])
+            }
+        }
+        emit(b, "\n")
+
+        return 7 // return address
     case Expr_Integer:
         index := scratch_alloc();
         emit(b, "mov ", scratch_name(index), ", ", expr.value)
@@ -147,6 +162,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             var := get_var(expr.left.(Expr_Identifier).value)
             index := gen_expression(expr.right^, b)
             emit(b, "mov qword [rel ", var, "], ", scratch_name(index))
+            scratch_free(index)
             return -1
         }
         

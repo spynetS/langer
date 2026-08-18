@@ -48,8 +48,5 @@ main :: proc() {
     os.write_string(file, start_gen())
     os.write_string(file, gen_asm)
     os.write_string(file, end_gen())
-    os.close(file)
-    
-
-
+    os.close(file)    
 }

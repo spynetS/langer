@@ -222,7 +222,7 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
                 args = arguments
                 
             })
-            parser_skip(p, .RPAR)
+            parser_skip(p, .RPAR, depth=0)
             //parser_advance(p)
             fmt.println("AFTER CALL PEEK", parser_peek(p))
             return new_expr
@@ -240,14 +240,14 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
     return left
 }
     
-parser_skip :: proc (p: ^Parser, kind: Token_Kind) -> Token {
+parser_skip :: proc (p: ^Parser, kind: Token_Kind, depth: int = MAX_DEPTH) -> Token {
     token := parser_peek(p)
     count := 0
     for parser_peek(p).kind == kind {
         fmt.println("SKIPING", token.kind)
         token = parser_advance(p)
         count += 1
-        if count > MAX_DEPTH do break
+        if count > depth do break
     }
     return token
 }
