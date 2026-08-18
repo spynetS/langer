@@ -24,7 +24,7 @@ Variable_Decl :: struct {
 Function_Decl :: struct {
     name: string,
     type: string,
-    args: [dynamic]^Expr,
+    args: [dynamic]Variable_Decl,
     block: Block
 }
 
@@ -328,6 +328,13 @@ parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
     return ret
 }
 
+is_type :: proc (kind: Token_Kind) -> bool {
+    #partial switch kind {
+    case .INT, .FLOAT: return true
+    }
+    return false
+}
+
 parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl := Function_Decl({})
     parser_skip(p, .FUNC)
@@ -338,9 +345,22 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     // for arg in args do print_expr(arg^)
     // decl.args = args
 
-    parser_advance(p)
-    
-    parser_advance(p)
+    decl.args = make([dynamic]Variable_Decl)
+    parser_skip(p, .LPAR,depth=1)
+    for parser_peek(p).kind != .RPAR {
+        token := parser_advance(p)
+        if is_type(token.kind) {
+            fmt.println("IS DELC", token)
+            var := Variable_Decl({type=token.lexeme.(string)})
+            var.name = parser_expect(p, .IDENTIFER).lexeme.(string)
+            append(&decl.args, var)
+        }
+    }
+
+    for arg in decl.args do fmt.println(arg)
+
+    fmt.println(parser_advance(p))
+    // fmt.println(parser_advance(p))
 
     block := parse_block(p)
     print_block(block^)
@@ -509,6 +529,6 @@ print_program :: proc(program: Program) {
     fmt.println("program\n functions")
     for func in program.functions {
         fmt.println(func.name)
-        for arg in func.args do print_expr(arg^)
+        //for arg in func.args do print_expr(arg^)
     }
 }

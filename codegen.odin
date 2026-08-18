@@ -7,12 +7,14 @@ import "core:fmt"
 
 
 Generator :: struct {
-    data : map[string]string,
-    data_id : int,
-    scratch_name:   [8]string,
-    scratch_inuse:  [8]bool,
-    arg_registers:  [8]string,
-    variables    :  map[string]string,
+    data            : map[string]string,
+    data_id         : int,
+    scratch_name    : [8]string,
+    scratch_inuse   : [8]bool,
+    arg_registers   : [8]string,
+    variables       : map[string]string,
+    stack           : [dynamic]map[string]string, // name to stack address
+    current_stack   : int
 }
 
 generator: ^Generator
@@ -31,8 +33,19 @@ gen_var :: proc(name, value: string) {
     // TODO check if its alreadt assign then crash
     generator.variables[name] = value
 }
+gen_stack_var :: proc(name, value: string) {
+    assert(generator != nil)
+    assert(len(generator.stack) > 0)
+    // TODO check if its alreadt assign then crash
+    generator.stack[get_stack_index()][name] = value
+}
+
+get_stack_index :: proc() -> int {
+    return len(generator.stack)-1
+}
 
 get_var :: proc (name: string) -> string {
+    if name in generator.stack[get_stack_index()] do return generator.stack[get_stack_index()][name]
     if name in generator.variables do return generator.variables[name]
     panic("Variable not declared")
 }
@@ -55,6 +68,14 @@ scratch_free :: proc (index: int) {
 scratch_name :: proc (index: int) -> string {
     return generator.scratch_name[index]
 }
+
+enter_stack :: proc() {
+    append(&generator.stack, make(map[string]string))
+}
+leave_stack :: proc() {
+    pop(&generator.stack)
+}
+
 
 init_generator :: proc() {
 
@@ -81,10 +102,12 @@ init_generator :: proc() {
 
 
 emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
-    fmt.println("EMIT:",str)
     strings.write_string(builder, str)
+    fmt.print("EMIT:",str)
+    for arg in args do fmt.printf("{}", arg)
     for arg in args do strings.write_string(builder, arg)
     strings.write_string(builder, "\n")
+    fmt.print("\n")
 }
 
 gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
@@ -93,27 +116,26 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         //emit(b, "lea")
         return -1
     case Expr_Identifier:
-        if expr.value in generator.variables {
-            index := scratch_alloc()
-            emit(b, "mov ", scratch_name(index), ", [rel ", expr.value, "]")
-            return index
-        }
-        return -1
+        var := get_var(expr.value)
+        index := scratch_alloc()
+        emit(b, "mov ", scratch_name(index), ",", var)
+        return index
+
+
     case Expr_Call:
-        i := 0
-        for arg in expr.args {
+        for i in 0..<len(expr.args) {
+            index := len(expr.args)-1 - i
+            arg := expr.args[index]
             #partial switch v in arg {
             case Expr_String:
                 gen_expression(arg^, b)
                 id := save_string(v.value)
-                emit(b, "lea ", generator.arg_registers[i], ", [rel ",id, "]")
+                emit(b, "lea ", generator.arg_registers[index], ", [rel ",id, "]")
                 case:
-                index := gen_expression(v, b)
-                emit(b, "mov ", generator.arg_registers[i], ", ", scratch_name(index))
+                register := gen_expression(v, b)
+                emit(b, "mov ", generator.arg_registers[index], ", ", scratch_name(register))
 
             }
-
-            i += 1
         }
         pops := make([dynamic]string)
         for i in 0..<len(generator.scratch_inuse) {
@@ -195,8 +217,33 @@ gen_stmt :: proc(stmt: Stmt) -> string {
     return strings.to_string(b)
 }
 
+get_type_size :: proc (str: string) -> int {
+    switch str {
+    case "int": return 8
+    case "float": return 32
+    }
+    return 0
+}
 
-gen_block :: proc(block: Block, b: ^strings.Builder) -> string {
+gen_block :: proc(block: Block, args: [dynamic]Variable_Decl, b: ^strings.Builder) -> string {
+
+    enter_stack()
+
+    size := 0
+    for arg in args do size += get_type_size(arg.type)
+
+    //emit(b, "push rbp\nmov rbp, rsp\nsub rsp, ", fmt.tprintf("%d",size), "\n" )
+
+    i := 0
+    size = 0
+    for arg in args {
+        fmt.println("gen arg", arg)
+        size += get_type_size(arg.type)
+        gen_stack_var(arg.name, fmt.tprintf("[rbp-{}]", size))
+        emit(b, "mov ",get_var(arg.name),", ", generator.arg_registers[i])
+        i+=1
+    }
+    size = 0
     for item_u in block.items {
         switch item in item_u {
         case Decl:
@@ -205,14 +252,16 @@ gen_block :: proc(block: Block, b: ^strings.Builder) -> string {
                 panic("TODO")
             
             case Variable_Decl:
-                gen_var(decl.name, "dq 0")
+                size += get_type_size(decl.type)
+                gen_stack_var(decl.name, fmt.tprintf("[rbp-{}]", size))
                 index := gen_expression(decl.initlizer^, b)
-                emit(b, "mov qword [rel ",decl.name,"], ", scratch_name(index))
+                emit(b, "mov qword ",get_var(decl.name),", ", scratch_name(index))
             }
         case Stmt:
             strings.write_string(b, gen_stmt(item))
         }
     }
+    leave_stack()
     return strings.to_string(b^)
 }
 
@@ -220,7 +269,7 @@ gen_program :: proc(program: Program) -> string {
     b := strings.builder_make()
     for func in program.functions {
         emit(&b, func.name, ":\n")
-        gen_block(func.block, &b)
+        gen_block(func.block, func.args, &b)
         emit(&b, "ret")
     }
     return strings.to_string(b)
@@ -242,4 +291,5 @@ start_gen :: proc() -> string {
 end_gen :: proc() -> string {
     return "\nxor eax, eax\nret"
 }
+
 
