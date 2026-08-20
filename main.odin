@@ -13,11 +13,12 @@ out_file := "a.out"
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
-    fmt.println(strs)
+    fmt.println(..strs)
 }
 log :: proc (strs: ..any) {
     if verbose == 0 do return
-    fmt.print(strs)
+    fmt.print(..
+strs)
 }
 
 
@@ -34,6 +35,10 @@ main :: proc() {
         }
         if arg == "-o" {
             read_out_file = true
+            continue
+        }
+        if arg == "-v" {
+            verbose = 1
             continue
         }
         append(&files, arg)
@@ -70,9 +75,7 @@ main :: proc() {
 
         append(&tokens, Token({kind=.EOF}))
 
-        //    log("\n")
-
-        parser := Parser({})
+        parser := Parser({}) 
         parser.tokens = tokens
 
         program := parse_program(&parser)

@@ -39,6 +39,7 @@ Token_Kind :: enum {
     IDENTIFER,
     STRING,
     STRING_TYPE,
+    LET,
     VOID,
     INT,
     FLOAT,
@@ -63,7 +64,9 @@ Token_Kind :: enum {
     LEQ,
     GEQ,
     RETURN,
-    EOF
+    EOF,
+    LB,
+    RB
 
 }
 
@@ -139,6 +142,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     kind : Token_Kind = .IDENTIFER
     
     switch val {
+    case "let": kind = .LET
     case "void": kind = .VOID
     case "int": kind = .INT
     case "float": kind = .FLOAT
@@ -217,6 +221,8 @@ read_token :: proc (lexer: ^Lexer) -> Token {
     case ';': return Token({kind=.SEMICOLON, lexeme=lexeme})
     case '(': return Token({kind=.LPAR, lexeme=lexeme})
     case ')': return Token({kind=.RPAR, lexeme=lexeme})
+    case '[': return Token({kind=.LB, lexeme=lexeme})
+    case ']': return Token({kind=.RB, lexeme=lexeme})
     case '.': return Token({kind=.PUNCT, lexeme=lexeme})
     case ',': return Token({kind=.COMMA, lexeme=lexeme})
     case '+': return Token({kind=.PLUS, lexeme=lexeme})
