@@ -1,21 +1,11 @@
-func age() {
-  return 22
-}
+extern printf(string fmt, int a): void;
+extern add(int a, int b): int;
 
-func print() {
-  puts("Hej")
-}
+func main() : int {
 
-func main () {
+  int age = add(10,5);
 
-  
-  if age() >= 1 {
-      puts("IF");
-      print()
-    }
-  else {
-    puts("ELSE");
-  }
-
+  printf("age = %d", age);
   return 0;
 }
+

@@ -31,12 +31,15 @@ Lexer :: struct {
 
 Token_Kind :: enum {
     INVALID,
+    EXTERN,
     NUMBER,
     EQUAL,
     COLON,
     SEMICOLON,
     IDENTIFER,
     STRING,
+    STRING_TYPE,
+    VOID,
     INT,
     FLOAT,
     DOUBLE,
@@ -136,8 +139,11 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     kind : Token_Kind = .IDENTIFER
     
     switch val {
+    case "void": kind = .VOID
     case "int": kind = .INT
     case "float": kind = .FLOAT
+    case "string": kind = .STRING_TYPE
+    case "extern": kind = .EXTERN
     case "d": kind = .DOUBLE
     case "func": kind = .FUNC
     case "start": kind = .START

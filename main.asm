@@ -1,72 +1,53 @@
-extern puts
 extern printf
+extern add
+
 section .data
-string1 db "IF", 0
-string2 db "ELSE", 0
-string0 db "Hej", 0
+string0 db "age = %d", 0
+string1 db "age = %d", 0
 section .text
 global main
-age:
 
-mov rbx, 22
-mov rax,rbx
-ret
-print:
-
-lea rdi, [rel string0]
-push rbx
-xor eax, eax
-call puts
-
-pop rbx
-
-
-ret
 main:
 
-push rbx
-xor eax, eax
-call age
-
-pop rbx
-
-
-mov r10, 1
-cmp rax, r10
-jge .L1
-lea rdi, [rel string2]
+push rbp
+mov rbp, rsp
+mov rbx, 5
+mov rsi, rbx
+mov r10, 10
+mov rdi, r10
 push rbx
 push r10
 xor eax, eax
-call puts
+call add
 
 pop r10
 pop rbx
 
 
-jmp .L2
-.L1:
+mov qword [rbp-8], rax
+mov r11,[rbp-8]
+mov rsi, r11
+lea r12, [rel string0]
 lea rdi, [rel string1]
 push rbx
+push r10
+push r11
+push r12
 xor eax, eax
-call puts
+call printf
 
+pop r12
+pop r11
+pop r10
 pop rbx
 
 
-push rbx
-xor eax, eax
-call print
+mov r13, 0
+mov rax,r13
+pop rbp
 
-pop rbx
-
-
-
-.L2:
-
-mov r11, 0
-mov rax,r11
 ret
+
 
 xor eax, eax
 ret
