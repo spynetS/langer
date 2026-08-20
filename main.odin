@@ -4,16 +4,22 @@ import "core:strings"
 import "core:os"
 
 main :: proc() {
-    bytes,error := os.read_entire_file_from_path("./main.langer", allocator=context.allocator)
+    path := "./main.langer"
+    bytes, error := os.read_entire_file_from_path(path, allocator=context.allocator)
     input := strings.clone_from_bytes(bytes)
     fmt.println(input)
-    l := Lexer({input=input})
+    l := Lexer({input=input,lines=1})
     tokens := make([dynamic]Token)
 
     for l.cursor+1 < len(l.input)+1 {
         token := read_token(&l)
+        token.file = path
+        token.line = l.lines
+        token.col = l.cursor/l.lines
         append(&tokens, token)
     }
+
+    
     for token in tokens {
         fmt.print(token.kind)
         fmt.print(" ")

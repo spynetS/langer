@@ -24,7 +24,8 @@ MAX_DEPTH :: 10
 
 Lexer :: struct {
     input: string,
-    cursor: int
+    cursor: int,
+    lines: int
 }
 
 
@@ -51,9 +52,13 @@ Token_Kind :: enum {
     PUNCT,
     COMMA,
     IF,
+    ELSE,
     WHILE,
     LESS,
     GREATER,
+    EQ,
+    LEQ,
+    GEQ,
     RETURN,
     EOF
 
@@ -65,7 +70,9 @@ Token :: struct {
         string,
         int,
         f32,
-    }
+    },
+    line, col: int,
+    file: string
 }
 
 is_token :: proc (input: ^strings.Builder, preview: byte) -> (Token, bool) {
@@ -85,6 +92,7 @@ skip_whitespace :: proc(lexer: ^Lexer) {
     c := peek(lexer,0)
     count := 0
     for c == ' ' || c == '\n' {
+        if c == '\n' do lexer.lines += 1
         if !advance(lexer) do break
         c = peek(lexer)
         count += 1
@@ -135,6 +143,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "start": kind = .START
     case "end": kind = .END
     case "if": kind = .IF
+    case "else": kind = .ELSE
     case "while": kind = .WHILE
     case "return": kind = .RETURN
 
@@ -178,6 +187,21 @@ read_token :: proc (lexer: ^Lexer) -> Token {
 
     // we defer adnave after the if statements to advanve the switch
     defer advance(lexer)
+
+    if c == '=' && peek(lexer,1) == '=' {
+        advance(lexer)
+        return Token({kind=.EQ, lexeme="=="})
+    }
+    if c == '>' && peek(lexer,1) == '=' {
+        advance(lexer)
+        return Token({kind=.GEQ, lexeme=">="})
+    }
+    if c == '<' && peek(lexer,1) == '=' {
+        advance(lexer)
+        return Token({kind=.LEQ, lexeme="<="})
+    }
+
+
 
     lexeme := fmt.tprintf("%c",c)
 

@@ -1,9 +1,21 @@
-func add(int a, int b) {
-  return a+b;
+func age() {
+  return 22
 }
 
-func main() {
-  int age1 = add(1,1);
-  printf("it is %d", age1);
+func print() {
+  puts("Hej")
+}
+
+func main () {
+
+  
+  if age() >= 1 {
+      puts("IF");
+      print()
+    }
+  else {
+    puts("ELSE");
+  }
+
   return 0;
 }

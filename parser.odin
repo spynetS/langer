@@ -101,6 +101,13 @@ Expr :: union {
 Parser :: struct {
     tokens: [dynamic]Token,
     pos:    int,
+    program: ^Program,
+    file: string
+}
+
+parser_panic :: proc(token: Token, error: string) {
+    fmt.println(fmt.tprintf("{}:{}:{}: {}",token.file, token.line, token.col-2, error))
+    panic("")
 }
 
 parser_next :: proc(p: ^Parser, amnt: int = 1) -> (Token, bool) #optional_ok {
@@ -132,7 +139,7 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind) -> Token {
             none = false
         }
     }
-    if none do panic(fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
+    if none do parser_panic(parser_peek(p),fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
 
     return parser_advance(p)
 }
@@ -172,7 +179,8 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
         fmt.println("found right param, expression done")
         return nil
     }
-    panic(fmt.tprintf("Unexpected token {}", next_token.kind))
+    parser_panic(parser_peek(p),fmt.tprintf("Unexpected token {}", next_token.kind))
+    return nil
 }
 
 parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
@@ -189,6 +197,21 @@ parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
     }
 
     return args
+}
+
+check_function_call :: proc (p: ^Parser, call: Expr_Call) {
+    didnt_find_fund := true
+    for func in p.program.functions {
+        if func.name == call.name {
+            didnt_find_fund = false
+            if len(func.args) != len(call.args) {
+                parser_panic(parser_peek(p),fmt.tprintf("Function calls arguments {} doesnt match function declerations {}", len(func.args), len(call.args)))
+            }
+        }
+    }
+    // TODO, currently we rely in hardcoded libc functions like printf
+    //if didnt_find_fund do parser_panic(parser_peek(p),fmt.tprintf("Func {} hasnt been declared", call.name))
+
 }
 
 parse_term :: proc(p: ^Parser) -> ^Expr {
@@ -216,24 +239,26 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         switch expr in left^ {
             case Expr_Identifier:
             arguments := parse_args(p)
-            new_expr := new(Expr)
-            new_expr^ = Expr_Call({
+            call := Expr_Call({
                 name = expr.value,
                 args = arguments
                 
             })
+            check_function_call(p, call)
             parser_skip(p, .RPAR, depth=0)
             //parser_advance(p)
             fmt.println("AFTER CALL PEEK", parser_peek(p))
+            new_expr := new(Expr)
+            new_expr^ = call
             return new_expr
         case Expr_String:
-            panic("Expected identifer, got STRING")
+            parser_panic(parser_peek(p),"Expected identifer, got STRING")
         case Expr_Integer:
-            panic("Expected identifer, got INT")
+            parser_panic(parser_peek(p),"Expected identifer, got INT")
         case Expr_Binary:
-            panic("Expected identifer, got BIN")
+            parser_panic(parser_peek(p),"Expected identifer, got BIN")
         case Expr_Call:
-            panic("Expected identifer, got CALL")
+            parser_panic(parser_peek(p),"Expected identifer, got CALL")
         }
 
     }
@@ -262,7 +287,11 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
         parser_peek(p).kind == Token_Kind.MINUS ||
         parser_peek(p).kind == Token_Kind.EQUAL ||
         parser_peek(p).kind == Token_Kind.GREATER ||
-        parser_peek(p).kind == Token_Kind.LESS {
+        parser_peek(p).kind == Token_Kind.LESS ||
+        parser_peek(p).kind == Token_Kind.EQ ||
+        parser_peek(p).kind == Token_Kind.LEQ ||
+        parser_peek(p).kind == Token_Kind.GEQ
+    {
             op := parser_advance(p).kind
             fmt.println("===PARSING RIGHT===")
             right := parse_expression(p)
@@ -281,7 +310,7 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
     else if parser_peek(p).kind == .COMMA {}
     else if parser_peek(p).kind == .RPAR {}
     else if parser_peek(p).kind != .SEMICOLON {
-        //panic(fmt.tprintf("Unexpected token, got {}", parser_peek(p).kind))
+        //parser_panic(parser_peek(p),fmt.tprintf("Unexpected token, got {}", parser_peek(p).kind))
         return left
     }
 
@@ -294,6 +323,7 @@ is_decl :: proc (kind: Token_Kind) -> bool {
 }
 
 parse_block :: proc(p: ^Parser) -> ^Block {
+    fmt.println("parsing block")
     fmt.println("LOOKING FOR START")
     parser_expect(p, .START)
     block := new(Block)
@@ -304,21 +334,33 @@ parse_block :: proc(p: ^Parser) -> ^Block {
         else do append(&block.items, parse_stmt(p))
         fmt.println("next stmt in block is", parser_peek(p).kind)
     }
+    parser_expect(p, .END) // We consume end
     fmt.println("block done")
     return block
 }
 
 parse_if :: proc(p: ^Parser) -> ^If_Stmt {
+
     condition := parse_expression(p)
     fmt.println("===IF-CONDITION===")
     print_expr(condition^)
-    
-    block := parse_block(p)
-    fmt.println("===block===")
-    print_block(block^)
     stmt := new(If_Stmt)
     stmt.condition = condition
+    
+    block := parse_block(p)
+    fmt.println("===IF-BLOCK===")
+    print_block(block^)
     stmt.block = block
+
+
+    if parser_peek(p).kind == .ELSE {
+        parser_advance(p)
+        else_block := parse_block(p)
+        fmt.println("===ELSE-BLOCK===")
+        print_block(else_block^)
+        stmt.else_block = else_block
+    }
+
     return stmt    
 }
 
@@ -391,7 +433,8 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
             return decl
         }
     }
-    panic("This is not how you declare a variable. Should be int x = 10;")
+    parser_panic(parser_peek(p),"This is not how you declare a variable. Should be int x = 10;")
+    return Variable_Decl({})
 }
 
 parse_decl :: proc(p: ^Parser) -> Decl {
@@ -447,7 +490,7 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
 
 parse_program :: proc(p: ^Parser) -> Program {
     token := parser_advance(p);
-    program := Program({})
+    p.program = new(Program)
     for parser_peek(p).kind != .EOF  {
         #partial switch token.kind {
             case .FUNC:
@@ -456,12 +499,12 @@ parse_program :: proc(p: ^Parser) -> Program {
             fmt.println("===FUNC===")
             fmt.println(func.name)
             
-            append(&program.functions, func)
+            append(&p.program.functions, func)
         }
         parser_skip(p, .END)
         parser_advance(p)
     }
-    return program
+    return p.program^
 
 }
 
