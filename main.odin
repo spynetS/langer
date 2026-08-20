@@ -7,9 +7,13 @@ import "core:path/slashpath"
 
 read_out_file : bool = false
 
-verbose : int = 1
+verbose : int = 0
 out_file := "a.out"
 
+// TODO add loops
+// TODO seprate arrays and pointers
+// TODO chars
+// TODO better typecheking
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return

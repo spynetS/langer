@@ -77,7 +77,8 @@ Expr_Array :: struct {
 }
 Expr_Subscript :: struct {
     left: ^Expr_Identifier,
-    index: ^Expr
+    index: ^Expr,
+    type: string // TODO ptr or array
 }
 Expr_Integer :: struct {
     value: string,
@@ -380,6 +381,7 @@ get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> string {
 }
 
 check_return_type :: proc(p: ^Parser, return_value: ^Expr, return_type: string)  {
+    return_type := strings.to_lower(return_type)
     #partial switch value in return_value {
         case Expr_Integer: if return_type != "int"    do parser_panic(parser_peek(p), fmt.tprintfln("return type missmatch with function %s != %s", return_type, "int"))
         case Expr_String:  if return_type != "string" do parser_panic(parser_peek(p),  fmt.tprintfln("return type missmatch with function %s != %s", return_type, "string"))
@@ -548,7 +550,7 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
             case Expr_Call:
             for func in p.program.functions {
                 if expr.name == func.name {
-                    if func.type != decl.type do parser_panic(token, fmt.tprintf("Type missmatch %s != %s", decl.type, func.type))
+                    if strings.to_lower(func.type) != strings.to_lower(decl.type) do parser_panic(token, fmt.tprintf("Type missmatch %s != %s", decl.type, func.type))
                 }
             }
         }

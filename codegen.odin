@@ -4,6 +4,7 @@ import "core:strings"
 import "core:fmt"
 import "core:strconv"
 
+import "base:runtime"
 
 
 
@@ -68,6 +69,7 @@ get_stack_index :: proc() -> int {
 
 get_var :: proc (name: string) -> int {
     if name in generator.stack[get_stack_index()] do return generator.stack[get_stack_index()][name]
+    else if name in generator.stack[get_stack_index()] do return generator.stack[get_stack_index()][name]
     //if name in generator.variables do return generator.variables[name]
     parser_panic(current_token,fmt.tprintf("Variable {} not declared", name))
     panic("")
@@ -138,19 +140,18 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
     switch expr in expr_u {
     case Expr_Subscript:
         reg := scratch_alloc()
-        offset := get_var(expr.left.value)
-        #partial switch expr in expr.index {
-            case Expr_Integer:
-            value,ok := strconv.parse_int(expr.value)
-            if !ok do panic("Integers only in subsc")
-            offset += 8 * (value+1)
-            case:
-            panic("Integers only in subsc")
-        }
+        var := get_var(expr.left.value)
 
-        fmt.println(get_var_name(offset))
-        emit(b, "mov ", scratch_name(reg), ", ", get_var_name(offset))
+        // load the base value (pointer OR array-slot-address, per the pointer/array split)
+        emit(b, "mov ", scratch_name(reg), ", ", get_var_name(var))
 
+        idx_reg := gen_expression(expr.index^, b)   // works for Expr_Integer,
+        // Expr_Identifier, Expr_BinaryOp, calls, etc.
+
+        // reg = reg + idx_reg*8   (x86 lets you fold *8 into addressing directly)
+        emit(b, "mov ", scratch_name(reg), ", [", scratch_name(reg), "+", scratch_name(idx_reg), "*8]")
+
+        scratch_free(idx_reg)
         return reg
     case Expr_Array:
         return -1//register
@@ -176,7 +177,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
                 case:
                 register := gen_expression(v, b)
                 emit(b, "mov ", generator.arg_registers[index], ", ", scratch_name(register))
-
+                scratch_free(register)
             }
         }
         pops := make([dynamic]string)
@@ -202,19 +203,23 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         emit(b, "mov ", scratch_name(index), ", ", expr.value)
         return index
     case Expr_Binary:
-        ar := gen_expression(expr.left^ ,b)
-        br := gen_expression(expr.right^,b)
 
         #partial switch expr.op {
-        case .PLUS:
+            case .PLUS:
+            ar := gen_expression(expr.left^ ,b)
+            br := gen_expression(expr.right^,b)
             emit(b, "add ", scratch_name(ar), ", ", scratch_name(br ))
             scratch_free(br)
             return ar
-        case .MINUS:
+            case .MINUS:
+            ar := gen_expression(expr.left^ ,b)
+            br := gen_expression(expr.right^,b)
             emit(b, "sub ", scratch_name(ar), ", ", scratch_name(br ))
             scratch_free(br)
             return ar
-        case .MULT:
+            case .MULT:
+            ar := gen_expression(expr.left^ ,b)
+            br := gen_expression(expr.right^,b)
             emit(b, "imul ", scratch_name(ar), ", ", scratch_name(br ))
             scratch_free(br)
             return ar
@@ -223,10 +228,32 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             case .LESS:
             panic("TODO")
             case .EQUAL:
-            var := get_var(expr.left.(Expr_Identifier).value)
             index := gen_expression(expr.right^, b)
-            //emit(b, "mov qword", get_var_name(var), ", ", scratch_name(index))
+            #partial switch left in expr.left {
+                case Expr_Identifier:
+                var := get_var(left.value)
+                emit(b, "mov qword ", get_var_name(var), ", ", scratch_name(index))
+                
+                case Expr_Subscript:
+                var := get_var(left.left.value)
+                idx_offset := 0
+                #partial switch expr in left.index {
+                    case Expr_Integer:
+                    value,ok := strconv.parse_int(expr.value)
+                    if !ok do panic("Integers only in subsc")
+                    idx_offset = 8 * value
+                    case:
+                    panic("Integers only in subsc")
+                }
+                ptr_reg := scratch_alloc()
+                // load the pointer's value off the stack
+                emit(b, "mov ", scratch_name(ptr_reg), ", ", get_var_name(var))
+                // store THROUGH it, at the given byte offset
+                emit(b, "mov qword [", scratch_name(ptr_reg), "+", fmt.tprintf("{}",idx_offset), "], ", scratch_name(index))
+                scratch_free(ptr_reg)
+            }
             scratch_free(index)
+
             return -1
         }
         
@@ -249,11 +276,11 @@ gen_if :: proc(stmt: If_Stmt, b: ^strings.Builder){
         l := gen_expression(con.left^, b)
         r := gen_expression(con.right^, b)
         emit(b, "cmp ",scratch_name(l),", ",scratch_name(r))
-        if      con.op == .EQ      do emit(b, "je ", label_name(if_block))
+        if      con.op == .EQ      do emit(b, "je ",  label_name(if_block))
         else if con.op == .GEQ     do emit(b, "jge ", label_name(if_block))
         else if con.op == .LEQ     do emit(b, "jle ", label_name(if_block))
-        else if con.op == .LESS    do emit(b, "jl ", label_name(if_block))
-        else if con.op == .GREATER do emit(b, "jg ", label_name(if_block))
+        else if con.op == .LESS    do emit(b, "jl ",  label_name(if_block))
+        else if con.op == .GREATER do emit(b, "jg ",  label_name(if_block))
 
 
         
@@ -299,10 +326,11 @@ get_type_size :: proc (type: string) -> int {
     return 0
 }
 
-gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Decl = nil) -> string {
-
-    enter_stack()
-    emit(b, "push rbp\nmov rbp, rsp")
+gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Decl = nil, new_stack: bool = false) -> string {
+    if new_stack {
+        enter_stack()
+        emit(b, "push rbp\nmov rbp, rsp")
+    }
     // CALCULATING STACK SPACE NEEDED
     size := 0
     if args != nil do for arg in args do size += get_type_size(arg.type)
@@ -345,23 +373,21 @@ gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Dec
                 panic("TODO")
             
             case Variable_Decl:
-
+                size += get_type_size(decl.type)
                 gen_stack_var(decl.name, size)
-                size+= get_type_size(decl.type)
-
-                register := scratch_alloc()
-                 #partial switch expr in decl.initlizer {
-                    case Expr_Array:                    
-                     for i in 0..<len(expr.values) {
-                         val := expr.values[i]
-                         index := gen_expression(val^, b)
-                         emit(b, "mov qword [rbp-",fmt.tprintf("%d",(i+1)*8), "], ", scratch_name(index))
-                         scratch_free(index)
-                     }
-                     case:
-                     index := gen_expression(decl.initlizer^, b)
-                     emit(b, "mov qword ",get_var_name(get_var(decl.name)),", ", scratch_name(index))
-                } 
+                #partial switch expr in decl.initlizer {
+                    case Expr_Array:
+                    for i in 0..<len(expr.values) {
+                        val := expr.values[i]
+                        index := gen_expression(val^, b)
+                        emit(b, "mov qword [rbp-", fmt.tprintf("%d", (i+1)*get_type_size(decl.type)), "], ", scratch_name(index))
+                        scratch_free(index)
+                    }
+                    case:
+                    index := gen_expression(decl.initlizer^, b)
+                    emit(b, "mov qword ", get_var_name(get_var(decl.name)), ", ", scratch_name(index))
+                    scratch_free(index)
+                }
 
             }
         case Stmt:
@@ -375,7 +401,9 @@ gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Dec
         }
     }
     if !had_return do emit(b, "leave\n")
-    leave_stack()
+    if new_stack {
+        leave_stack()
+    }
     return strings.to_string(b^)
 }
 
@@ -393,7 +421,9 @@ gen_program :: proc(program: Program) -> string {
         //if func.name == "main" do gen_start(&b)
         emit(&b,"global ", func.name, "\n")
         emit(&b, func.name, ":\n")
-        gen_block(func.block^, &b, func.args)
+        gen_block(func.block^, &b, func.args, true)
+
+        emit(&b, "ret\n")
     }
     return strings.to_string(b)
 }
