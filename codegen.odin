@@ -138,8 +138,6 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
     switch expr in expr_u {
     case Expr_Subscript:
         reg := scratch_alloc()
-        defer scratch_free(reg)
-
         offset := get_var(expr.left.value)
         #partial switch expr in expr.index {
             case Expr_Integer:
