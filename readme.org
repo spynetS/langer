@@ -23,7 +23,7 @@ extern printf(string fmt, int a): void;
 extern malloc(int a): int;
 
 func set (int ptr) {
-  let i := 0;
+  let i :int = 0;
   while i < 10 {
       ptr[i] = i+1;
       i = i + 1;
