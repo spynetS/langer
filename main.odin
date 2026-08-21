@@ -10,10 +10,9 @@ read_out_file : bool = false
 verbose : int = 0
 out_file := "a.out"
 
-// TODO add loops
+// TODO add forloop
 // TODO seprate arrays and pointers
 // TODO chars
-// TODO better typecheking
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
@@ -56,14 +55,11 @@ main :: proc() {
         bytes, error := os.read_entire_file_from_path(path, allocator=context.allocator)
         input := strings.clone_from_bytes(bytes)
         logln(input)
-        l := Lexer({input=input,lines=1})
+        l := Lexer({input=input,lines=1, col=1, file=path})
         tokens := make([dynamic]Token)
 
-        for l.cursor+1 < len(l.input)+1 {
+        for l.cursor < len(l.input) {
             token := read_token(&l)
-            token.file = path
-            token.line = l.lines
-            token.col = l.cursor/l.lines
             append(&tokens, token)
         }
 

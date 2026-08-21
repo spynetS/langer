@@ -25,7 +25,9 @@ MAX_DEPTH :: 10
 Lexer :: struct {
     input: string,
     cursor: int,
-    lines: int
+    lines: int,
+    col: int,
+    file: string
 }
 
 
@@ -39,7 +41,7 @@ Token_Kind :: enum {
     SEMICOLON,
     IDENTIFER,
     STRING,
-    STRING_TYPE,
+    STRING_LITERAL,
     LET,
     VOID,
     INT,
@@ -71,15 +73,21 @@ Token_Kind :: enum {
 
 }
 
+Source_Pos :: struct {
+    file: string,
+    line: int,
+    col:  int,
+}
+
+Source_Span :: struct {
+    start: Source_Pos,
+    end:   Source_Pos,
+}
+
 Token :: struct {
+    span: Source_Span,
     kind : Token_Kind,
-    lexeme : union {
-        string,
-        int,
-        f32,
-    },
-    line, col: int,
-    file: string
+    lexeme : string,
 }
 
 is_token :: proc (input: ^strings.Builder, preview: byte) -> (Token, bool) {
@@ -90,8 +98,18 @@ peek :: proc(lexer: ^Lexer, length:int = 0) -> byte {
     if lexer.cursor+length >= len(lexer.input) do return 0
     return lexer.input[lexer.cursor+length]
 }
-advance :: proc(lexer: ^Lexer) ->  bool {
-    if lexer.cursor+1 > len(lexer.input) do return false
+advance :: proc(lexer: ^Lexer) -> bool {
+    if lexer.cursor >= len(lexer.input) {
+        return false
+    }
+
+    if lexer.input[lexer.cursor] == '\n' {
+        lexer.lines += 1
+        lexer.col = 1
+    } else {
+        lexer.col += 1
+    }
+
     lexer.cursor += 1
     return true
 }
@@ -99,7 +117,6 @@ skip_whitespace :: proc(lexer: ^Lexer) {
     c := peek(lexer,0)
     count := 0
     for c == ' ' || c == '\n' {
-        if c == '\n' do lexer.lines += 1
         if !advance(lexer) do break
         c = peek(lexer)
         count += 1
@@ -148,7 +165,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "void": kind = .VOID
     case "int": kind = .INT
     case "float": kind = .FLOAT
-    case "string": kind = .STRING_TYPE
+    case "string": kind = .STRING
     case "extern": kind = .EXTERN
     case "d": kind = .DOUBLE
     case "func": kind = .FUNC
@@ -175,66 +192,76 @@ read_string :: proc(lexer: ^Lexer) -> Token {
 
 //    if peek(lexer) != '"' do panic(fmt.tprintf("Unexpected char, expected \", got %c", peek(lexer)))
     advance(lexer)
-    return Token({kind=.STRING, lexeme=fmt.tprintf("\"%s\"", strings.to_string(buffer))})
+    return Token({kind=.STRING_LITERAL, lexeme=fmt.tprintf("\"%s\"", strings.to_string(buffer))})
 }
 
+// create_token :: proc (kind: Token_Kind, lexeme: string) -> Token {
+    
+// }
+
 read_token :: proc (lexer: ^Lexer) -> Token {
-    tokens := make([dynamic]Token)
 
     skip_whitespace(lexer)
     c := peek(lexer)
 
-    switch c {
-    case '{':
-        advance(lexer)
-        return Token({kind=.START, lexeme="{"})
-    case '}':
-        advance(lexer)
-        return Token({kind=.END, lexeme="}"})
-    }
+    token := Token({kind=.INVALID, lexeme=""})
 
-    if is_char(c)       do return read_identifier(lexer)
-    else if is_digit(c) do return read_number(lexer)
-    else if c == '"'    do return read_string(lexer)
-
-    // we defer adnave after the if statements to advanve the switch
-    defer advance(lexer)
-
-    if c == '=' && peek(lexer,1) == '=' {
-        advance(lexer)
-        return Token({kind=.EQ, lexeme="=="})
-    }
-    if c == '>' && peek(lexer,1) == '=' {
-        advance(lexer)
-        return Token({kind=.GEQ, lexeme=">="})
-    }
-    if c == '<' && peek(lexer,1) == '=' {
-        advance(lexer)
-        return Token({kind=.LEQ, lexeme="<="})
-    }
-
-
-
-    lexeme := fmt.tprintf("%c",c)
-
-    switch c {
-    case '=': return Token({kind=.EQUAL, lexeme=lexeme})
-    case ':': return Token({kind=.COLON, lexeme=lexeme})
-    case ';': return Token({kind=.SEMICOLON, lexeme=lexeme})
-    case '(': return Token({kind=.LPAR, lexeme=lexeme})
-    case ')': return Token({kind=.RPAR, lexeme=lexeme})
-    case '[': return Token({kind=.LB, lexeme=lexeme})
-    case ']': return Token({kind=.RB, lexeme=lexeme})
-    case '.': return Token({kind=.PUNCT, lexeme=lexeme})
-    case ',': return Token({kind=.COMMA, lexeme=lexeme})
-    case '+': return Token({kind=.PLUS, lexeme=lexeme})
-    case '-': return Token({kind=.MINUS, lexeme=lexeme})
-    case '*': return Token({kind=.MULT, lexeme=lexeme})
-    case '/': return Token({kind=.DIVIDE, lexeme=lexeme})
-    case '<': return Token({kind=.LESS, lexeme=lexeme})
-    case '>': return Token({kind=.GREATER, lexeme=lexeme})
-
+    start := Source_Pos{
+        col=lexer.col,
+        line=lexer.lines,
+        file=lexer.file
     }
     
-    return Token({kind=.INVALID, lexeme=""})
+    if c == '{' {
+        advance(lexer)
+        token = Token({kind=.START, lexeme="{"})
+    }
+    else if c== '}' {
+        advance(lexer)
+        token = Token({kind=.END, lexeme="}"})
+    }
+    else if is_char(c)  do token = read_identifier(lexer)
+    else if is_digit(c) do token = read_number(lexer)
+    else if c == '"'    do token = read_string(lexer)
+    else if c == '=' && peek(lexer,1) == '=' {
+        advance(lexer)
+        token = Token({kind=.EQ, lexeme="=="})
+    }
+    else if c == '>' && peek(lexer,1) == '=' {
+        advance(lexer)
+        token = Token({kind=.GEQ, lexeme=">="})
+    }
+    else if c == '<' && peek(lexer,1) == '=' {
+        advance(lexer)
+        token = Token({kind=.LEQ, lexeme="<="})
+    }
+    else {
+        lexeme := fmt.tprintf("%c",c)
+        switch c {
+        case '=': token = Token({kind=.EQUAL, lexeme=lexeme})
+        case ':': token = Token({kind=.COLON, lexeme=lexeme})
+        case ';': token = Token({kind=.SEMICOLON, lexeme=lexeme})
+        case '(': token = Token({kind=.LPAR, lexeme=lexeme})
+        case ')': token = Token({kind=.RPAR, lexeme=lexeme})
+        case '[': token = Token({kind=.LB, lexeme=lexeme})
+        case ']': token = Token({kind=.RB, lexeme=lexeme})
+        case '.': token = Token({kind=.PUNCT, lexeme=lexeme})
+        case ',': token = Token({kind=.COMMA, lexeme=lexeme})
+        case '+': token = Token({kind=.PLUS, lexeme=lexeme})
+        case '-': token = Token({kind=.MINUS, lexeme=lexeme})
+        case '*': token = Token({kind=.MULT, lexeme=lexeme})
+        case '/': token = Token({kind=.DIVIDE, lexeme=lexeme})
+        case '<': token = Token({kind=.LESS, lexeme=lexeme})
+        case '>': token = Token({kind=.GREATER, lexeme=lexeme})
+        }
+        advance(lexer)
+    }
+    token.span.start = start
+    token.span.end = Source_Pos{
+        col=lexer.col,
+        line=lexer.lines,
+        file=lexer.file
+    }
+
+    return token
 }

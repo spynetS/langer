@@ -63,7 +63,9 @@ check :: proc(program: Program) {
                 case Variable_Decl:
                     init_type := checker_get_type(program, func, decl.initlizer^)
                     dec_type := strings.to_lower(decl.type)
-                    if dec_type != init_type do panic(fmt.tprintf("Variable declartion type missmatch %s != %s", dec_type, init_type))
+                    if dec_type != init_type {
+                        parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", dec_type, init_type))
+                    }
                 case Function_Decl:
                     panic("Function declartion not support in function")
                 }
@@ -75,13 +77,19 @@ check :: proc(program: Program) {
                         func_call, found := checker_get_func(program, expr.name)
                         if !found do panic(fmt.tprintf("function %s hasn't be declared", expr.name))
 
-                        for i in 0..<len(func_call.args) {
+                        if len(func_call.args) != len(expr.args) {
+                            
+                        }
+
+                        for i in 0..<len(expr.args) {
+                            if i >= len(func_call.args) {
+                                parser_panic(expr, expr.args[i]^, fmt.tprintf("Argument length missmatch %d != %d", len(func_call.args), len(expr.args)))
+                            }
                             func_type := strings.to_lower(func_call.args[i].type)
                             call_type := strings.to_lower(checker_get_type(program, func, expr.args[i]^))
                             if func_type != call_type {
-                                panic(fmt.tprintf("Argument missmatch %s != %s", func_type, call_type))
+                                parser_panic(expr, expr.args[i]^, fmt.tprintf("Argument missmatch %s != %s", func_type, call_type))
                             }
-
                         }
 
                     case Expr_Integer:
@@ -106,7 +114,7 @@ check :: proc(program: Program) {
                     }
                 case Return_Stmt:
                     if func.type != checker_get_type(program, func, stmt.value^) {
-                        panic("Return type doesnt match function type")
+                        parser_panic(stmt.value^, "Return type doesnt match function type")
                     }
                     
                 case If_Stmt:
