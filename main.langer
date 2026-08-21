@@ -1,4 +1,4 @@
-extern printf(string fmt, int a): void;
+extern printf(string fmt, string a): void;
 extern malloc(int a): int;
 
 func main() : int {
