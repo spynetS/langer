@@ -1,0 +1,59 @@
+* Readme
+
+This is a toy language I created to learn how compilers work.
+The code is not that neat because I focused on getting a working
+compiler done instead of good code.
+
+** Hello World
+#+begin_src c
+extern puts(string fmt): void;
+ 
+func main() : int {
+  puts("Hello World!")
+  return 0;
+}
+
+#+end_src
+
+** Ptr example
+
+#+begin_src c
+extern puts(string fmt): void;
+extern printf(string fmt, int a): void;
+extern malloc(int a): int;
+
+func set (int ptr) {
+  let i := 0;
+  while i < 10 {
+      ptr[i] = i+1;
+      i = i + 1;
+  }
+}
+
+
+func main() : int {
+  puts("Hello World!")
+  let age := malloc(10*8);
+  set(age)
+  let i := 0;
+  while i < 10 {
+      printf("%d ", age[i])
+      i = i + 1;
+  }
+
+  return 0;
+}
+#+end_src
+
+
+** Building compiler
+
+#+begin_src bash
+odin build .
+#+end_src
+
+** Using compiler
+#+begin_src bash
+./langer ./main.l -o ./main
+./main
+#+end_src
