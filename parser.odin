@@ -1,6 +1,7 @@
 package main;
 import "core:fmt"
 import "core:strings"
+import "core:os"
 
 /*
 Expression → produces a value
@@ -160,7 +161,7 @@ parser_panic :: proc {
 
 parser_panic_pos :: proc(span: Source_Span, error: string) {
     log_error(fmt.tprintf("{}:{}:{}: {}",span.start.file, span.start.line, span.start.col, error))
-    panic("")
+    os.exit(1)
 }
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {

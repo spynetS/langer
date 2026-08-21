@@ -81,7 +81,10 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
                 return func.type
             }
         }
+        parser_panic(expr^, "function not found")
+       
     }
+    fmt.println(expr)
     panic("TODO")
 }
 check_type :: proc(a, b: Type) -> bool {
@@ -134,7 +137,7 @@ check :: proc(program: Program) {
                     switch expr in stmt {
                     case Expr_Call:
                         func_call, found := checker_get_func(program, expr.name)
-                        if !found do panic(fmt.tprintf("function %s hasn't be declared", expr.name))
+                        if !found do parser_panic(expr , fmt.tprintf("function %s hasn't be declared", expr.name))
 
                         if len(func_call.args) != len(expr.args) {
                             
@@ -188,7 +191,8 @@ check :: proc(program: Program) {
                 case If_Stmt:
                     panic("todo")
                 case While_Stmt:
-                    panic("todo")
+                    fmt.println("TODO check while")
+//                    panic("todo")
                 case Block:
                     panic("todo")
                 }
