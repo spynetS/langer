@@ -23,17 +23,35 @@ Program :: struct {
     variables: [dynamic]Variable_Decl
 }
 
+Basic :: enum {
+    INT,
+    STRING,
+    VOID
+}
+Array :: struct {
+    of: ^Type
+}
+Pointer :: struct {
+    to: ^Type
+}
+
+Type :: union {
+    Basic,
+    Array,
+    Pointer,
+}
+
 Variable_Decl :: struct {
     span: Source_Span,
     name: string,
-    type: string,
+    type: Type,
     initlizer: ^Expr,    
 }
 
 Function_Decl :: struct {
     span: Source_Span,
     name: string,
-    type: string,
+    type: Type,
     args: [dynamic]Variable_Decl,
     block: ^Block,
     extern: bool
@@ -92,7 +110,7 @@ Expr_Subscript :: struct {
     span: Source_Span,
     left: ^Expr_Identifier,
     index: ^Expr,
-    type: string // TODO ptr or array
+    type: Type // TODO ptr or array
 }
 Expr_Integer :: struct {
     span: Source_Span,
@@ -127,7 +145,7 @@ Expr :: union {
     Expr_Binary,
     Expr_Call,
 }
-
+/// ====== LOGGING ======
 log_error :: proc (str : string) {
     fmt.println(str)
 }
@@ -262,6 +280,59 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind, custom_msg: string = "") 
 
     return parser_advance(p)
 }
+
+// ==== TYPE ======
+get_type :: proc {
+    get_type_parser,
+    get_type_token,
+}
+
+get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
+    if t,ok := get_type_token(parser_peek(p).kind); ok do return t, ok
+    else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
+        // we are pointer
+        if t,ok := get_type_token(parser_next(p).kind); ok {
+            to := new(Type)
+            to^ = t
+            type := Pointer({to=to})
+            return type, true
+        }
+
+    }
+
+    return {}, false
+}
+
+get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
+     #partial switch token {
+         case .VOID: return Basic(.VOID), true
+         case .INT: return Basic(.INT), true
+         case .STRING: return Basic(.STRING), true
+     }
+    return {}, false
+}
+
+is_type :: proc {
+    is_type_token,
+    is_type_parser
+}
+
+is_type_token :: proc (kind: Token_Kind) -> bool {
+    #partial switch kind {
+        case .VOID, .INT, .FLOAT, .STRING: return true
+    }
+    return false
+}
+is_type_parser :: proc (p: ^Parser) -> bool {
+    fmt.println("checking", parser_peek(p).kind, parser_next(p).kind)
+    if is_type_token(parser_peek(p).kind) do return true
+    else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) do return true
+    
+    return false
+}
+
+
+// ==== PARSING ====
 
 parse_factor :: proc(p: ^Parser) -> ^Expr {
     next_token := parser_advance(p)
@@ -488,25 +559,25 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 }
 
-get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> string {
-    #partial switch value in expr {
-        case Expr_Identifier, Expr_Subscript: return ""
-        case Expr_Array:
-        return get_expr_type(p, value.values[0])
-        case Expr_Integer: return "int"
-        case Expr_String:  return "string"
-        case Expr_Binary:  return get_expr_type(p, value.left)
-        case Expr_Call:
-        for func in p.program.functions {
-            if value.name == func.name {
-                return func.type
-            }
-        }
-    }
-    panic("TODO")
-}
+// get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> Type {
+//     #partial switch value in expr {
+//         case Expr_Identifier, Expr_Subscript: return 
+//         case Expr_Array:
+//         return get_expr_type(p, value.values[0])
+//         case Expr_Integer: return "int"
+//         case Expr_String:  return "string"
+//         case Expr_Binary:  return get_expr_type(p, value.left)
+//         case Expr_Call:
+//         for func in p.program.functions {
+//             if value.name == func.name {
+//                 return func.type
+//             }
+//         }
+//     }
+//     panic("TODO")
+// }
 
-parse_block :: proc(p: ^Parser, return_type: string = "") -> ^Block {
+parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block { 
     logln("parsing block")
     logln("LOOKING FOR START")
     parser_expect(p, .START)
@@ -560,13 +631,6 @@ parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
     return ret
 }
 
-is_type :: proc (kind: Token_Kind) -> bool {
-    #partial switch kind {
-        case .VOID, .INT, .FLOAT, .STRING: return true
-    }
-    return false
-}
-
 parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
         decl := Function_Decl({})
     parser_skip(p, .FUNC)
@@ -581,13 +645,19 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl.args = make([dynamic]Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
-        token := parser_advance(p)
-        if is_type(token.kind) {
-            logln("IS DELC", token)
-            var := Variable_Decl({type=token.lexeme})
-            var.name = parser_expect(p, .IDENTIFER).lexeme
-            append(&decl.args, var)
+        if is_type(p) {
+            logln("IS DELC", token.kind)
+            if t, ok := get_type(p); ok {
+                var := Variable_Decl({type=t})
+                parser_skip(p, .STAR)
+                parser_advance(p)
+                var.name = parser_expect(p, .IDENTIFER).lexeme
+                fmt.println("parsed", var)
+                parser_skip(p, .COMMA)
+                append(&decl.args, var)
+            } else do panic("Could not determen type")
         }
+
     }
 
     for arg in decl.args do logln(arg)
@@ -597,7 +667,7 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
         logln(parser_advance(p))
         t := parser_advance(p)
         if !is_type(t.kind) do parser_panic(t, fmt.tprintf("'%s' is not a type", t.lexeme))
-        decl.type = t.lexeme
+        if t, is_type := get_type(t.kind); is_type do decl.type = t
     }
 
     return decl
@@ -629,12 +699,15 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
     // if it is [ we should parse as array
     // of it is equal no type was specified so we try to guess
     if is_type(token.kind) {
-        decl.type = fmt.tprintf("%s", token.kind)
+        decl.type = get_type(token.kind)
         token = parser_advance(p)
     }
     else if  (token.kind == .LB && parser_peek(p).kind == .RB && is_type(parser_next(p).kind)) {
-        parser_advance(p)
-        decl.type = fmt.tprintf("%s_arr", parser_advance(p).kind)
+        token = parser_advance(p)
+        type := new(Type)
+        type^ = get_type(parser_advance(p).kind)
+        decl.type = Array({of=type})
+
         parser_expect(p,.EQUAL)
 
         expr := parse_array_init(p)
@@ -662,12 +735,13 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
             arr := parse_array_init(p)
             init^ = arr
             decl.initlizer = init
-            decl.type = get_expr_type(p, init)
+            //decl.type = get_expr_type(p, init)
+            // TODO SET IT IN THE TYPE CHECKING FACE?
             return decl
         }
         else {
             init = parse_expression(p)
-            decl.type = get_expr_type(p, init)
+            //decl.type = get_expr_type(p, init)
             p.pos = pos
 
         }
@@ -797,7 +871,7 @@ decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
         case Function_Decl: panic("TODO")
         case Variable_Decl:
-        return fmt.tprintf("let %s : %s = %s", decl.name, strings.to_lower(decl.type), expr_to_string(decl.initlizer^))
+        return fmt.tprintf("let %s : %s = %s", decl.name, decl.type, expr_to_string(decl.initlizer^))
     }
 
     return "<unknown expr>"

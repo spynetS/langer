@@ -340,13 +340,16 @@ gen_stmt :: proc(stmt: Stmt) -> string {
     return strings.to_string(b)
 }
 
-get_type_size :: proc (type: string) -> int {
-    str := strings.to_lower(type)
-    switch str {
-    case "string": return 8
-    case "int": return 8
-    case "int_arr": return 8
-    case "float": return 32
+get_type_size :: proc (type: Type) -> int {
+    switch v in type {
+    case Basic:
+        switch v {
+        case .INT: return 8;
+        case .STRING: return 8;
+        case .VOID: return 1;
+        }
+    case Pointer: return 8
+    case Array: return get_type_size(v.of^)
     }
     return 0
 }

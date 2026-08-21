@@ -11,6 +11,13 @@ checker_get_func :: proc (program: Program, name: string) -> (Function_Decl, boo
 
 checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, bool) {
     if func.block == nil do return {}, false
+
+    for arg in func.args {
+        if arg.name == name {
+            return arg, true
+        }
+    }
+
     for items in func.block.items {
         #partial switch item in items {
         case Decl:
@@ -25,12 +32,18 @@ checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, b
 
     return {}, false
 }
-checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Expr) -> string {
+checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Expr) -> Type {
     #partial switch value in expr {
         case Expr_Subscript:
-        type := strings.to_lower(checker_get_type(program, current_func, value.left^))
-        t := strings.split(type,"_arr")[0]
-        return t
+        type := checker_get_type(program, current_func, value.left^)
+        #partial switch v in type {
+            case Array:
+            return v.of^;
+            case Pointer:
+            return v.to^;
+        }
+        parser_panic(expr, "Variable not an array")
+        panic("NOT AN ARRAY?!")
         case Expr_Identifier:
         // look in the ast for the identifer
         //func, f_func := checker_get_func(program, value.value);
@@ -41,9 +54,13 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Ex
 
         case Expr_Array:
         //return checker_get_type(program, current_func, value.values[0]^)
-        return fmt.tprintf("%s_arr", checker_get_type(program, current_func, value.values[0]^))
-        case Expr_Integer: return "int"
-        case Expr_String:  return "string"
+        //return fmt.tprintf("%s_arr", checker_get_type(program, current_func, value.values[n0]^))
+        val_type := new(Type) // FIXME MEMORY
+        val_type^ = checker_get_type(program, current_func, value.values[0]^)
+        return Array({of=val_type})
+
+        case Expr_Integer: return .INT
+        case Expr_String:  return .STRING
         case Expr_Binary:  return checker_get_type(program, current_func, value.left^)
         case Expr_Call:
         for func in program.functions {
@@ -53,6 +70,32 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Ex
         }
     }
     panic("TODO")
+}
+check_type :: proc(a, b: Type) -> bool {
+    switch x in a {
+    case Basic:
+        y, ok := b.(Basic)
+        if !ok {
+            return false
+        }
+        return x == y
+
+    case Array:
+        y, ok := b.(Array)
+        if !ok {
+            return false
+        }
+        return check_type(x.of^, y.of^)
+
+    case Pointer:
+        y, ok := b.(Pointer)
+        if !ok {
+            return false
+        }
+        return check_type(x.to^, y.to^)
+    }
+
+    return false 
 }
 
 check :: proc(program: Program) {
@@ -65,8 +108,8 @@ check :: proc(program: Program) {
                 switch decl in item {
                 case Variable_Decl:
                     init_type := checker_get_type(program, func, decl.initlizer^)
-                    dec_type := strings.to_lower(decl.type)
-                    if dec_type != init_type {
+                    dec_type := decl.type
+                    if !check_type(dec_type,init_type) {
                         parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", dec_type, init_type))
                     }
                 case Function_Decl:
@@ -88,8 +131,8 @@ check :: proc(program: Program) {
                             if i >= len(func_call.args) {
                                 parser_panic(expr, expr.args[i]^, fmt.tprintf("Argument length missmatch %d != %d", len(func_call.args), len(expr.args)))
                             }
-                            func_type := strings.to_lower(func_call.args[i].type)
-                            call_type := strings.to_lower(checker_get_type(program, func, expr.args[i]^))
+                            func_type := func_call.args[i].type
+                            call_type := checker_get_type(program, func, expr.args[i]^)
                             if func_type != call_type {
                                 parser_panic(expr, expr.args[i]^, fmt.tprintf("Argument missmatch %s != %s", func_type, call_type))
                             }
