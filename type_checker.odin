@@ -61,7 +61,9 @@ check :: proc(program: Program) {
             case Decl:
                 switch decl in item {
                 case Variable_Decl:
-                    break
+                    init_type := checker_get_type(program, func, decl.initlizer^)
+                    dec_type := strings.to_lower(decl.type)
+                    if dec_type != init_type do panic(fmt.tprintf("Variable declartion type missmatch %s != %s", dec_type, init_type))
                 case Function_Decl:
                     panic("Function declartion not support in function")
                 }

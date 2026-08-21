@@ -580,18 +580,6 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
     if token.kind == .EQUAL {
         init := parse_expression(p)
         logln("init is", init)
-        type := get_expr_type(p, init)
-        if decl.type !=  type do parser_panic(token, fmt.tprintf("Type missmatch %s != %s", decl.type,type))
-
-        #partial switch expr in init {
-            case Expr_Call:
-            for func in p.program.functions {
-                if expr.name == func.name {
-                    if strings.to_lower(func.type) != strings.to_lower(decl.type) do parser_panic(token, fmt.tprintf("Type missmatch %s != %s", decl.type, func.type))
-                }
-            }
-        }
-
         decl.initlizer = init
         logln(parser_peek(p))
         parser_skip(p, .SEMICOLON)
