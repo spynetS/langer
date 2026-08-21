@@ -37,7 +37,7 @@ If_Stmt :: struct {
 }
 While_Stmt :: struct {
     condition: ^Expr,
-    block: Block,   
+    block: ^Block,   
 }
 
 BlockItem :: union {
@@ -582,6 +582,17 @@ parse_decl :: proc(p: ^Parser) -> Decl {
     return decl
 }
 
+parse_while :: proc(p: ^Parser) -> While_Stmt {
+    condition := parse_expression(p)
+    block := parse_block(p)
+
+    return While_Stmt({
+        condition = condition,
+        block = block
+    })
+}
+
+
 parse_stmt :: proc(p: ^Parser) -> Stmt {
     token := parser_advance(p)
     stmt := Stmt({})
@@ -593,12 +604,20 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
 
 
     #partial switch token.kind {
+        case .WHILE:
+        logln("parsing for stmt")
+        stmt = parse_while(p);
         case .IF:
         logln("parsing if stmt")
-        stmt = parse_if(p)^;
+        if_stmt := parse_if(p);
+        stmt = if_stmt^;
+        free(if_stmt)
+        
         case .RETURN:
         logln("parsing return stmt")
-        stmt = parse_return(p)^
+        ret_stmt := parse_return(p)
+        stmt = ret_stmt^;
+        free(ret_stmt)
         case:
         p.pos -= 1
         logln("parsing other stmt")

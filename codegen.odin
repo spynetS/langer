@@ -129,11 +129,11 @@ init_generator :: proc() {
 
 emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
     strings.write_string(builder, str)
-    log("EMIT:",str)
-    for arg in args do logln(arg)
+  //  log("EMIT:",str)
+//    for arg in args do logln(arg)
     for arg in args do strings.write_string(builder, arg)
     strings.write_string(builder, "\n")
-    log("\n")
+    //log("\n")
 }
 
 gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
@@ -148,7 +148,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         idx_reg := gen_expression(expr.index^, b)   // works for Expr_Integer,
         // Expr_Identifier, Expr_BinaryOp, calls, etc.
 
-        // reg = reg + idx_reg*8   (x86 lets you fold *8 into addressing directly)
+        // reg = reg + idx_reg*8   (x86 lets you fold *8 into addressing direcntly)
         emit(b, "mov ", scratch_name(reg), ", [", scratch_name(reg), "+", scratch_name(idx_reg), "*8]")
 
         scratch_free(idx_reg)
@@ -236,20 +236,23 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
                 
                 case Expr_Subscript:
                 var := get_var(left.left.value)
-                idx_offset := 0
-                #partial switch expr in left.index {
-                    case Expr_Integer:
-                    value,ok := strconv.parse_int(expr.value)
-                    if !ok do panic("Integers only in subsc")
-                    idx_offset = 8 * value
-                    case:
-                    panic("Integers only in subsc")
-                }
+                // idx_offset := 0
+                // #partial switch expr in left.index {
+                //     case Expr_Integer:
+                //     value,ok := strconv.parse_int(expr.value)
+                //     if !ok do panic("Integers only in subsc")
+                //     idx_offset = 8 * value
+                //     case:
+                //     panic("Integers only in subsc")
+                // }
                 ptr_reg := scratch_alloc()
                 // load the pointer's value off the stack
                 emit(b, "mov ", scratch_name(ptr_reg), ", ", get_var_name(var))
+                idx_reg := gen_expression(left.index^, b)   // works for Expr_Integer,
                 // store THROUGH it, at the given byte offset
-                emit(b, "mov qword [", scratch_name(ptr_reg), "+", fmt.tprintf("{}",idx_offset), "], ", scratch_name(index))
+                //emit(b, "mov qword [", scratch_name(ptr_reg), "+", fmt.tprintf("{}",idx_offset), "], ", scratch_name(index))
+                emit(b, "mov qword ", "[", scratch_name(ptr_reg), "+", scratch_name(idx_reg), "*8], ", scratch_name(index))
+
                 scratch_free(ptr_reg)
             }
             scratch_free(index)
@@ -281,16 +284,36 @@ gen_if :: proc(stmt: If_Stmt, b: ^strings.Builder){
         else if con.op == .LEQ     do emit(b, "jle ", label_name(if_block))
         else if con.op == .LESS    do emit(b, "jl ",  label_name(if_block))
         else if con.op == .GREATER do emit(b, "jg ",  label_name(if_block))
-
-
-        
     }
 
     if stmt.else_block != nil do gen_block(stmt.else_block^, b);
+    // this is so we skip the if block if we should run it
     done := label_create()
     emit(b, "jmp ", label_name(done))
     emit(b, label_name(if_block), ":\n",strings.to_string(bl))
     emit(b, label_name(done), ":\n")
+    
+
+}
+
+gen_while :: proc(stmt: While_Stmt, b: ^strings.Builder) {
+    while_block := label_create()
+    //bl := label_body(while_block)
+    emit(b, label_name(while_block), ":\n")
+    gen_block(stmt.block^, b)
+
+    #partial switch con in stmt.condition {
+        case Expr_Binary:
+        l := gen_expression(con.left^, b)
+        r := gen_expression(con.right^, b)
+        emit(b, "cmp ",scratch_name(l),", ",scratch_name(r))
+        if      con.op == .EQ      do emit(b, "je ",  label_name(while_block))
+        else if con.op == .GEQ     do emit(b, "jge ", label_name(while_block))
+        else if con.op == .LEQ     do emit(b, "jle ", label_name(while_block))
+        else if con.op == .LESS    do emit(b, "jl ",  label_name(while_block))
+        else if con.op == .GREATER do emit(b, "jg ",  label_name(while_block))
+    }
+
     
 
 }
@@ -300,6 +323,8 @@ gen_stmt :: proc(stmt: Stmt) -> string {
     #partial switch v in stmt {
     case Expr:
         gen_expression(v, &b)
+        case While_Stmt:
+        gen_while(v, &b)
         case If_Stmt:
         gen_if(v, &b)
         case Return_Stmt:
@@ -363,8 +388,8 @@ gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Dec
             i+=1
         }
     }
+
     had_return := false
-    size = 0
     for item_u in block.items {
         switch item in item_u {
         case Decl:
@@ -400,8 +425,8 @@ gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Dec
 
         }
     }
-    if !had_return do emit(b, "leave\n")
     if new_stack {
+        if !had_return do emit(b, "leave\n")
         leave_stack()
     }
     return strings.to_string(b^)

@@ -1,11 +1,24 @@
 extern printf(string fmt, int a): void;
-extern add(int a, int b): int;
+extern malloc(int size): int;
+
+func set(int ptr): int {
+  let i: int = 0;
+  while (i <= 10) {
+    ptr[i] = i;
+    i = i + 1;
+  }
+
+}
 
 func main() : int {
+  let arr : int = malloc(8*10);
+  set(arr); 
+  let i: int = 0;
+  while (i <= 10) {
+    printf("%d ", arr[i]);
+    i = i + 1;
+  }
 
-  int age = add(10,5);
-
-  printf("age = %d", age);
   return 0;
 }
 
