@@ -28,7 +28,9 @@ checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, b
 checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Expr) -> string {
     #partial switch value in expr {
         case Expr_Subscript:
-        return strings.to_lower(checker_get_type(program, current_func, value.left^))
+        type := strings.to_lower(checker_get_type(program, current_func, value.left^))
+        t := strings.split(type,"_arr")[0]
+        return t
         case Expr_Identifier:
         // look in the ast for the identifer
         //func, f_func := checker_get_func(program, value.value);
@@ -38,7 +40,8 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: Ex
         return var.type
 
         case Expr_Array:
-        return checker_get_type(program, current_func, value.values[0]^)
+        //return checker_get_type(program, current_func, value.values[0]^)
+        return fmt.tprintf("%s_arr", checker_get_type(program, current_func, value.values[0]^))
         case Expr_Integer: return "int"
         case Expr_String:  return "string"
         case Expr_Binary:  return checker_get_type(program, current_func, value.left^)

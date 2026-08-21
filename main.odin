@@ -13,6 +13,8 @@ out_file := "a.out"
 // TODO add forloop
 // TODO seprate arrays and pointers
 // TODO chars
+// TODO 32 bit integers
+// TODO floats
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
