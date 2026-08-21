@@ -84,7 +84,8 @@ main :: proc() {
 
         program := parse_program(&parser)
         logln("\n===Parsed program===")
-        print_program(program)    
+        print_program(program)
+        check(program)
 
         // stmt := parse_stmt(&parser)
         // logln("\n===Parsed statment===")

@@ -1,23 +1,10 @@
 extern printf(string fmt, int a): void;
-extern malloc(int size): int;
-
-func set(int ptr): int {
-  let i: int = 0;
-  while (i <= 10) {
-    ptr[i] = i;
-    i = i + 1;
-  }
-
-}
+extern malloc(int a): int;
 
 func main() : int {
-  let arr : int = malloc(8*10);
-  set(arr); 
-  let i: int = 0;
-  while (i <= 10) {
-    printf("%d ", arr[i]);
-    i = i + 1;
-  }
+  let age := malloc(10);
+  age[0] = 0;
+  printf("%d", age)
 
   return 0;
 }

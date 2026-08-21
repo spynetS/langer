@@ -142,7 +142,7 @@ parser_advance :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
     return token, true
 }
 
-parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind) -> Token {
+parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind, custom_msg: string = "") -> Token {
     token := parser_peek(p)
     none := true
     s_kinds := strings.builder_make()
@@ -154,7 +154,7 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind) -> Token {
             none = false
         }
     }
-    if none do parser_panic(parser_peek(p),fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'", token.kind, strings.to_string(s_kinds)))
+    if none do parser_panic(token,fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'\n %s", token.kind, strings.to_string(s_kinds), custom_msg))
 
     return parser_advance(p)
 }
@@ -234,6 +234,20 @@ check_function_call :: proc (p: ^Parser, call: Expr_Call) {
     }
     // TODO, currently we rely in hardcoded libc functions like printf
     if didnt_find_fund do parser_panic(parser_peek(p),fmt.tprintf("Func {} hasnt been declared", call.name))
+}
+
+parse_array_init :: proc(p: ^Parser) -> Expr_Array {
+    parser_expect(p, .START, custom_msg="Array initliztion should be: let arr: []int = {0,1,2,3}")
+    
+    expr := Expr_Array({})
+    for parser_peek(p).kind != .END {
+        val_expr := parse_expression(p)
+        append(&expr.values,val_expr)
+        parser_skip(p, .COMMA)
+    }
+    parser_advance(p)
+    parser_skip(p, .SEMICOLON)
+    return expr
 }
 
 parse_term :: proc(p: ^Parser) -> ^Expr {
@@ -364,9 +378,15 @@ is_decl :: proc (kind: Token_Kind) -> bool {
     return false
 }
 
+find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
+
+}
+
 get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> string {
     #partial switch value in expr {
         case Expr_Identifier, Expr_Subscript: return ""
+        case Expr_Array:
+        return get_expr_type(p, value.values[0])
         case Expr_Integer: return "int"
         case Expr_String:  return "string"
         case Expr_Binary:  return get_expr_type(p, value.left)
@@ -514,9 +534,11 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
     token := parser_advance(p)
     decl.name = token.lexeme.(string)
     logln(decl.type)
-    parser_expect(p, .COLON);
+    parser_expect(p, .COLON, custom_msg = "Variable decleration: let age := 10; or let age: int = 10;");
     token = parser_advance(p)
     // check for type
+    // if it is [ we should parse as array
+    // of it is equal no type was specified so we try to guess
     if is_type(token.kind) {
         decl.type = fmt.tprintf("%s", token.kind)
         token = parser_advance(p)
@@ -525,26 +547,41 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
         parser_advance(p)
         decl.type = fmt.tprintf("%s_arr", parser_advance(p).kind)
         parser_expect(p,.EQUAL)
-        token = parser_advance(p)
-        if token.kind == .START {
-            expr := Expr_Array({})
-            for parser_peek(p).kind != .END {
-                val_expr := parse_expression(p)
-                append(&expr.values,val_expr)
-                
-                parser_skip(p, .COMMA)
-            }
-            parser_advance(p)
-            parser_skip(p, .SEMICOLON)
-            decl.initlizer = new(Expr)
-            decl.initlizer^ = expr
+
+        expr := parse_array_init(p)
+        token = parser_peek(p)
+
+        decl.initlizer = new(Expr)
+        decl.initlizer^ = expr
+        return decl
+
+    }
+    else if token.kind == .EQUAL {
+        pos := p.pos
+        init : ^Expr
+        // if it is start its an array init so we parse the array init
+        // set the array init and the type and return
+        // if it isnt array we just ges the type and continue
+        if parser_peek(p).kind == .START {
+            init = new(Expr)
+            arr := parse_array_init(p)
+            init^ = arr
+            decl.initlizer = init
+            decl.type = get_expr_type(p, init)
             return decl
         }
-        
+        else {
+            init = parse_expression(p)
+            decl.type = get_expr_type(p, init)
+            p.pos = pos
+
+        }
     }
     if token.kind == .EQUAL {
         init := parse_expression(p)
         logln("init is", init)
+        type := get_expr_type(p, init)
+        if decl.type !=  type do parser_panic(token, fmt.tprintf("Type missmatch %s != %s", decl.type,type))
 
         #partial switch expr in init {
             case Expr_Call:
@@ -660,74 +697,115 @@ parse_program :: proc(p: ^Parser) -> Program {
 
 }
 
-
-print_expr :: proc(expr_u: Expr, depth: int = 0) {
+print_indent :: proc(depth: int) {
     for _ in 0..<depth {
         log("  ")
     }
+}
+
+print_expr :: proc(expr_u: Expr, depth: int = 0) {
+    print_indent(depth)
 
     #partial switch expr in expr_u {
     case Expr_Binary:
         logln("Binary ", expr.op)
         print_expr(expr.left^, depth + 1)
         print_expr(expr.right^, depth + 1)
+
     case Expr_Subscript:
-        logln("SUB ")
-        print_expr(expr.left^)
-        print_expr(expr.index^)
+        logln("Subscript")
+        print_expr(expr.left^, depth + 1)
+        print_expr(expr.index^, depth + 1)
 
     case Expr_Integer:
-        logln("Integer ", expr.value)
-    case Expr_Call:
-        logln("Call \n", expr.name)
-        for arg in expr.args {
-            print_expr(arg^, depth+1)
-        }
+        logln("Integer: ", expr.value)
+
     case Expr_String:
-        logln("String ", expr.value)
+        logln("String: \"", expr.value, "\"")
+
     case Expr_Identifier:
-        logln("Identifier ", expr.value)
-    }
-}
+        logln("Identifier: ", expr.value)
 
-print_stmt :: proc (stmt: Stmt) {
-    #partial switch v in stmt {
-        case Expr: print_expr(v)
-        case Return_Stmt:
-        logln("RETURN")
-        print_expr(v.value^)
-        case If_Stmt:
-        logln("IF")
-        print_expr(v.condition^)
-        logln("")
-        print_block(v.block^)
-    }
-
-}
-
-print_block :: proc(block: Block) {
-    for item_u in block.items {
-        switch item in item_u {
-        case Decl:
-            switch decl in item {
-            case Function_Decl:
-                logln("DECL func", decl.type, decl.name,)
-            case Variable_Decl:
-                logln("DECL", decl.type, decl.name, "=", decl.initlizer)
-            }
-        case Stmt:
-            log("STMT ")
-            print_stmt(item)
-            
+    case Expr_Call:
+        logln("Call: ", expr.name)
+        for arg in expr.args {
+            print_expr(arg^, depth + 1)
         }
     }
+}
 
+print_stmt :: proc(stmt: Stmt, depth: int = 0) {
+    #partial switch v in stmt {
+    case Expr:
+        print_expr(v, depth)
+
+    case Return_Stmt:
+        print_indent(depth)
+        logln("Return")
+        print_expr(v.value^, depth + 1)
+
+    case If_Stmt:
+        print_indent(depth)
+        logln("If")
+
+        print_indent(depth + 1)
+        logln("Condition")
+        print_expr(v.condition^, depth + 2)
+
+        print_indent(depth + 1)
+        logln("Body")
+        print_block(v.block^, depth + 2)
+    }
+}
+
+print_decl :: proc(decl_u: Decl, depth: int = 0) {
+    #partial switch decl in decl_u {
+    case Function_Decl:
+        print_indent(depth)
+        logln("Function: ", decl.name)
+
+        // If you have arguments:
+        // print_indent(depth + 1)
+        // logln("Arguments")
+        // for arg in decl.args {
+        //     print_expr(arg^, depth + 2)
+        // }
+
+        if decl.block != nil {
+            print_block(decl.block^, depth + 1)
+        }
+
+    case Variable_Decl:
+        print_indent(depth)
+        logln("Variable: ", decl.name, " : ", decl.type)
+
+        if decl.initlizer != nil {
+            print_indent(depth + 1)
+            logln("Initializer")
+            print_expr(decl.initlizer^, depth + 2)
+        }
+    }
+}
+
+print_block :: proc(block: Block, depth: int = 0) {
+    print_indent(depth)
+    logln("Block")
+
+    for item_u in block.items {
+        #partial switch item in item_u {
+        case Decl:
+            print_decl(item, depth + 1)
+
+        case Stmt:
+            print_stmt(item, depth + 1)
+        }
+    }
 }
 
 print_program :: proc(program: Program) {
-    logln("program\n functions")
+    logln("Program")
+
     for func in program.functions {
-        logln(func.name)
-        //for arg in func.args do print_expr(arg^)
+        print_decl(func, 1)
     }
 }
