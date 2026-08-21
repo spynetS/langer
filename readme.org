@@ -4,6 +4,9 @@ This is a toy language I created to learn how compilers work.
 The code is not that neat because I focused on getting a working
 compiler done instead of good code.
 
+It generates asm files which then is compiled with nasm and linked
+with gcc to get c runtime
+
 ** Hello World
 #+begin_src c
 extern puts(string fmt): void;
