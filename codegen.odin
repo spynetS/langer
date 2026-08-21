@@ -138,6 +138,17 @@ emit :: proc(builder: ^strings.Builder, str: string, args: ..string) {
 
 gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
     switch expr in expr_u {
+    case Expr_Unary:
+        var := get_var(expr.operand.value)
+        reg := scratch_alloc()
+        if expr.operator == .AMPER do emit(b, "lea ", scratch_name(reg), ", ", get_var_name(var))
+        else {
+            tmp := scratch_alloc()
+            emit(b, "mov ", scratch_name(tmp), ", ", get_var_name(var))
+            emit(b, "mov ", scratch_name(reg), ", [", scratch_name(tmp),"]")
+            scratch_free(tmp)
+        } 
+        return reg
     case Expr_Subscript:
         reg := scratch_alloc()
         var := get_var(expr.left.value)
@@ -162,9 +173,25 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         return index
     case Expr_Identifier:
         var := get_var(expr.value)
-        index := scratch_alloc()
-        emit(b, "mov ", scratch_name(index), ",", get_var_name(var))
-        return index
+        switch v in expr.type {
+        case Basic:
+            #partial switch v {
+                case .INT:
+                index := scratch_alloc()
+                emit(b, "mov ", scratch_name(index), ",", get_var_name(var))
+                return index
+            }
+        case Pointer:
+            index := scratch_alloc()
+            emit(b, "mov ", scratch_name(index), ",", get_var_name(var))
+            return index
+        case Array:
+            index := scratch_alloc()
+            emit(b, "lea ", scratch_name(index), ",", get_var_name(var))
+            return index
+        }
+        
+
     case Expr_Call:
         for i in 0..<len(expr.args) {
             index := len(expr.args)-1 - i
@@ -223,6 +250,22 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             emit(b, "imul ", scratch_name(ar), ", ", scratch_name(br ))
             scratch_free(br)
             return ar
+            case .DIVIDE:
+            ar := gen_expression(expr.left^ ,b)
+            br := gen_expression(expr.right^,b)
+            emit(b, "push rax")
+            emit(b, "push rcx")
+            emit(b, "mov rax, ", scratch_name(ar))
+            emit(b, "cqo")
+            emit(b, "mov rcx, ", scratch_name(br))
+            emit(b, "idiv rcx")
+            emit(b, "mov ", scratch_name(ar), ", rax")
+            emit(b, "mov ", scratch_name(br), ", rcx")
+
+            emit(b, "pop rcx")
+            emit(b, "pop rax")
+            scratch_free(br)
+            return ar
             case .GREATER:
             panic("TODO")
             case .LESS:
@@ -230,6 +273,13 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             case .EQUAL:
             index := gen_expression(expr.right^, b)
             #partial switch left in expr.left {
+                case Expr_Unary:
+                if left.operator == .AMPER do panic("TODO")
+                var := get_var(left.operand.value)
+                reg := scratch_alloc()
+                emit(b, "mov ", scratch_name(reg), ", ", get_var_name(var))
+                emit(b, "mov qword [", scratch_name(reg), "], ", scratch_name(index))
+                
                 case Expr_Identifier:
                 var := get_var(left.value)
                 emit(b, "mov qword ", get_var_name(var), ", ", scratch_name(index))
@@ -412,7 +462,7 @@ gen_block :: proc(block: Block, b: ^strings.Builder, args: [dynamic]Variable_Dec
                         scratch_free(index)
                     }
                     case:
-                    index := gen_expression(decl.initlizer^, b)
+                    index := gen_expression(decl.initlizer, b)
                     emit(b, "mov qword ", get_var_name(get_var(decl.name)), ", ", scratch_name(index))
                     scratch_free(index)
                 }

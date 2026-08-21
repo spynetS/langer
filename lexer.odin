@@ -71,6 +71,7 @@ Token_Kind :: enum {
     EOF,
     LB,
     RB,
+    UP
 
 }
 
@@ -86,9 +87,9 @@ Source_Span :: struct {
 }
 
 Token :: struct {
-    span: Source_Span,
     kind : Token_Kind,
     lexeme : string,
+    span: Source_Span,
 }
 
 is_token :: proc (input: ^strings.Builder, preview: byte) -> (Token, bool) {
@@ -255,6 +256,7 @@ read_token :: proc (lexer: ^Lexer) -> Token {
         case '<': token = Token({kind=.LESS, lexeme=lexeme})
         case '>': token = Token({kind=.GREATER, lexeme=lexeme})
         case '&': token = Token({kind=.AMPER, lexeme=lexeme})
+        case '^': token = Token({kind=.UP, lexeme=lexeme})
         }
         advance(lexer)
     }

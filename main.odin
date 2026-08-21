@@ -15,6 +15,7 @@ out_file := "a.out"
 // TODO chars
 // TODO 32 bit integers
 // TODO floats
+// TODO parse escape charecters
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
