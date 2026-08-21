@@ -217,7 +217,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             emit(b, "sub ", scratch_name(ar), ", ", scratch_name(br ))
             scratch_free(br)
             return ar
-            case .MULT:
+            case .STAR:
             ar := gen_expression(expr.left^ ,b)
             br := gen_expression(expr.right^,b)
             emit(b, "imul ", scratch_name(ar), ", ", scratch_name(br ))

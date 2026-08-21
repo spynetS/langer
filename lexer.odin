@@ -54,10 +54,11 @@ Token_Kind :: enum {
     RPAR,
     PLUS,
     MINUS,
-    MULT,
+    STAR,
     DIVIDE,
     PUNCT,
     COMMA,
+    AMPER,
     IF,
     ELSE,
     WHILE,
@@ -69,7 +70,7 @@ Token_Kind :: enum {
     RETURN,
     EOF,
     LB,
-    RB
+    RB,
 
 }
 
@@ -249,10 +250,11 @@ read_token :: proc (lexer: ^Lexer) -> Token {
         case ',': token = Token({kind=.COMMA, lexeme=lexeme})
         case '+': token = Token({kind=.PLUS, lexeme=lexeme})
         case '-': token = Token({kind=.MINUS, lexeme=lexeme})
-        case '*': token = Token({kind=.MULT, lexeme=lexeme})
+        case '*': token = Token({kind=.STAR, lexeme=lexeme})
         case '/': token = Token({kind=.DIVIDE, lexeme=lexeme})
         case '<': token = Token({kind=.LESS, lexeme=lexeme})
         case '>': token = Token({kind=.GREATER, lexeme=lexeme})
+        case '&': token = Token({kind=.AMPER, lexeme=lexeme})
         }
         advance(lexer)
     }

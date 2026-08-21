@@ -338,7 +338,7 @@ parse_array_init :: proc(p: ^Parser) -> Expr_Array {
 parse_term :: proc(p: ^Parser) -> ^Expr {
 
     left := parse_factor(p)
-    if parser_peek(p).kind == Token_Kind.MULT ||
+    if parser_peek(p).kind == Token_Kind.STAR ||
         parser_peek(p).kind == Token_Kind.DIVIDE
     {
         op := parser_advance(p).kind
