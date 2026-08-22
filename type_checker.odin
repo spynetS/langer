@@ -94,7 +94,7 @@ check_type :: proc(a, b: Type) -> bool {
         if !ok {
             return false
         }
-        return x == y
+        return x == y || ((x == .FLOAT && y == .INT) || (x == .INT && y == .FLOAT))
 
     case Array:
         y, ok := b.(Array)
@@ -132,12 +132,14 @@ check :: proc(program: Program) {
                     panic("Function declartion not support in function")
                 }
             case Stmt:
-                switch stmt in item {
+                switch &stmt in item {
                 case Expr:
-                    switch expr in stmt {
+                    switch &expr in stmt {
                     case Expr_Call:
                         func_call, found := checker_get_func(program, expr.name)
                         if !found do parser_panic(expr , fmt.tprintf("function %s hasn't be declared", expr.name))
+
+                        expr.type = func_call.type;
 
                         if len(func_call.args) != len(expr.args) {
                             
@@ -185,9 +187,12 @@ check :: proc(program: Program) {
                         panic("todo")
                     }
                 case Return_Stmt:
-                    if func.type != checker_get_type(program, func, stmt.value) {
+                    type := checker_get_type(program, func, stmt.value)
+                    if func.type != type {
                         parser_panic(stmt.value^, "Return type doesnt match function type")
                     }
+                    stmt.type = type
+
                 case If_Stmt:
                     panic("todo")
                 case While_Stmt:

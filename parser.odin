@@ -27,6 +27,7 @@ Program :: struct {
 Basic :: enum {
     INT,
     STRING,
+    FLOAT,
     VOID
 }
 Array :: struct {
@@ -81,6 +82,7 @@ Block :: struct {
 Return_Stmt :: struct {
     span: Source_Span,
     value: ^Expr,
+    type: Type
 }
 
 Decl :: union {
@@ -133,7 +135,8 @@ Expr_Binary :: struct {
 Expr_Call :: struct {
     span: Source_Span,
     name: string,
-    args: [dynamic]^Expr
+    args: [dynamic]^Expr,
+    type: Type
 }
 
 Expr :: union {
@@ -335,6 +338,7 @@ get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
          case .VOID: return Basic(.VOID), true
          case .INT: return Basic(.INT), true
          case .STRING: return Basic(.STRING), true
+         case .FLOAT: return Basic(.FLOAT), true
      }
     return {}, false
 }
@@ -641,6 +645,7 @@ is_decl :: proc(p: ^Parser) -> bool {
     // if is_type(parser_peek(p).kind) do return true
     if parser_peek(p).kind == .INT do return true
     if parser_peek(p).kind == .STRING do return true
+    if parser_peek(p).kind == .FLOAT do return true
     if parser_peek(p).kind == .FUNC do return true
     if parser_peek(p).kind == .STAR do return true
     if parser_peek(p).kind == .LB   do return true
