@@ -96,7 +96,7 @@ main :: proc() {
 
         gen_asm := gen_program(&g,program)
 
-        logln(start_gen(&g, program))
+//        logln(start_gen(&g, program))
         fmt.println(gen_asm)
         //logln(end_gen())
 
@@ -110,7 +110,7 @@ main :: proc() {
         file, ok := os.open(strings.to_string(asm_path), {os.File_Flag.Write, os.File_Flag.Create, os.File_Flag.Trunc})
         logln(strings.to_string(asm_path))
 
-        os.write_string(file, start_gen(&g, program))
+        //os.write_string(file, start_gen(&g, program))
         os.write_string(file, gen_asm)
         //os.write_string(file, end_gen())
         
