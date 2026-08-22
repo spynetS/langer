@@ -190,6 +190,9 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
             emit(b, "lea ", scratch_name(index), ",", get_var_name(var))
             return index
         }
+        index := scratch_alloc()
+        emit(b, "mov ", scratch_name(index), ",", get_var_name(var))
+        return index
         
 
     case Expr_Call:
@@ -313,6 +316,7 @@ gen_expression :: proc(expr_u: Expr, b:  ^strings.Builder) -> int {
         case: panic("TODO expr")
     }
     logln(expr_u)
+    fmt.println(expr_u)
     panic("TODO")
 }
 
