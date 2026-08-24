@@ -102,7 +102,7 @@ Stmt :: union {
 Expr_Unary :: struct {
     span: Source_Span,
     operator: Token_Kind,
-    operand: Expr_Identifier
+    operand: ^Expr
 }
 Expr_Array :: struct {
     span: Source_Span,
@@ -157,7 +157,8 @@ log_error :: proc (str : string) {
 }
 parser_panic :: proc {
     parser_panic_pos,    
-    parser_panic_expr,  
+    parser_panic_expr,
+    parser_panic_expr_token,
     parser_panic_expr_parent,  
     parser_panic_decl,  
     parser_panic_decl_parent,  
@@ -198,6 +199,21 @@ get_decl_span :: proc(decl: Decl) -> Source_Span {
     }
     panic("Not an decl")
 }
+
+parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string) {
+    p_span := get_expr_span(parent)
+    c_span := token.span
+    fmt.println(expr_to_string(parent))
+    for i in 0..<c_span.start.col - p_span.start.col {
+        fmt.print(" ")
+    }
+    for i in 0..<c_span.end.col - c_span.start.col {
+        fmt.print("^")
+    }
+    fmt.print("\n")
+    parser_panic_pos(c_span, error)
+}
+
 
 parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string) {
     c_span := get_expr_span(expr)
@@ -388,7 +404,6 @@ is_type_parser :: proc (p: ^Parser) -> bool {
     return false
 }
 
-
 // ==== PARSING ====
 
 parse_factor :: proc(p: ^Parser) -> ^Expr {
@@ -502,32 +517,36 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         return expr
     }
     else if parser_peek(p).kind == .AMPER {
+
         end := parser_advance(p).span.end
-        operand, ok := left.(Expr_Identifier)
+        operand := left
         expr := Expr_Unary{
             operator = Token_Kind.AMPER,
             operand  = operand
         }
         expr.span = Source_Span{
-            start = operand.span.start,
+            start = get_expr_span(operand^).start,
             end = end
         }
-        left^ = expr
-        return left
+        if _,ok := left.(Expr_Identifier); !ok do parser_panic(expr, parser_peek(p), "Expression needs to be a lvalue (variable)")
+        ex := new(Expr)
+        ex^ = expr
+        return ex
     }
     else if parser_peek(p).kind == .UP {
         end := parser_advance(p).span.end
-        operand, ok := left.(Expr_Identifier)
+        operand := left
         expr := Expr_Unary{
             operator = Token_Kind.UP,
             operand  = operand
         }
         expr.span = Source_Span{
-            start = operand.span.start,
+            start = get_expr_span(operand^).start,
             end = end
         }
-        left^ = expr
-        return left
+        ex := new(Expr)
+        ex^ = expr
+        return ex
     }
     else if parser_peek(p).kind == .LB { // we are SUB
         parser_advance(p)
@@ -959,9 +978,15 @@ operator_to_string :: proc(token: Token_Kind) -> string {
     case .GREATER: return ">"
     case .LEQ:     return ">="
     case .GEQ:     return "<="
-    case .UP:     return "^"
+    case .UP:      return "^"
+    case .AMPER:   return "&"
+    case .PLUS:    return "+"
+    case .MINUS:   return "-"
+    case .STAR:    return "*"
+    case .DIVIDE:  return "/"
+
     }
-    return "<unknown >"
+    return "<unknown operator >"
 }
 
 
@@ -984,7 +1009,7 @@ expr_to_string :: proc(expr_u: Expr) -> string {
         return fmt.tprintf("%s", expr.value)
 
     case Expr_Unary:
-        return fmt.tprintf("%s%s", expr.operand.value, operator_to_string(expr.operator))
+        return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
     case Expr_Identifier:
         return expr.value
@@ -1028,7 +1053,7 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Identifier:
         logln("Identifier: ", expr.value)
     case Expr_Unary:
-        logln("Unary: ", expr.operand.value, " ", expr.operator)
+        logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
 
 
     case Expr_Call:

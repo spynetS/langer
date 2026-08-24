@@ -21,14 +21,19 @@ get_tmp_name :: proc () -> cstring {
 
 get_expr_type :: proc(expr: Expr) -> Type {
     #partial switch v in expr {
-    case Expr_Number: return v.type
-    case Expr_Identifier: return v.type
+        case Expr_Array: panic("TODO")
+        case Expr_Subscript: panic("TODO")
+        case Expr_Binary: panic("TODO")
+        case Expr_Unary:
+        return get_expr_type(v.operand^)
+        case Expr_Number: return v.type
+        case Expr_Identifier: return v.type
         case Expr_String:
         // TODO should be char
         to := new(Type)
         to^ = .INT
         return Pointer({to=to})
-    case Expr_Call: return v.type
+        case Expr_Call: return v.type
     }
     panic("TODO")
 }
@@ -235,11 +240,11 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         left_val = ref
         case Expr_Unary:
         if v.operator != .UP do panic("TODO")
-        t, ok := get_expr_type(v.operand).(Pointer)
+        t, ok := get_expr_type(v.operand^).(Pointer)
         if !ok do panic("TODO")
 
-        ptr := create_expression(g, v.operand);
-        type := get_llvm_type(g, v.operand.type)
+        ptr := create_expression(g, v.operand^);
+        type := get_llvm_type(g, get_expr_type(v.operand^))
         left_val = ptr
         
         case Expr_Subscript:
@@ -363,11 +368,14 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     case Expr_Unary:
         #partial switch v.operator {
             case .UP:
-            type := get_llvm_type(g, get_expr_type(v.operand))
-            ptr := create_expression(g, v.operand);
+            type := get_llvm_type(g, get_expr_type(v.operand^))
+            ptr := create_expression(g, v.operand^);
             return load_pointer(g, ptr, type)
             case .AMPER:
-            return g.refs[v.operand.value]
+            lvalue, ok := v.operand.(Expr_Identifier);
+            if !ok do parser_panic(lvalue, "asd")
+
+            return g.refs[lvalue.value]
         }
         panic("TODO")
     }

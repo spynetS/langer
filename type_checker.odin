@@ -32,23 +32,33 @@ checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, b
 
     return {}, false
 }
+
+expr_set_type :: proc(expr_u: ^Expr, type: Type) {
+    #partial switch &expr in expr_u {
+    case Expr_Subscript:
+        expr.type = type
+    case Expr_Number:
+        expr.type = type
+    case Expr_Identifier:
+        expr.type = type
+    case Expr_Call:
+        expr.type = type
+    }
+}
+
 checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^Expr) -> Type {
     switch &value in expr {
     case Expr_Unary:
-        ex := new(Expr)
-        defer free(ex)
-        ex^ = cast(Expr)value.operand
-        p_t := checker_get_type(program, current_func, ex)
+        p_t := checker_get_type(program, current_func, value.operand)
         // have to set the real value type
-        value.operand.type = p_t
-
+        expr_set_type(value.operand, p_t)
         switch v in p_t {
         case Pointer: return v.to^
         case Array: return v.of^
         case Basic:
             if value.operator == .UP do parser_panic(expr^, "Can't dereferance non pointer type")
             t := new(Type)
-            t^ = value.operand.type
+            t^ = get_expr_type(value.operand^)
             return Pointer({to=t})
 
         }
@@ -176,15 +186,10 @@ check :: proc(program: Program) {
                         }
 
                     case Expr_Unary:
-                        t := new(Expr)
-                        defer free(t)
-
-                        t^ = expr.operand
-
-                        type := checker_get_type(program, func, t)
-                        expr.operand.type = type
+                        type := checker_get_type(program, func, expr.operand)
+                        // expr.operand.type = type
                         if !check_type(type, Pointer({})) && !check_type(type, Array({})) {
-                            parser_panic(expr, fmt.tprintf("Can't do %s on %s because it's not right type (%s)", expr.operator, expr.operand.value, type))
+                            parser_panic(expr, fmt.tprintf("Can't do %s on %s because it's not right type (%s)", expr.operator, expr_to_string(expr.operand^), type))
                         }
 
                     case Expr_Number:
