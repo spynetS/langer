@@ -313,12 +313,10 @@ get_type :: proc {
 
 get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
     if t,ok := get_type_token(parser_peek(p).kind); ok {
-        fmt.println("type", parser_peek(p).kind)
         return t, ok
     }
     else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
         parser_advance(p);
-        fmt.println("pointe to porinter", parser_peek(p).kind)
         to := new(Type)
         to^,_ = get_type_parser(p);
         type := Pointer({to=to})
@@ -327,7 +325,6 @@ get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
     else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
         // we are pointer
         if t,ok := get_type_token(parser_next(p).kind); ok {
-            fmt.println("pointe to ", t)
             to := new(Type)
             to^ = t
             type := Pointer({to=to})
@@ -464,9 +461,9 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
     return nil
 }
 
-parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
+parse_call_args :: proc(p: ^Parser) -> [dynamic]^Expr {
     args := make([dynamic]^Expr)
-    parser_expect(p,.LPAR)
+    parser_expect(p, .LPAR)
     first := true
     for parser_peek(p).kind != .RPAR {
         if !first do parser_expect(p, .COMMA)
@@ -577,7 +574,7 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         logln("=== PARSING FUNCTION CALL ====")
         switch expr in left^ {
             case Expr_Identifier:
-            arguments := parse_args(p)
+            arguments := parse_call_args(p)
             call := Expr_Call({  
                 name = expr.value,
                 args = arguments

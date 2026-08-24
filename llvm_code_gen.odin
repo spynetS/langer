@@ -12,6 +12,7 @@ LLVM_Generator :: struct {
     builder_ref: llvm.BuilderRef,
     module_ref: llvm.ModuleRef,
 
+    // holds variables
     refs : map[string]llvm.ValueRef
 }
 
@@ -184,9 +185,9 @@ create_add :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else                                                 do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt == Basic(.FLOAT)   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else                                                 do return llvm.BuildAdd(g.builder_ref, left, right, get_tmp_name())
 }
 
 
@@ -198,8 +199,8 @@ create_sub :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT)  || rt != Basic(.FLOAT)  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT)  || rt == Basic(.FLOAT)  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSub(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -212,8 +213,8 @@ create_mult :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildMul(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -225,8 +226,8 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -420,10 +421,6 @@ gen_program :: proc (g: ^LLVM_Generator, p: Program, file: string) {
         if func.extern do create_function_decl(g, func)
         else do create_function(g, func)
     }
-
-    fmt.println("--------------------------------------------------")
-    llvm.DumpModule(module_ref)
-    fmt.println("--------------------------------------------------")
 
     error_msg: cstring
     if llvm.PrintModuleToFile(module_ref, fmt.ctprintf(file), &error_msg) != 0 {

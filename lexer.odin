@@ -277,3 +277,18 @@ read_token :: proc (lexer: ^Lexer) -> Token {
 
     return token
 }
+
+print_tokens :: proc (tokens: [dynamic]Token) {
+
+    for token in tokens {
+        log(token.kind)
+        log(" ")
+    }
+    log("\n")
+    for token in tokens {
+        log(token.lexeme)
+        log(" ")
+    }
+}
+
+
