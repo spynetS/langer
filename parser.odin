@@ -28,6 +28,7 @@ Basic :: enum {
     INT,
     STRING,
     FLOAT,
+    DOUBLE,
     VOID
 }
 Array :: struct {
@@ -113,9 +114,10 @@ Expr_Subscript :: struct {
     index: ^Expr,
     type: Type // TODO ptr or array
 }
-Expr_Integer :: struct {
+Expr_Number :: struct {
     span: Source_Span,
     value: string,
+    type: Type
 }
 Expr_String :: struct {
     span: Source_Span,
@@ -142,7 +144,7 @@ Expr_Call :: struct {
 Expr :: union {
     Expr_Array,
     Expr_Subscript,
-    Expr_Integer,
+    Expr_Number,
     Expr_String,
     Expr_Identifier,
     Expr_Binary,
@@ -173,7 +175,7 @@ get_expr_span :: proc(expr: Expr) -> Source_Span {
         return v.span
         case Expr_Subscript:
         return v.span
-        case Expr_Integer:
+        case Expr_Number:
         return v.span
         case Expr_String:
         return v.span
@@ -294,10 +296,22 @@ get_type :: proc {
 }
 
 get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
-    if t,ok := get_type_token(parser_peek(p).kind); ok do return t, ok
+    if t,ok := get_type_token(parser_peek(p).kind); ok {
+        fmt.println("type", parser_peek(p).kind)
+        return t, ok
+    }
+    else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
+        parser_advance(p);
+        fmt.println("pointe to porinter", parser_peek(p).kind)
+        to := new(Type)
+        to^,_ = get_type_parser(p);
+        type := Pointer({to=to})
+        return type, true
+    }
     else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
         // we are pointer
         if t,ok := get_type_token(parser_next(p).kind); ok {
+            fmt.println("pointe to ", t)
             to := new(Type)
             to^ = t
             type := Pointer({to=to})
@@ -339,6 +353,7 @@ get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
          case .INT: return Basic(.INT), true
          case .STRING: return Basic(.STRING), true
          case .FLOAT: return Basic(.FLOAT), true
+         case .DOUBLE: return Basic(.DOUBLE), true
      }
     return {}, false
 }
@@ -350,7 +365,7 @@ is_type :: proc {
 
 is_type_token :: proc (kind: Token_Kind) -> bool {
     #partial switch kind {
-        case .VOID, .INT, .FLOAT, .STRING: return true
+        case .VOID, .INT, .DOUBLE, .FLOAT, .STRING, .STAR: return true
     }
     return false
 }
@@ -387,11 +402,27 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
             value = next_token.lexeme,
         }
         return decl
-        case .NUMBER:
+        case .NUMBER_FLOAT:
         expr := new(Expr)
-        expr^ = Expr_Integer{
+        expr^ = Expr_Number{
             span=next_token.span,
             value = next_token.lexeme,
+            type = Basic(.FLOAT)
+        }
+        case .NUMBER_DOUBLE:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type = Basic(.DOUBLE)
+        }
+        return expr
+        case .NUMBER:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type = Basic(.INT)
         }
         return expr
         case .LPAR:
@@ -546,8 +577,8 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
             return new_expr
         case Expr_String:
             parser_panic(parser_peek(p),"Expected identifer, got STRING")
-        case Expr_Integer:
-            parser_panic(parser_peek(p),"Expected identifer, got INT")
+        case Expr_Number:
+            parser_panic(parser_peek(p),"Expected identifer, got NUMBER")
         case Expr_Binary:
             parser_panic(parser_peek(p),"Expected identifer, got BIN")
         case Expr_Call:
@@ -643,9 +674,7 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 is_decl :: proc(p: ^Parser) -> bool {
     // if is_type(parser_peek(p).kind) do return true
-    if parser_peek(p).kind == .INT do return true
-    if parser_peek(p).kind == .STRING do return true
-    if parser_peek(p).kind == .FLOAT do return true
+    if is_type(parser_peek(p).kind) do return true
     if parser_peek(p).kind == .FUNC do return true
     if parser_peek(p).kind == .STAR do return true
     if parser_peek(p).kind == .LB   do return true
@@ -719,16 +748,16 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
         if is_type(p) {
-            logln("IS DELC", token.kind)
             if t, ok := get_type(p); ok {
                 var := Variable_Decl({type=t})
                 parser_skip(p, .STAR)
                 parser_advance(p)
                 var.name = parser_expect(p, .IDENTIFER).lexeme
-                parser_skip(p, .COMMA)
+                parser_skip(p, .COMMA, depth=1)
                 append(&decl.args, var)
             } else do panic("Could not determen type")
-        }
+        }else do parser_panic(parser_peek(p), "Could not determen type")
+        
     }
 
     for arg in decl.args do logln(arg)
@@ -922,23 +951,40 @@ decl_to_string :: proc(decl_u: Decl) -> string {
     return "<unknown expr>"
 }
 
+
+operator_to_string :: proc(token: Token_Kind) -> string {
+    #partial switch token {
+    case .EQUAL:   return "="
+    case .LESS:    return "<"
+    case .GREATER: return ">"
+    case .LEQ:     return ">="
+    case .GEQ:     return "<="
+    case .UP:     return "^"
+    }
+    return "<unknown >"
+}
+
+
 expr_to_string :: proc(expr_u: Expr) -> string {
     #partial switch expr in expr_u {
     case Expr_Binary:
         left := expr_to_string(expr.left^)
         right := expr_to_string(expr.right^)
-        return fmt.tprintf("(%s %v %s)", left, expr.op, right)
+        return fmt.tprintf("%s %v %s", left, operator_to_string(expr.op), right)
 
     case Expr_Subscript:
         left := expr_to_string(expr.left^)
         index := expr_to_string(expr.index^)
         return fmt.tprintf("%s[%s]", left, index)
 
-    case Expr_Integer:
+    case Expr_Number:
         return fmt.tprintf("%s", expr.value)
 
     case Expr_String:
         return fmt.tprintf("%s", expr.value)
+
+    case Expr_Unary:
+        return fmt.tprintf("%s%s", expr.operand.value, operator_to_string(expr.operator))
 
     case Expr_Identifier:
         return expr.value
@@ -973,8 +1019,8 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
         print_expr(expr.left^, depth + 1)
         print_expr(expr.index^, depth + 1)
 
-    case Expr_Integer:
-        logln("Integer: ", expr.value)
+    case Expr_Number:
+        logln("Number: ", expr.value)
 
     case Expr_String:
         logln("String: \"", expr.value, "\"")

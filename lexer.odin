@@ -36,6 +36,8 @@ Token_Kind :: enum {
     EXTERN,
     FOR,
     NUMBER,
+    NUMBER_FLOAT,
+    NUMBER_DOUBLE,
     EQUAL,
     COLON,
     SEMICOLON,
@@ -145,11 +147,17 @@ is_char :: proc(a: byte) -> bool {
 
 read_number :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
-    for is_digit(peek(lexer)) {
+    float  := false
+    double := false
+    for is_digit(peek(lexer)) || peek(lexer) == 'f' || peek(lexer) == 'd' {
+        if !float && peek(lexer)  == 'f' do float = true
+        if !double && peek(lexer) == 'd' do double = true
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
     }
-    return Token({kind=.NUMBER, lexeme=strings.to_string(buffer)})
+    if      float  do return Token({kind=.NUMBER_FLOAT, lexeme=strings.to_string(buffer)})
+    else if double do return Token({kind=.NUMBER_DOUBLE, lexeme=strings.to_string(buffer)})
+    else           do return Token({kind=.NUMBER, lexeme=strings.to_string(buffer)})
 }
 read_identifier :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
@@ -169,7 +177,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "float": kind = .FLOAT
     case "string": kind = .STRING
     case "extern": kind = .EXTERN
-    case "d": kind = .DOUBLE
+    case "double": kind = .DOUBLE
     case "func": kind = .FUNC
     case "start": kind = .START
     case "end": kind = .END
