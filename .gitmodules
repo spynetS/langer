@@ -1,0 +1,3 @@
+[submodule "llvm-bind"]
+	path = llvm-bind
+	url = https://github.com/shiver-language/llvm-bind.git
