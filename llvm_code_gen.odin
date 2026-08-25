@@ -12,6 +12,9 @@ LLVM_Generator :: struct {
     builder_ref: llvm.BuilderRef,
     module_ref: llvm.ModuleRef,
 
+    current_function: llvm.ValueRef,
+
+    // holds variables
     refs : map[string]llvm.ValueRef
 }
 
@@ -19,30 +22,13 @@ get_tmp_name :: proc () -> cstring {
     return "tmp"
 }
 
-get_expr_type :: proc(expr: Expr) -> Type {
-    #partial switch v in expr {
-        case Expr_Array: panic("TODO")
-        case Expr_Subscript: panic("TODO")
-        case Expr_Binary: panic("TODO")
-        case Expr_Unary:
-        return get_expr_type(v.operand^)
-        case Expr_Number: return v.type
-        case Expr_Identifier: return v.type
-        case Expr_String:
-        // TODO should be char
-        to := new(Type)
-        to^ = .INT
-        return Pointer({to=to})
-        case Expr_Call: return v.type
-    }
-    panic("TODO")
-}
 
 get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
     #partial switch v in type {
         case Basic:
         #partial switch v {
             case .INT:    return llvm.Int32TypeInContext(g.context_ref)
+            case .BOOL:   return llvm.Int1TypeInContext(g.context_ref)
             case .VOID:   return llvm.VoidTypeInContext(g.context_ref)
             case .FLOAT:  return llvm.FloatTypeInContext(g.context_ref)
             case .DOUBLE: return llvm.DoubleTypeInContext(g.context_ref)
@@ -69,10 +55,6 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.V
     
     fun :=  llvm.AddFunction(g.module_ref, fmt.ctprintf(func.name), func_type)
 
-    // for i in 0..<arg_length  {
-    //     arg := func.args[i]
-    //     g.refs[arg.name] = llvm.GetParam(fun, u32(i))
-    // }
     return fun
 }
 
@@ -103,6 +85,7 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
 
 create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueRef {
     func_ref := create_function_decl(g, func);
+    g.current_function = func_ref
     bb_name := cstring("entry\x00")
     entry_bb := llvm.AppendBasicBlockInContext(g.context_ref, func_ref, bb_name)
     llvm.PositionBuilderAtEnd(g.builder_ref, entry_bb)
@@ -136,7 +119,6 @@ create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueR
             create_stmt(g, v);
         }
     }
-
     if !created_return {
         llvm.BuildRetVoid(g.builder_ref)
     }
@@ -180,13 +162,12 @@ create_add :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     lt := get_expr_type(left)
     rt := get_expr_type(right)
 
-
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else                                                 do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt == Basic(.FLOAT)   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else                                                 do return llvm.BuildAdd(g.builder_ref, left, right, get_tmp_name())
 }
 
 
@@ -198,8 +179,8 @@ create_sub :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT)  || rt != Basic(.FLOAT)  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT)  || rt == Basic(.FLOAT)  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSub(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -212,8 +193,8 @@ create_mult :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildMul(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -225,8 +206,8 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt != Basic(.FLOAT)   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt != Basic(.DOUBLE) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -238,6 +219,7 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         case Expr_Identifier:
         ref := g.refs[v.value]
         left_val = ref
+        
         case Expr_Unary:
         if v.operator != .UP do panic("TODO")
         t, ok := get_expr_type(v.operand^).(Pointer)
@@ -265,26 +247,83 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     }
     right_val := create_expression(g, right)
 
+
     
     return llvm.BuildStore(
         g.builder_ref,
         right_val,
         left_val
     )
-
-    
     // fmt.println(left)
     // panic("TODO")
+}
+
+create_cond :: proc (g: ^LLVM_Generator, left, right: Expr, op: llvm.IntPredicate) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println("less", lhs, rhs)
+
+    cond := llvm.BuildICmp(
+        g.builder_ref,
+        op,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
+}
+
+create_and_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println("less", lhs, rhs)
+
+    cond := llvm.BuildAnd(
+        g.builder_ref,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
+}
+
+create_or_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println("less", lhs, rhs)
+
+    cond := llvm.BuildOr(
+        g.builder_ref,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
 }
 
 create_binary :: proc (g: ^LLVM_Generator, expr: Expr_Binary) -> llvm.ValueRef {
 
     #partial switch expr.op {
-        case .PLUS:   return create_add(g, expr.left^, expr.right^)
-        case .MINUS:  return create_sub(g, expr.left^, expr.right^)
-        case .STAR:   return create_mult(g, expr.left^, expr.right^)
-        case .DIVIDE: return create_div(g, expr.left^, expr.right^)
-        case .EQUAL:  return create_assign(g, expr.left^, expr.right^)
+        case .PLUS:    return create_add(g, expr.left^, expr.right^)
+        case .MINUS:   return create_sub(g, expr.left^, expr.right^)
+        case .STAR:    return create_mult(g, expr.left^, expr.right^)
+        case .DIVIDE:  return create_div(g, expr.left^, expr.right^)
+        
+        case .EQUAL:   return create_assign(g, expr.left^, expr.right^)
+        
+        case .LESS:    return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SLT)
+        case .GREATER: return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SGT)
+        case .LEQ:     return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SLE)
+        case .GEQ:     return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SGE)
+        case .EQ:      return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.EQ)
+        case .AND:     return create_and_cond(g, expr.left^, expr.right^)
+        case .OR:      return create_or_cond(g, expr.left^, expr.right^)
 
     }
     panic("TODO")
@@ -308,6 +347,9 @@ create_number :: proc(g: ^LLVM_Generator, expr: Expr_Number) -> llvm.ValueRef {
             val,ok := strconv.parse_f64(value)
             if !ok do parser_panic(expr, "Not an double")
             return llvm.ConstReal(get_llvm_type(g,Basic(.DOUBLE)), f64(val))
+            case .BOOL:
+            val : u64 = expr.value == "true" ? 1 : 0
+            return llvm.ConstInt(get_llvm_type(g, Basic(.BOOL)), val, 0)
 
         }
     }
@@ -350,16 +392,25 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     case Expr_Number:
         return create_number(g, v);
     case Expr_String:
-        value := strings.clone_to_cstring(strings.trim(v.value, "\""))
+        s,_ := strings.replace_all(v.value, "\\n", "\n")
+        s,_ = strings.replace_all(s, "\\n", "\n")
+        s,_ = strings.replace_all(s, "\\t", "\t")
+        s,_ = strings.replace_all(s, "\\r", "\r")
+        s,_ = strings.replace_all(s, "\\\\", "\\")
+        s,_ = strings.replace_all(s, "\\\"", "\"")
+        value := strings.clone_to_cstring(strings.trim(s, "\""))
+
         return llvm.BuildGlobalStringPtr(
             g.builder_ref,
             value,
             fmt.ctprintf("str")
         )
     case Expr_Identifier:
+        // type is not set
         ref,ok := g.refs[v.value]
         if !ok do panic("TODO Could not find the variable")
         type := get_llvm_type(g, v.type)
+        
         return llvm.BuildLoad2(g.builder_ref, type, ref, get_tmp_name())
         //panic("TODO")
     case Expr_Binary: return create_binary(g, v)
@@ -368,6 +419,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     case Expr_Unary:
         #partial switch v.operator {
             case .UP:
+            
             type := get_llvm_type(g, get_expr_type(v.operand^))
             ptr := create_expression(g, v.operand^);
             return load_pointer(g, ptr, type)
@@ -392,11 +444,117 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
         return llvm.BuildRet(g.builder_ref, val)
 
     case If_Stmt:
-        panic("TODO")
+        cond_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.cond",
+        )
+        body_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.body",
+        )
+        else_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.else",
+        )
+       end_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.end",
+        )
+
+        llvm.BuildBr(g.builder_ref, cond_bb)
+        llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
+        cond := create_expression(g, v.condition^)
+
+        llvm.BuildCondBr(
+            g.builder_ref,
+            cond,
+            body_bb,
+            else_bb,
+        )
+        // body
+        llvm.PositionBuilderAtEnd(g.builder_ref, body_bb)
+        create_stmt(g, v.block^)
+        // jump to end
+        llvm.BuildBr(g.builder_ref, end_bb)
+
+        // else
+        llvm.PositionBuilderAtEnd(g.builder_ref, else_bb)
+        if v.else_block != nil do create_stmt(g, v.else_block^)
+        // jump to end
+        llvm.BuildBr(g.builder_ref, end_bb)
+
+
+        // end
+        llvm.PositionBuilderAtEnd(g.builder_ref, end_bb)
+
+        return nil
     case While_Stmt:
-        panic("TODO")
+        cond_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.cond",
+        )
+
+        body_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.body",
+        )
+
+        end_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.end",
+        )
+
+        // Jump into the condition.
+        llvm.BuildBr(g.builder_ref, cond_bb)
+        // while.cond:
+        llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
+
+        fmt.println(expr_to_string(v.condition^))
+        fmt.println(get_expr_type(v.condition^))
+        
+        cond := create_expression(g, v.condition^)
+
+
+        llvm.BuildCondBr(
+            g.builder_ref,
+            cond,
+            body_bb,
+            end_bb,
+        )
+
+        // while.body:
+        llvm.PositionBuilderAtEnd(g.builder_ref, body_bb)
+
+        create_stmt(g, v.block^)
+
+        // Unless the body already terminated (return/break/etc.),
+        // loop back to the condition.
+        llvm.BuildBr(g.builder_ref, cond_bb)
+
+        // while.end:
+        llvm.PositionBuilderAtEnd(g.builder_ref, end_bb)
+
+        return nil
     case Block:
-        panic("TODO")
+        for item in v.items {
+            switch v in item{
+            case Decl:
+                create_decl(g, v);
+            case Stmt:
+                if _, ok := v.(Return_Stmt); ok {
+                    //created_return = true
+                }
+                create_stmt(g, v);
+            }
+        }
+        return nil
     }
     panic("TODO")
 }
@@ -420,10 +578,6 @@ gen_program :: proc (g: ^LLVM_Generator, p: Program, file: string) {
         if func.extern do create_function_decl(g, func)
         else do create_function(g, func)
     }
-
-    fmt.println("--------------------------------------------------")
-    llvm.DumpModule(module_ref)
-    fmt.println("--------------------------------------------------")
 
     error_msg: cstring
     if llvm.PrintModuleToFile(module_ref, fmt.ctprintf(file), &error_msg) != 0 {
