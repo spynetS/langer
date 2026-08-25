@@ -113,7 +113,7 @@ main :: proc() {
 
         g := LLVM_Generator({})
         defer delete(g.refs)
-        gen_program(&g,program, strings.to_string(llvm_path))
+        gen_program(&g,program, file, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
     }
 
