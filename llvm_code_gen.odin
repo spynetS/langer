@@ -263,8 +263,6 @@ create_cond :: proc (g: ^LLVM_Generator, left, right: Expr, op: llvm.IntPredicat
     lhs := create_expression(g,left)
     rhs := create_expression(g,right)
 
-    fmt.println("less", lhs, rhs)
-
     cond := llvm.BuildICmp(
         g.builder_ref,
         op,
@@ -279,9 +277,6 @@ create_and_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef
 
     lhs := create_expression(g,left)
     rhs := create_expression(g,right)
-
-    fmt.println("less", lhs, rhs)
-
     cond := llvm.BuildAnd(
         g.builder_ref,
         lhs,
@@ -295,9 +290,6 @@ create_or_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef 
 
     lhs := create_expression(g,left)
     rhs := create_expression(g,right)
-
-    fmt.println("less", lhs, rhs)
-
     cond := llvm.BuildOr(
         g.builder_ref,
         lhs,
@@ -516,9 +508,6 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
         // while.cond:
         llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
 
-        fmt.println(expr_to_string(v.condition^))
-        fmt.println(get_expr_type(v.condition^))
-        
         cond := create_expression(g, v.condition^)
 
 

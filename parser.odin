@@ -685,7 +685,9 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 get_expr_type :: proc(expr: Expr) -> Type {
     #partial switch v in expr {
         case Expr_Array: panic("TODO")
-        case Expr_Subscript: panic("TODO")
+        case Expr_Subscript:
+        t := get_expr_type(v.left^)
+        return t
         case Expr_Binary:
         #partial switch v.op {
             case .EQ:      return Basic(.BOOL)

@@ -71,6 +71,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
 
     case Expr_Subscript:
         type := checker_get_type(program, current_func, cast(^Expr)value.left)
+        checker_get_type(program, current_func, value.index) // type checking index
         #partial switch v in type {
             case Array:
             return v.of^;
