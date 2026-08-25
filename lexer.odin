@@ -56,6 +56,7 @@ Token_Kind :: enum {
     FLOAT,
     DOUBLE,
     FUNC,
+    STRUCT,
     START,
     END,
     LPAR,
@@ -187,6 +188,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "string": kind = .STRING
     case "extern": kind = .EXTERN
     case "double": kind = .DOUBLE
+    case "struct": kind = .STRUCT
     case "func": kind = .FUNC
     case "start": kind = .START
     case "end": kind = .END

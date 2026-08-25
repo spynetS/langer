@@ -15,13 +15,15 @@ Parser :: struct {
     tokens: [dynamic]Token,
     pos:    int,
     program: ^Program,
-    file: string
+    file: string,
+    current_block: ^Block
 }
 
 Program :: struct {
-    extern   : [dynamic]string,
-    functions: [dynamic]Function_Decl,
-    variables: [dynamic]Variable_Decl
+    extern    : [dynamic]string,
+    functions : [dynamic]Function_Decl,
+    variables : [dynamic]Variable_Decl,
+    structs   : [dynamic]Struct_Decl,
 }
 
 Basic :: enum {
@@ -43,13 +45,14 @@ Type :: union {
     Basic,
     Array,
     Pointer,
+    Struct_Decl
 }
 
 Variable_Decl :: struct {
     span: Source_Span,
     name: string,
     type: Type,
-    initlizer: Expr,    
+    initlizer: Expr    
 }
 
 Function_Decl :: struct {
@@ -60,6 +63,13 @@ Function_Decl :: struct {
     block: ^Block,
     extern: bool
 }
+
+Struct_Decl :: struct {
+    span: Source_Span,
+    name: string,
+    members: [dynamic]Variable_Decl,
+}
+
 
 If_Stmt :: struct {
     span: Source_Span,
@@ -90,6 +100,7 @@ Return_Stmt :: struct {
 Decl :: union {
     Function_Decl,
     Variable_Decl,
+    Struct_Decl
 }
 
 Stmt :: union {
@@ -98,6 +109,12 @@ Stmt :: union {
     If_Stmt,
     While_Stmt,
     Block,
+}
+
+Expr_MemberAccess :: struct {
+    obj: ^Variable_Decl,
+    member: string,
+    span: Source_Span,
 }
 
 Expr_Unary :: struct {
@@ -143,6 +160,7 @@ Expr_Call :: struct {
 }
 
 Expr :: union {
+    Expr_MemberAccess,
     Expr_Array,
     Expr_Subscript,
     Expr_Number,
@@ -152,6 +170,8 @@ Expr :: union {
     Expr_Call,
     Expr_Unary
 }
+
+
 /// ====== LOGGING ======
 log_error :: proc (str : string) {
     fmt.println(str)
@@ -173,7 +193,9 @@ parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {
     switch v in expr {
-        case Expr_Array:
+    case Expr_MemberAccess:
+        return v.span
+    case Expr_Array:
         return v.span
         case Expr_Subscript:
         return v.span
@@ -197,6 +219,7 @@ get_decl_span :: proc(decl: Decl) -> Source_Span {
     switch v in decl {
     case Variable_Decl: return v.span
     case Function_Decl: return v.span
+    case Struct_Decl: return v.span
     }
     panic("Not an decl")
 }
@@ -340,7 +363,12 @@ parse_type :: proc (p: ^Parser) -> (Type, bool) {
     token := parser_advance(p)
     if t,ok := get_type_token(token.kind); ok {
         return t, ok
-    }else if token.kind == .STAR {
+    }else if is_struct(p, token) {
+        struc, ok := get_struct(p, token.lexeme)
+        if ok do return struc, true
+        else  do panic("TODO")
+    }
+    else if token.kind == .STAR {
         // we are pointer
         if t, ok := parse_type(p); ok {
             to := new(Type)
@@ -363,11 +391,11 @@ parse_type :: proc (p: ^Parser) -> (Type, bool) {
 
 get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
      #partial switch token {
-         case .VOID: return Basic(.VOID), true
-         case .INT: return Basic(.INT), true
-         case .BOOL: return Basic(.BOOL), true
+         case .VOID:   return Basic(.VOID), true
+         case .INT:    return Basic(.INT), true
+         case .BOOL:   return Basic(.BOOL), true
          case .STRING: return Basic(.STRING), true
-         case .FLOAT: return Basic(.FLOAT), true
+         case .FLOAT:  return Basic(.FLOAT), true
          case .DOUBLE: return Basic(.DOUBLE), true
      }
     return {}, false
@@ -582,12 +610,38 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         parser_skip(p, .SEMICOLON)
         return sub
     }
+    else if parser_peek(p).kind == .PUNCT { 
+        parser_advance(p)
+        member := parser_expect(p, .IDENTIFER)
+        stru_id, ok := left.(Expr_Identifier)
+        fmt.println(stru_id.value)
+        fmt.println(p.current_block)
+        var, ok1 := checker_get_var(p.current_block^, stru_id.value)
+        if !ok1 do parser_panic(left^, fmt.tprintf("Variable '{}' not found", stru_id.value))
+        
+        print_decl(var)
+        fmt.println(decl_to_string(var.type.(Struct_Decl)))
+
+        var_obj := new(Variable_Decl)
+        var_obj^ = var
+
+        expr := new(Expr)
+        expr^ = Expr_MemberAccess({
+            obj = var_obj,
+            member = member.lexeme,
+            span = { start = get_expr_span(left^).start, end = member.span.end }
+        })
+
+        // FIXME free left
+        return expr
+    }
     else if parser_peek(p).kind == .COMMA { // we are done
         return left
     }
     else if parser_peek(p).kind == .LPAR { // we are a function call
         logln("=== PARSING FUNCTION CALL ====")
         switch expr in left^ {
+        case Expr_MemberAccess: panic("TODO")
             case Expr_Identifier:
             arguments := parse_call_args(p)
             call := Expr_Call({  
@@ -709,17 +763,35 @@ get_expr_type :: proc(expr: Expr) -> Type {
         to^ = .INT
         return Pointer({to=to})
         case Expr_Call: return v.type
+        case Expr_MemberAccess:
+        return Basic(.INT)
     }
     fmt.println(expr_to_string(expr))
     panic("TODO")
 }
 
 
+is_struct ::  proc(p: ^Parser, id: Token) -> bool {
+    for struc in p.program.structs {
+        if struc.name == id.lexeme do return true
+    }
+    return false
+}
+get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
+    for struc in p.program.structs {
+        if struc.name == id do return struc, true
+    }
+    return {}, false
+}
+
+
 is_decl :: proc(p: ^Parser) -> bool {
     // if is_type(parser_peek(p).kind) do return true
     if is_type(parser_peek(p).kind) do return true
+    if is_struct(p, parser_peek(p)) do return true
     if parser_peek(p).kind == .FUNC do return true
     if parser_peek(p).kind == .STAR do return true
+    if parser_peek(p).kind == .STRUCT do return true
     if parser_peek(p).kind == .LB   do return true
     return false
 }
@@ -730,6 +802,7 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
     logln("LOOKING FOR START")
     parser_expect(p, .START)
     block := new(Block)
+    p.current_block = block
 
     logln("FOUND START")
     for parser_peek(p).kind != .END {
@@ -821,6 +894,7 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
 parse_func :: proc(p: ^Parser) -> Function_Decl {
     decl := parse_func_decl(p)
 
+    
     block := parse_block(p, decl.type)
     print_block(block^)
 
@@ -828,6 +902,26 @@ parse_func :: proc(p: ^Parser) -> Function_Decl {
 
     return decl
 }
+
+parse_struct :: proc(p: ^Parser) -> Struct_Decl {
+    decl := Struct_Decl({})
+    parser_expect(p, .STRUCT)
+    decl.name = parser_expect(p, .IDENTIFER).lexeme
+
+    parser_expect(p, .START)
+
+    for parser_peek(p).kind != .END {
+        var := parse_variable_decl(p);
+        append(&decl.members, var)
+        
+        print_decl(var)
+    }
+    
+    print_decl(decl)
+
+    return decl
+}
+
 
 parse_initlizer :: proc(p: ^Parser) -> (Expr, bool) {
     token := parser_advance(p)
@@ -891,10 +985,13 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
 parse_decl :: proc(p: ^Parser) -> Decl {
     decl := Decl({})
 
-    if is_type(p) {
+    if is_type(p) || is_struct(p, parser_peek(p)) {
         decl = parse_variable_decl(p)
     } else if parser_peek(p).kind == .FUNC {
         decl = parse_func(p)
+    }
+    else if parser_peek(p).kind == .STRUCT {
+        decl = parse_struct(p)
     }
     
     parser_skip(p, .SEMICOLON)
@@ -967,6 +1064,9 @@ parse_program :: proc(p: ^Parser) -> Program {
             func.extern = true
             parser_skip(p, .SEMICOLON)
             append(&p.program.functions, func)            
+            case .STRUCT:
+            struc := parse_struct(p)
+            append(&p.program.structs, struc)
             case .FUNC:
             func := parse_func(p)
             logln("===FUNC===")
@@ -990,6 +1090,8 @@ print_indent :: proc(depth: int) {
 
 type_to_string :: proc(type: Type) -> string {
     switch v in type {
+    case Struct_Decl:
+        return fmt.tprintf("'%s'", v.name)
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
@@ -1005,6 +1107,9 @@ decl_to_string :: proc(decl_u: Decl) -> string {
         case Function_Decl: panic("TODO")
         case Variable_Decl:
         return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer))
+        case Struct_Decl:
+        return fmt.tprintf("struct {} {}", decl.name, "{}")
+
     }
 
     return "<unknown expr>"
@@ -1053,6 +1158,10 @@ expr_to_string :: proc(expr_u: Expr) -> string {
     case Expr_Unary:
         return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
+    case Expr_MemberAccess:
+        return fmt.tprintf("%s.%s", expr.obj.name, expr.member)
+
+
     case Expr_Identifier:
         return expr.value
 
@@ -1075,7 +1184,14 @@ expr_to_string :: proc(expr_u: Expr) -> string {
 print_expr :: proc(expr_u: Expr, depth: int = 0) {
     print_indent(depth)
 
-    #partial switch expr in expr_u {
+    switch expr in expr_u {
+    case Expr_Array: panic("TODO")
+    case Expr_MemberAccess:
+        logln("MemberAccess ");
+        print_decl(expr.obj^,depth=depth+1)
+        print_indent(depth+1)
+        log(expr.member,"\n")
+
     case Expr_Binary:
         logln("Binary ", expr.op)
         print_expr(expr.left^, depth + 1)
@@ -1096,8 +1212,6 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
         logln("Identifier: ", expr.value)
     case Expr_Unary:
         logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
-
-
     case Expr_Call:
         logln("Call: ", expr.name)
         for arg in expr.args {
@@ -1132,7 +1246,14 @@ print_stmt :: proc(stmt: Stmt, depth: int = 0) {
 
 print_decl :: proc(decl_u: Decl, depth: int = 0) {
     #partial switch decl in decl_u {
-    case Function_Decl:
+        case Struct_Decl:
+        print_indent(depth)
+        logln("Struct: ", decl.name)
+        for member in decl.members {
+            print_decl(member, depth+1)
+        }
+        
+        case Function_Decl:
         print_indent(depth)
         log("Function: ", decl.name, "(")
         for arg in decl.args do log(arg.name, ":", arg.type, ",")
@@ -1142,9 +1263,9 @@ print_decl :: proc(decl_u: Decl, depth: int = 0) {
             print_block(decl.block^, depth + 1)
         }
 
-    case Variable_Decl:
+        case Variable_Decl:
         print_indent(depth)
-        logln("Variable: ", decl.name, " : ", decl.type)
+        logln("Variable: ", decl.name, " : ", type_to_string(decl.type))
 
         if decl.initlizer != nil {
             print_indent(depth + 1)
@@ -1171,7 +1292,9 @@ print_block :: proc(block: Block, depth: int = 0) {
 
 print_program :: proc(program: Program) {
     logln("Program")
-
+    for struc in program.structs {
+        print_decl(struc, 1)
+    }
     for func in program.functions {
         print_decl(func, 1)
     }
@@ -1181,6 +1304,7 @@ print_program :: proc(program: Program) {
 
 delete_expression :: proc(expr_u: ^Expr) {
     switch expr in expr_u {
+    case Expr_MemberAccess: panic("TODO")
     case Expr_Array: panic("TODO")
     case Expr_Subscript: panic("TODO")
     case Expr_Number: panic("TODO")

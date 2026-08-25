@@ -9,16 +9,13 @@ checker_get_func :: proc (program: Program, name: string) -> (Function_Decl, boo
     return {}, false
 }
 
-checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, bool) {
-    if func.block == nil do return {}, false
+checker_get_var :: proc {
+    checker_get_var_func,
+    checker_get_var_block
+}
 
-    for arg in func.args {
-        if arg.name == name {
-            return arg, true
-        }
-    }
-
-    for items in func.block.items {
+checker_get_var_block :: proc (block: Block, name: string) -> (Variable_Decl, bool) {
+    for items in block.items {
         #partial switch item in items {
             case Decl:
             #partial switch decl in item{
@@ -29,8 +26,19 @@ checker_get_var :: proc (func: Function_Decl, name: string) -> (Variable_Decl, b
             }
         }
     }
-
     return {}, false
+}
+
+checker_get_var_func :: proc (func: Function_Decl, name: string) -> (Variable_Decl, bool) {
+    if func.block == nil do return {}, false
+
+    for arg in func.args {
+        if arg.name == name {
+            return arg, true
+        }
+    }
+
+    return checker_get_var_block(func.block^, name)
 }
 
 expr_set_type :: proc(expr_u: ^Expr, type: Type) {
@@ -46,8 +54,32 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
     }
 }
 
+get_member :: proc(obj: Expr_MemberAccess, member: string) -> Expr {
+    // TODO make so the memberaccess obj inst an expression
+    // it should be a custom union for struct, package enum etc
+    // here we should return what the .member should return
+    // #partial switch v in obj {
+        
+    // }
+    return {}
+}
+
 checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^Expr) -> Type {
     switch &value in expr {
+    case Expr_MemberAccess:
+        //checker_get_type(program, current_func, value.obj.(Struct_Decl))
+        found := false
+        struc := value.obj.type.(Struct_Decl)
+        type : Type
+        for i in 0..<len(struc.members) {
+            member := struc.members[i]
+            if member.name == value.member {
+                found = true
+                type = member.type
+            }
+        }
+        if !found do parser_panic(expr^, fmt.tprintf("'{}' has no member '{}'", struc.name, value.member))
+        return type
     case Expr_Unary:
         //fmt.println(expr_to_string(value.operand^))
         p_t := checker_get_type(program, current_func, value.operand)
@@ -60,13 +92,12 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
         
         switch v in p_t {
         case Pointer: return v.to^
-        case Array: return v.of^
-        case Basic:
+        case Array:   return v.of^
+        case Basic, Struct_Decl:
             if value.operator == .UP do parser_panic(expr^, "Can't dereferance non pointer type")
             t := new(Type)
             t^ = get_expr_type(value.operand^)
             return Pointer({to=t})
-
         }
 
     case Expr_Subscript:
@@ -85,7 +116,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
         //func, f_func := checker_get_func(program, value.value);
         //fmt.println("looking for", value.value)
         var, f_var := checker_get_var(current_func, value.value);
-        if !f_var do parser_panic(value, fmt.tprintf("Variable %s not found", value.value))
+        if !f_var do parser_panic(value, fmt.tprintf("Variable '%s' not found", value.value))
         value.type = var.type // We set it here also
         return var.type
     case Expr_Array:
@@ -120,9 +151,9 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
             }
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])
-            //parser_panic(value, fmt.tprintf("{} {}", func_type, call_type), level=0)
+            parser_panic(value, fmt.tprintf("want {} got {}", type_to_string(func_type), type_to_string(call_type)), level=0)
             if !check_type(func_type, call_type) {
-                parser_panic(value, value.args[i]^, fmt.tprintf("Argument missmatch {} != {}", func_type, call_type))
+                parser_panic(value, value.args[i]^, fmt.tprintf("Argument missmatch {} != {}", type_to_string(func_type), type_to_string(call_type)))
             }
         }
         return func_call.type
@@ -134,14 +165,19 @@ check_type :: proc(a, b: Type) -> bool {
     if a == nil || b == nil do return false
 
     switch x in a {
+    case Struct_Decl:
+        struc, ok := a.(Struct_Decl);
+        if !ok do return false
+        return x.name == struc.name 
+        
     case Basic:
         y, ok := b.(Basic)
         if !ok {
             return false
         }
         if x == y do return true
-        if ((x == .FLOAT && y == .INT) || (x == .INT && y == .FLOAT)) do return true
-        if ((x == .DOUBLE && y == .INT) || (x == .INT && y == .DOUBLE)) do return true
+        // if ((x == .FLOAT && y == .INT)  || (x == .INT && y == .FLOAT)) do return true
+        // if ((x == .DOUBLE && y == .INT) || (x == .INT && y == .DOUBLE)) do return true
 
     case Array:
         y, ok := b.(Array)
@@ -172,13 +208,18 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
         case Decl:
             switch &decl in item {
             case Variable_Decl:
-                init_type := checker_get_type(program, func, &decl.initlizer)
-                dec_type := decl.type
-                if !check_type(dec_type,init_type) {
-                    parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(dec_type), type_to_string(init_type)))
+                if decl.initlizer != nil {
+                    init_type := checker_get_type(program, func, &decl.initlizer)
+                    dec_type := decl.type
+                    if !check_type(dec_type,init_type) {
+                        parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(dec_type), type_to_string(init_type)))
+                    }
                 }
             case Function_Decl:
                 panic("Function declartion not support in function")
+            case Struct_Decl:
+                panic("Function declartion not support in function")
+
             }
         case Stmt:
             switch &stmt in item {
@@ -186,7 +227,7 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 checker_get_type(program, func, &stmt)
             case Return_Stmt:
                 type := checker_get_type(program, func, stmt.value)
-                if func.type != type {
+                if !check_type(func.type, type) {
                     parser_panic(stmt.value^, "Return type doesnt match function type")
                 }
                 stmt.type = type

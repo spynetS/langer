@@ -22,7 +22,8 @@ LLVM_Generator :: struct {
     current_function: llvm.ValueRef,
 
     // holds variables
-    refs : map[string]llvm.ValueRef
+    refs : map[string]llvm.ValueRef,
+    structs : map[string]llvm.TypeRef
 }
 
 get_tmp_name :: proc () -> cstring {
@@ -43,6 +44,8 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
         }
         case Pointer: return llvm.PointerTypeInContext(g.context_ref, 0)
         case Array: panic("TODO")
+        case Struct_Decl:
+        return g.structs[v.name]
 
     }
     fmt.println(type)
@@ -86,6 +89,7 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
         return var
         
     case Function_Decl: panic("TODO")
+    case Struct_Decl: panic("TODO")
     }
     panic("HERE")
 }
@@ -151,7 +155,7 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     }
     // if return type is void we should pass empty string otherwise
     // we want to capture the return
-    str := get_expr_type(expr) == Basic(.VOID) ? cstring("") : cstring("ans")
+    str := check_type(get_expr_type(expr), Basic(.VOID)) ? cstring("") : cstring("ans")
 
     call := llvm.BuildCall2(
         g.builder_ref,
@@ -172,9 +176,12 @@ create_add :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt == Basic(.FLOAT)   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
-    else                                                 do return llvm.BuildAdd(g.builder_ref, left, right, get_tmp_name())
+
+    fmt.println(check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT)))
+
+    if      check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else if check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
+    else                                                                     do return llvm.BuildAdd(g.builder_ref, left, right, get_tmp_name())
 }
 
 
@@ -186,8 +193,8 @@ create_sub :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT)  || rt == Basic(.FLOAT)  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    if      check_type(lt, Basic(.FLOAT))  || check_type(rt, Basic(.FLOAT))  do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
+    else if check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFSub(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSub(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -200,8 +207,8 @@ create_mult :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    if      check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
+    else if check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFMul(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildMul(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -213,8 +220,8 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      lt == Basic(.FLOAT) || rt  == Basic(.FLOAT)   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
-    else if lt == Basic(.DOUBLE) || rt == Basic(.DOUBLE) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    if      check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    else if  check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
     else                                                 do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
 }
 
@@ -223,6 +230,9 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left_val : llvm.ValueRef = {}
 
     #partial switch v in left {
+        case Expr_MemberAccess:
+        left_val = create_member_access(g, v)
+
         case Expr_Identifier:
         ref := g.refs[v.value]
         left_val = ref
@@ -245,13 +255,15 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
             g.builder_ref,
             type,
             ptr,
-                &index,
+            &index,
             1,
             cstring("element_ptr"),
         )
 
         left_val = ptrel
     }
+    fmt.println("BEFORE")
+    print_expr(right)
     right_val := create_expression(g, right)
 
 
@@ -364,8 +376,44 @@ load_pointer :: proc (g: ^LLVM_Generator, ptr: llvm.ValueRef, type: llvm.TypeRef
     )
 }
 
+
+create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
+    object, found_var := g.refs[expr.obj.name]
+    if !found_var do panic("asd")
+
+    strc,ok := expr.obj.type.(Struct_Decl)
+    if !ok do panic("asd")
+
+    indices := make([]llvm.ValueRef, 2)
+    indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)
+    for i in 0..<len(strc.members) {
+        member := strc.members[i]
+        if member.name == expr.member {
+            indices[1] = llvm.ConstInt(get_llvm_type(g, member.type), u64(i), 0)
+        }
+    }
+
+    type_name, ok2 := g.structs[strc.name]
+    if !ok2 do panic("asd")
+
+    val := llvm.BuildGEP2(
+        g.builder_ref,
+        type_name,
+        object,
+        &indices[0],
+        u32(len(indices)),
+        "member_ptr",
+    )
+    return val
+}
+
+
+
 create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     switch v in expr{
+    case Expr_MemberAccess:
+        ptr := create_member_access(g, v)
+        return load_pointer(g, ptr, get_llvm_type(g, get_expr_type(v)))
     case Expr_Array: panic("TODO")
     case Expr_Subscript:
         type := get_llvm_type(g, get_expr_type(v.left^))
@@ -570,6 +618,24 @@ gen_program :: proc (g: ^LLVM_Generator, p: Program, i_file, o_file: string) {
     defer llvm.DisposeBuilder(builder_ref)
     g.builder_ref = builder_ref
     
+    for struc in p.structs {
+        struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
+
+        field_types := make([dynamic]llvm.TypeRef)
+
+        for field in struc.members {
+            append(&field_types, get_llvm_type(g, field.type))
+        }
+
+        llvm.StructSetBody(
+            struct_type,
+            raw_data(field_types),
+            u32(len(field_types)),
+            0,
+        )
+        g.structs[struc.name] = struct_type
+    }
+
     for func in p.functions {
         if func.extern do create_function_decl(g, func)
         else do create_function(g, func)
