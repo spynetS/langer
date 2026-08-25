@@ -22,30 +22,13 @@ get_tmp_name :: proc () -> cstring {
     return "tmp"
 }
 
-get_expr_type :: proc(expr: Expr) -> Type {
-    #partial switch v in expr {
-        case Expr_Array: panic("TODO")
-        case Expr_Subscript: panic("TODO")
-        case Expr_Binary: panic("TODO")
-        case Expr_Unary:
-        return get_expr_type(v.operand^)
-        case Expr_Number: return v.type
-        case Expr_Identifier: return v.type
-        case Expr_String:
-        // TODO should be char
-        to := new(Type)
-        to^ = .INT
-        return Pointer({to=to})
-        case Expr_Call: return v.type
-    }
-    panic("TODO")
-}
 
 get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
     #partial switch v in type {
         case Basic:
         #partial switch v {
             case .INT:    return llvm.Int32TypeInContext(g.context_ref)
+            case .BOOL:   return llvm.Int1TypeInContext(g.context_ref)
             case .VOID:   return llvm.VoidTypeInContext(g.context_ref)
             case .FLOAT:  return llvm.FloatTypeInContext(g.context_ref)
             case .DOUBLE: return llvm.DoubleTypeInContext(g.context_ref)
@@ -275,16 +258,48 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     // panic("TODO")
 }
 
-create_less :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+create_cond :: proc (g: ^LLVM_Generator, left, right: Expr, op: llvm.IntPredicate) -> llvm.ValueRef {
 
     lhs := create_expression(g,left)
     rhs := create_expression(g,right)
 
-    fmt.println(lhs, rhs)
+    fmt.println("less", lhs, rhs)
 
     cond := llvm.BuildICmp(
         g.builder_ref,
-        llvm.IntPredicate.SLE,
+        op,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
+}
+
+create_and_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println("less", lhs, rhs)
+
+    cond := llvm.BuildAnd(
+        g.builder_ref,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
+}
+
+create_or_cond :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println("less", lhs, rhs)
+
+    cond := llvm.BuildOr(
+        g.builder_ref,
         lhs,
         rhs,
         "cond",
@@ -295,14 +310,20 @@ create_less :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
 create_binary :: proc (g: ^LLVM_Generator, expr: Expr_Binary) -> llvm.ValueRef {
 
     #partial switch expr.op {
-        case .PLUS:   return create_add(g, expr.left^, expr.right^)
-        case .MINUS:  return create_sub(g, expr.left^, expr.right^)
-        case .STAR:   return create_mult(g, expr.left^, expr.right^)
-        case .DIVIDE: return create_div(g, expr.left^, expr.right^)
+        case .PLUS:    return create_add(g, expr.left^, expr.right^)
+        case .MINUS:   return create_sub(g, expr.left^, expr.right^)
+        case .STAR:    return create_mult(g, expr.left^, expr.right^)
+        case .DIVIDE:  return create_div(g, expr.left^, expr.right^)
         
-        case .EQUAL:  return create_assign(g, expr.left^, expr.right^)
+        case .EQUAL:   return create_assign(g, expr.left^, expr.right^)
         
-        case .LESS:  return create_less(g, expr.left^, expr.right^)
+        case .LESS:    return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SLT)
+        case .GREATER: return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SGT)
+        case .LEQ:     return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SLE)
+        case .GEQ:     return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.SGE)
+        case .EQ:      return create_cond(g, expr.left^, expr.right^, llvm.IntPredicate.EQ)
+        case .AND:     return create_and_cond(g, expr.left^, expr.right^)
+        case .OR:      return create_or_cond(g, expr.left^, expr.right^)
 
     }
     panic("TODO")
@@ -326,6 +347,9 @@ create_number :: proc(g: ^LLVM_Generator, expr: Expr_Number) -> llvm.ValueRef {
             val,ok := strconv.parse_f64(value)
             if !ok do parser_panic(expr, "Not an double")
             return llvm.ConstReal(get_llvm_type(g,Basic(.DOUBLE)), f64(val))
+            case .BOOL:
+            val : u64 = expr.value == "true" ? 1 : 0
+            return llvm.ConstInt(get_llvm_type(g, Basic(.BOOL)), val, 0)
 
         }
     }
@@ -420,7 +444,54 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
         return llvm.BuildRet(g.builder_ref, val)
 
     case If_Stmt:
-        panic("TODO")
+        cond_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.cond",
+        )
+        body_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.body",
+        )
+        else_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.else",
+        )
+       end_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "if.end",
+        )
+
+        llvm.BuildBr(g.builder_ref, cond_bb)
+        llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
+        cond := create_expression(g, v.condition^)
+
+        llvm.BuildCondBr(
+            g.builder_ref,
+            cond,
+            body_bb,
+            else_bb,
+        )
+        // body
+        llvm.PositionBuilderAtEnd(g.builder_ref, body_bb)
+        create_stmt(g, v.block^)
+        // jump to end
+        llvm.BuildBr(g.builder_ref, end_bb)
+
+        // else
+        llvm.PositionBuilderAtEnd(g.builder_ref, else_bb)
+        if v.else_block != nil do create_stmt(g, v.else_block^)
+        // jump to end
+        llvm.BuildBr(g.builder_ref, end_bb)
+
+
+        // end
+        llvm.PositionBuilderAtEnd(g.builder_ref, end_bb)
+
+        return nil
     case While_Stmt:
         cond_bb := llvm.AppendBasicBlockInContext(
             g.context_ref,
@@ -445,8 +516,9 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
         // while.cond:
         llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
 
-        //fmt.println(expr_to_string(v.condition.(Expr_Binary).right^))
-
+        fmt.println(expr_to_string(v.condition^))
+        fmt.println(get_expr_type(v.condition^))
+        
         cond := create_expression(g, v.condition^)
 
 

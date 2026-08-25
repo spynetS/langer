@@ -38,14 +38,20 @@ Token_Kind :: enum {
     NUMBER,
     NUMBER_FLOAT,
     NUMBER_DOUBLE,
+    NUMBER_BOOL,
     EQUAL,
     COLON,
+    AND,
+    OR,
     SEMICOLON,
     IDENTIFER,
     STRING,
     STRING_LITERAL,
     LET,
     VOID,
+    BOOL,
+    TRUE,
+    FALSE,
     INT,
     FLOAT,
     DOUBLE,
@@ -142,7 +148,7 @@ is_digit :: proc(a: byte) -> bool {
 }
 
 is_char :: proc(a: byte) -> bool {
-    return (65 <= int(a) && int(a) <= 90) || (97 <= int(a) && int(a) <= 172)
+    return (65 <= int(a) && int(a) <= 90) || (97 <= int(a) && int(a) <= 122)
 }
 
 read_number :: proc(lexer: ^Lexer) -> Token {
@@ -173,6 +179,9 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "for": kind = .FOR
     case "let": kind = .LET
     case "void": kind = .VOID
+    case "bool": kind = .BOOL
+    case "true": kind = .NUMBER_BOOL
+    case "false": kind = .NUMBER_BOOL
     case "int": kind = .INT
     case "float": kind = .FLOAT
     case "string": kind = .STRING
@@ -235,15 +244,28 @@ read_token :: proc (lexer: ^Lexer) -> Token {
     else if c == '"'    do token = read_string(lexer)
     else if c == '=' && peek(lexer,1) == '=' {
         advance(lexer)
+        advance(lexer)
         token = Token({kind=.EQ, lexeme="=="})
     }
     else if c == '>' && peek(lexer,1) == '=' {
+        advance(lexer)
         advance(lexer)
         token = Token({kind=.GEQ, lexeme=">="})
     }
     else if c == '<' && peek(lexer,1) == '=' {
         advance(lexer)
+        advance(lexer)
         token = Token({kind=.LEQ, lexeme="<="})
+    }
+    else if c == '&' && peek(lexer,1) == '&' {
+        advance(lexer)
+        advance(lexer)
+        token = Token({kind=.AND, lexeme="&&"})
+    }
+    else if c == '|' && peek(lexer,1) == '|' {
+        advance(lexer)
+        advance(lexer)
+        token = Token({kind=.OR, lexeme="||"})
     }
     else {
         lexeme := fmt.tprintf("%c",c)

@@ -26,6 +26,7 @@ Program :: struct {
 
 Basic :: enum {
     INT,
+    BOOL,
     STRING,
     FLOAT,
     DOUBLE,
@@ -364,6 +365,7 @@ get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
      #partial switch token {
          case .VOID: return Basic(.VOID), true
          case .INT: return Basic(.INT), true
+         case .BOOL: return Basic(.BOOL), true
          case .STRING: return Basic(.STRING), true
          case .FLOAT: return Basic(.FLOAT), true
          case .DOUBLE: return Basic(.DOUBLE), true
@@ -434,7 +436,15 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
         expr^ = Expr_Number{
             span=next_token.span,
             value = next_token.lexeme,
-            type = Basic(.INT)
+            type =  Basic(.INT)
+        }
+        return expr
+         case .NUMBER_BOOL:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type =  Basic(.BOOL)
         }
         return expr
         case .LPAR:
@@ -495,7 +505,12 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
 
     left := parse_factor(p)
     if parser_peek(p).kind == Token_Kind.STAR ||
-        parser_peek(p).kind == Token_Kind.DIVIDE
+        parser_peek(p).kind == Token_Kind.DIVIDE ||
+        parser_peek(p).kind == Token_Kind.GREATER ||
+        parser_peek(p).kind == Token_Kind.LESS ||
+        parser_peek(p).kind == Token_Kind.EQ ||
+        parser_peek(p).kind == Token_Kind.LEQ ||
+        parser_peek(p).kind == Token_Kind.GEQ
     {
         op := parser_advance(p).kind
         right := parse_factor(p)
@@ -631,11 +646,8 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
     if parser_peek(p).kind == Token_Kind.PLUS ||
         parser_peek(p).kind == Token_Kind.MINUS ||
         parser_peek(p).kind == Token_Kind.EQUAL ||
-        parser_peek(p).kind == Token_Kind.GREATER ||
-        parser_peek(p).kind == Token_Kind.LESS ||
-        parser_peek(p).kind == Token_Kind.EQ ||
-        parser_peek(p).kind == Token_Kind.LEQ ||
-        parser_peek(p).kind == Token_Kind.GEQ
+        parser_peek(p).kind == Token_Kind.AND ||
+        parser_peek(p).kind == Token_Kind.OR 
     {
         op := parser_advance(p).kind
         logln("===PARSING RIGHT===")
@@ -670,23 +682,36 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 }
 
-// get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> Type {
-//     #partial switch value in expr {
-//         case Expr_Identifier, Expr_Subscript: return 
-//         case Expr_Array:
-//         return get_expr_type(p, value.values[0])
-//         case Expr_Integer: return "int"
-//         case Expr_String:  return "string"
-//         case Expr_Binary:  return get_expr_type(p, value.left)
-//         case Expr_Call:
-//         for func in p.program.functions {
-//             if value.name == func.name {
-//                 return func.type
-//             }
-//         }
-//     }
-//     panic("TODO")
-// }
+get_expr_type :: proc(expr: Expr) -> Type {
+    #partial switch v in expr {
+        case Expr_Array: panic("TODO")
+        case Expr_Subscript: panic("TODO")
+        case Expr_Binary:
+        #partial switch v.op {
+            case .EQ:      return Basic(.BOOL)
+            case .LEQ:     return Basic(.BOOL)
+            case .GEQ:     return Basic(.BOOL)
+            case .LESS:    return Basic(.BOOL)
+            case .GREATER: return Basic(.BOOL)
+            case .AND:     return Basic(.BOOL)
+            case .OR:      return Basic(.BOOL)
+            case: return get_expr_type(v.left^)
+        }
+        case Expr_Unary:
+        return get_expr_type(v.operand^)
+        case Expr_Number: return v.type
+        case Expr_Identifier: return v.type
+        case Expr_String:
+        // TODO should be char
+        to := new(Type)
+        to^ = .INT
+        return Pointer({to=to})
+        case Expr_Call: return v.type
+    }
+    fmt.println(expr_to_string(expr))
+    panic("TODO")
+}
+
 
 is_decl :: proc(p: ^Parser) -> bool {
     // if is_type(parser_peek(p).kind) do return true
@@ -721,7 +746,7 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
 }
 
 parse_if :: proc(p: ^Parser) -> ^If_Stmt {
-
+    logln("===READ-IF-CONDITION===")
     condition := parse_expression(p)
     logln("===IF-CONDITION===")
     print_expr(condition^)
@@ -989,8 +1014,10 @@ operator_to_string :: proc(token: Token_Kind) -> string {
     case .EQUAL:   return "="
     case .LESS:    return "<"
     case .GREATER: return ">"
-    case .LEQ:     return ">="
-    case .GEQ:     return "<="
+    case .LEQ:     return "<="
+    case .GEQ:     return ">="
+    case .AND:     return "&&"
+    case .OR:      return "||"
     case .UP:      return "^"
     case .AMPER:   return "&"
     case .PLUS:    return "+"
@@ -999,7 +1026,7 @@ operator_to_string :: proc(token: Token_Kind) -> string {
     case .DIVIDE:  return "/"
 
     }
-    return "<unknown operator >"
+    return "<unknown operator>"
 }
 
 

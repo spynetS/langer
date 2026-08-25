@@ -100,7 +100,8 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
         lt := checker_get_type(program, current_func, value.left)
         rt := checker_get_type(program, current_func, value.right)
         if !check_type(lt, rt) do parser_panic(value, fmt.tprintf("Assigment types doesnt match {} != {}", lt, rt))
-        return lt
+
+        return get_expr_type(expr^)
     case Expr_Call:
         func_call, found := checker_get_func(program, value.name)
         if !found do parser_panic(value , fmt.tprintf("function %s hasn't be declared", value.name))
@@ -185,9 +186,12 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 stmt.type = type
 
             case If_Stmt:
-                panic("todo")
+                t := checker_get_type(program, func, stmt.condition)
+                check_block(program, func, stmt.block);
+                if stmt.else_block != nil do check_block(program, func, stmt.else_block);
+
             case While_Stmt:
-                fmt.println("TODO check while")
+                checker_get_type(program, func, stmt.condition)
                 check_block(program, func, stmt.block);
             case Block:
                 check_block(program, func, &stmt)
