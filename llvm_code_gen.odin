@@ -368,7 +368,14 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     case Expr_Number:
         return create_number(g, v);
     case Expr_String:
-        value := strings.clone_to_cstring(strings.trim(v.value, "\""))
+        s,_ := strings.replace_all(v.value, "\\n", "\n")
+        s,_ = strings.replace_all(s, "\\n", "\n")
+        s,_ = strings.replace_all(s, "\\t", "\t")
+        s,_ = strings.replace_all(s, "\\r", "\r")
+        s,_ = strings.replace_all(s, "\\\\", "\\")
+        s,_ = strings.replace_all(s, "\\\"", "\"")
+        value := strings.clone_to_cstring(strings.trim(s, "\""))
+
         return llvm.BuildGlobalStringPtr(
             g.builder_ref,
             value,
