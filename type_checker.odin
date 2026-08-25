@@ -109,9 +109,14 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
 
         value.type = func_call.type;
 
+        if len(value.args) < len(func_call.args) {
+            parser_panic(value, value.args[len(value.args)-1]^, fmt.tprintf("Argument length missmatch wanted %d got %d", len(func_call.args), len(value.args)))
+        }
+
+
         for i in 0..<len(value.args) {
             if i >= len(func_call.args) {
-                parser_panic(value, value.args[i]^, fmt.tprintf("Argument length missmatch %d != %d", len(func_call.args), len(value.args)))
+                parser_panic(value, value.args[i]^, fmt.tprintf("Argument length missmatch wanted %d got %d", len(func_call.args), len(value.args)))
             }
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])

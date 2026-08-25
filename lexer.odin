@@ -218,9 +218,22 @@ read_string :: proc(lexer: ^Lexer) -> Token {
     
 // }
 
+skip_comments :: proc(lexer: ^Lexer) {
+    if peek(lexer) == '/' && peek(lexer,1) == '/' {
+        for peek(lexer,1) != '\n' {
+            advance(lexer)
+        }
+        advance(lexer)
+    }
+}
+
+
 read_token :: proc (lexer: ^Lexer) -> Token {
 
     skip_whitespace(lexer)
+    skip_comments(lexer)
+    skip_whitespace(lexer)
+
     c := peek(lexer)
 
     token := Token({kind=.INVALID, lexeme=""})
@@ -266,7 +279,7 @@ read_token :: proc (lexer: ^Lexer) -> Token {
         advance(lexer)
         advance(lexer)
         token = Token({kind=.OR, lexeme="||"})
-    }
+    }  
     else {
         lexeme := fmt.tprintf("%c",c)
         switch c {

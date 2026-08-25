@@ -21,26 +21,25 @@ func main() : int {
 ** Ptr example
 
 #+begin_src c
-extern puts(string fmt): void;
-extern printf(string fmt, int a): void;
-extern malloc(int a): int;
+extern printf(string fmt, int size): *int;
+extern malloc(int size): *int;
 
-func set (int ptr) {
-  let i :int = 0;
-  while i < 10 {
-      ptr[i] = i+1;
+// Sets the ptr
+func set(*int ptr, int size) {
+  int i = 0;
+  while i < size {
+      ptr[i] = i*2;
       i = i + 1;
   }
 }
-
+  
 
 func main() : int {
-  puts("Hello World!")
-  let age := malloc(10*8);
-  set(age)
-  let i := 0;
+  *int age = malloc(10*8);
+  set(age, 10);
+  int i = 0;
   while i < 10 {
-      printf("%d ", age[i])
+      printf("%d\n", age[i])
       i = i + 1;
   }
 
