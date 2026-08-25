@@ -26,7 +26,10 @@ Program :: struct {
 
 Basic :: enum {
     INT,
+    BOOL,
     STRING,
+    FLOAT,
+    DOUBLE,
     VOID
 }
 Array :: struct {
@@ -81,6 +84,7 @@ Block :: struct {
 Return_Stmt :: struct {
     span: Source_Span,
     value: ^Expr,
+    type: Type
 }
 
 Decl :: union {
@@ -99,7 +103,7 @@ Stmt :: union {
 Expr_Unary :: struct {
     span: Source_Span,
     operator: Token_Kind,
-    operand: Expr_Identifier
+    operand: ^Expr
 }
 Expr_Array :: struct {
     span: Source_Span,
@@ -111,9 +115,10 @@ Expr_Subscript :: struct {
     index: ^Expr,
     type: Type // TODO ptr or array
 }
-Expr_Integer :: struct {
+Expr_Number :: struct {
     span: Source_Span,
     value: string,
+    type: Type
 }
 Expr_String :: struct {
     span: Source_Span,
@@ -133,13 +138,14 @@ Expr_Binary :: struct {
 Expr_Call :: struct {
     span: Source_Span,
     name: string,
-    args: [dynamic]^Expr
+    args: [dynamic]^Expr,
+    type: Type
 }
 
 Expr :: union {
     Expr_Array,
     Expr_Subscript,
-    Expr_Integer,
+    Expr_Number,
     Expr_String,
     Expr_Identifier,
     Expr_Binary,
@@ -152,16 +158,17 @@ log_error :: proc (str : string) {
 }
 parser_panic :: proc {
     parser_panic_pos,    
-    parser_panic_expr,  
+    parser_panic_expr,
+    parser_panic_expr_token,
     parser_panic_expr_parent,  
     parser_panic_decl,  
     parser_panic_decl_parent,  
     parser_panic_token,    
 }
 
-parser_panic_pos :: proc(span: Source_Span, error: string) {
+parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
     log_error(fmt.tprintf("{}:{}:{}: {}",span.start.file, span.start.line, span.start.col, error))
-    os.exit(1)
+    if level == 1 do os.exit(1)
 }
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {
@@ -170,7 +177,7 @@ get_expr_span :: proc(expr: Expr) -> Source_Span {
         return v.span
         case Expr_Subscript:
         return v.span
-        case Expr_Integer:
+        case Expr_Number:
         return v.span
         case Expr_String:
         return v.span
@@ -194,7 +201,22 @@ get_decl_span :: proc(decl: Decl) -> Source_Span {
     panic("Not an decl")
 }
 
-parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string) {
+parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string, level: int = 1) {
+    p_span := get_expr_span(parent)
+    c_span := token.span
+    fmt.println(expr_to_string(parent))
+    for i in 0..<c_span.start.col - p_span.start.col {
+        fmt.print(" ")
+    }
+    for i in 0..<c_span.end.col - c_span.start.col {
+        fmt.print("^")
+    }
+    fmt.print("\n")
+    parser_panic_pos(c_span, error, level)
+}
+
+
+parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string, level: int = 1) {
     c_span := get_expr_span(expr)
     p_span := get_expr_span(parent)
     fmt.println(expr_to_string(parent))
@@ -205,21 +227,21 @@ parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string) {
         fmt.print("^")
     }
     fmt.print("\n")
-    parser_panic_pos(c_span, error)
+    parser_panic_pos(c_span, error, level)
 }
 
 
-parser_panic_expr :: proc(expr: Expr, error: string) {
+parser_panic_expr :: proc(expr: Expr, error: string, level: int = 1) {
     span := get_expr_span(expr)
     fmt.println(expr_to_string(expr))
     for i in 0..<len(expr_to_string(expr)) {
         fmt.print("^")
     }
     fmt.println("")
-    parser_panic_pos(span, error)
+    parser_panic_pos(span, error, level)
 }
 
-parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string) {
+parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string, level: int = 1) {
     c_span := get_decl_span(expr)
     p_span := get_decl_span(parent)
     fmt.println(decl_to_string(parent))
@@ -230,24 +252,24 @@ parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string) {
         fmt.print("^")
     }
     fmt.print("\n")
-    parser_panic_pos(c_span, error)
+    parser_panic_pos(c_span, error, level)
 }
 
 
-parser_panic_decl :: proc(decl: Decl, error: string) {
+parser_panic_decl :: proc(decl: Decl, error: string, level: int = 1) {
     span := get_decl_span(decl)
     fmt.println(decl_to_string(decl))
     for i in 0..<len(decl_to_string(decl)) {
         fmt.print("^")
     }
     fmt.println("")
-    parser_panic_pos(span, error)
+    parser_panic_pos(span, error, level)
 }
 
 
-parser_panic_token :: proc(token: Token, error: string) {
+parser_panic_token :: proc(token: Token, error: string, level: int = 1) {
     fmt.println(token.kind)
-    parser_panic_pos(token.span, error)
+    parser_panic_pos(token.span, error, level)
 }
 
 parser_next :: proc(p: ^Parser, amnt: int = 1) -> (Token, bool) #optional_ok {
@@ -291,7 +313,16 @@ get_type :: proc {
 }
 
 get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
-    if t,ok := get_type_token(parser_peek(p).kind); ok do return t, ok
+    if t,ok := get_type_token(parser_peek(p).kind); ok {
+        return t, ok
+    }
+    else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
+        parser_advance(p);
+        to := new(Type)
+        to^,_ = get_type_parser(p);
+        type := Pointer({to=to})
+        return type, true
+    }
     else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
         // we are pointer
         if t,ok := get_type_token(parser_next(p).kind); ok {
@@ -334,7 +365,10 @@ get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
      #partial switch token {
          case .VOID: return Basic(.VOID), true
          case .INT: return Basic(.INT), true
+         case .BOOL: return Basic(.BOOL), true
          case .STRING: return Basic(.STRING), true
+         case .FLOAT: return Basic(.FLOAT), true
+         case .DOUBLE: return Basic(.DOUBLE), true
      }
     return {}, false
 }
@@ -346,7 +380,7 @@ is_type :: proc {
 
 is_type_token :: proc (kind: Token_Kind) -> bool {
     #partial switch kind {
-        case .VOID, .INT, .FLOAT, .STRING: return true
+        case .VOID, .INT, .DOUBLE, .FLOAT, .STRING, .STAR: return true
     }
     return false
 }
@@ -369,7 +403,6 @@ is_type_parser :: proc (p: ^Parser) -> bool {
     return false
 }
 
-
 // ==== PARSING ====
 
 parse_factor :: proc(p: ^Parser) -> ^Expr {
@@ -383,11 +416,35 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
             value = next_token.lexeme,
         }
         return decl
-        case .NUMBER:
+        case .NUMBER_FLOAT:
         expr := new(Expr)
-        expr^ = Expr_Integer{
+        expr^ = Expr_Number{
             span=next_token.span,
             value = next_token.lexeme,
+            type = Basic(.FLOAT)
+        }
+        case .NUMBER_DOUBLE:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type = Basic(.DOUBLE)
+        }
+        return expr
+        case .NUMBER:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type =  Basic(.INT)
+        }
+        return expr
+         case .NUMBER_BOOL:
+        expr := new(Expr)
+        expr^ = Expr_Number{
+            span=next_token.span,
+            value = next_token.lexeme,
+            type =  Basic(.BOOL)
         }
         return expr
         case .LPAR:
@@ -414,9 +471,9 @@ parse_factor :: proc(p: ^Parser) -> ^Expr {
     return nil
 }
 
-parse_args :: proc(p: ^Parser) -> [dynamic]^Expr {
+parse_call_args :: proc(p: ^Parser) -> [dynamic]^Expr {
     args := make([dynamic]^Expr)
-    parser_expect(p,.LPAR)
+    parser_expect(p, .LPAR)
     first := true
     for parser_peek(p).kind != .RPAR {
         if !first do parser_expect(p, .COMMA)
@@ -448,7 +505,12 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
 
     left := parse_factor(p)
     if parser_peek(p).kind == Token_Kind.STAR ||
-        parser_peek(p).kind == Token_Kind.DIVIDE
+        parser_peek(p).kind == Token_Kind.DIVIDE ||
+        parser_peek(p).kind == Token_Kind.GREATER ||
+        parser_peek(p).kind == Token_Kind.LESS ||
+        parser_peek(p).kind == Token_Kind.EQ ||
+        parser_peek(p).kind == Token_Kind.LEQ ||
+        parser_peek(p).kind == Token_Kind.GEQ
     {
         op := parser_advance(p).kind
         right := parse_factor(p)
@@ -467,32 +529,36 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         return expr
     }
     else if parser_peek(p).kind == .AMPER {
+
         end := parser_advance(p).span.end
-        operand, ok := left.(Expr_Identifier)
+        operand := left
         expr := Expr_Unary{
             operator = Token_Kind.AMPER,
             operand  = operand
         }
         expr.span = Source_Span{
-            start = operand.span.start,
+            start = get_expr_span(operand^).start,
             end = end
         }
-        left^ = expr
-        return left
+        if _,ok := left.(Expr_Identifier); !ok do parser_panic(expr, parser_peek(p), "Expression needs to be a lvalue (variable)")
+        ex := new(Expr)
+        ex^ = expr
+        return ex
     }
     else if parser_peek(p).kind == .UP {
         end := parser_advance(p).span.end
-        operand, ok := left.(Expr_Identifier)
+        operand := left
         expr := Expr_Unary{
             operator = Token_Kind.UP,
             operand  = operand
         }
         expr.span = Source_Span{
-            start = operand.span.start,
+            start = get_expr_span(operand^).start,
             end = end
         }
-        left^ = expr
-        return left
+        ex := new(Expr)
+        ex^ = expr
+        return ex
     }
     else if parser_peek(p).kind == .LB { // we are SUB
         parser_advance(p)
@@ -523,7 +589,7 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         logln("=== PARSING FUNCTION CALL ====")
         switch expr in left^ {
             case Expr_Identifier:
-            arguments := parse_args(p)
+            arguments := parse_call_args(p)
             call := Expr_Call({  
                 name = expr.value,
                 args = arguments
@@ -542,8 +608,8 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
             return new_expr
         case Expr_String:
             parser_panic(parser_peek(p),"Expected identifer, got STRING")
-        case Expr_Integer:
-            parser_panic(parser_peek(p),"Expected identifer, got INT")
+        case Expr_Number:
+            parser_panic(parser_peek(p),"Expected identifer, got NUMBER")
         case Expr_Binary:
             parser_panic(parser_peek(p),"Expected identifer, got BIN")
         case Expr_Call:
@@ -580,11 +646,8 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
     if parser_peek(p).kind == Token_Kind.PLUS ||
         parser_peek(p).kind == Token_Kind.MINUS ||
         parser_peek(p).kind == Token_Kind.EQUAL ||
-        parser_peek(p).kind == Token_Kind.GREATER ||
-        parser_peek(p).kind == Token_Kind.LESS ||
-        parser_peek(p).kind == Token_Kind.EQ ||
-        parser_peek(p).kind == Token_Kind.LEQ ||
-        parser_peek(p).kind == Token_Kind.GEQ
+        parser_peek(p).kind == Token_Kind.AND ||
+        parser_peek(p).kind == Token_Kind.OR 
     {
         op := parser_advance(p).kind
         logln("===PARSING RIGHT===")
@@ -619,28 +682,40 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 }
 
-// get_expr_type :: proc(p: ^Parser, expr: ^Expr) -> Type {
-//     #partial switch value in expr {
-//         case Expr_Identifier, Expr_Subscript: return 
-//         case Expr_Array:
-//         return get_expr_type(p, value.values[0])
-//         case Expr_Integer: return "int"
-//         case Expr_String:  return "string"
-//         case Expr_Binary:  return get_expr_type(p, value.left)
-//         case Expr_Call:
-//         for func in p.program.functions {
-//             if value.name == func.name {
-//                 return func.type
-//             }
-//         }
-//     }
-//     panic("TODO")
-// }
+get_expr_type :: proc(expr: Expr) -> Type {
+    #partial switch v in expr {
+        case Expr_Array: panic("TODO")
+        case Expr_Subscript: panic("TODO")
+        case Expr_Binary:
+        #partial switch v.op {
+            case .EQ:      return Basic(.BOOL)
+            case .LEQ:     return Basic(.BOOL)
+            case .GEQ:     return Basic(.BOOL)
+            case .LESS:    return Basic(.BOOL)
+            case .GREATER: return Basic(.BOOL)
+            case .AND:     return Basic(.BOOL)
+            case .OR:      return Basic(.BOOL)
+            case: return get_expr_type(v.left^)
+        }
+        case Expr_Unary:
+        return get_expr_type(v.operand^)
+        case Expr_Number: return v.type
+        case Expr_Identifier: return v.type
+        case Expr_String:
+        // TODO should be char
+        to := new(Type)
+        to^ = .INT
+        return Pointer({to=to})
+        case Expr_Call: return v.type
+    }
+    fmt.println(expr_to_string(expr))
+    panic("TODO")
+}
+
 
 is_decl :: proc(p: ^Parser) -> bool {
     // if is_type(parser_peek(p).kind) do return true
-    if parser_peek(p).kind == .INT do return true
-    if parser_peek(p).kind == .STRING do return true
+    if is_type(parser_peek(p).kind) do return true
     if parser_peek(p).kind == .FUNC do return true
     if parser_peek(p).kind == .STAR do return true
     if parser_peek(p).kind == .LB   do return true
@@ -656,11 +731,13 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
 
     logln("FOUND START")
     for parser_peek(p).kind != .END {
+        bef := parser_peek(p)
         if is_decl(p) do append(&block.items, parse_decl(p))
         else {
             stmt := parse_stmt(p)
             append(&block.items, stmt)
         }
+        if bef == parser_peek(p) do parser_advance(p);
         logln("next stmt in block is", parser_peek(p).kind)
     }
     parser_expect(p, .END) // We consume end
@@ -669,7 +746,7 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
 }
 
 parse_if :: proc(p: ^Parser) -> ^If_Stmt {
-
+    logln("===READ-IF-CONDITION===")
     condition := parse_expression(p)
     logln("===IF-CONDITION===")
     print_expr(condition^)
@@ -701,29 +778,25 @@ parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
 
 parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl := Function_Decl({})
-    parser_skip(p, .FUNC)
+    start := parser_skip(p, .FUNC).span
     logln("PEEK:",parser_peek(p))
     token := parser_expect(p, .IDENTIFER)
     decl.name = token.lexeme
-
-    // args := parse_args(p)
-    // for arg in args do print_expr(arg^)
-    // decl.args = args
 
     decl.args = make([dynamic]Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
         if is_type(p) {
-            logln("IS DELC", token.kind)
             if t, ok := get_type(p); ok {
                 var := Variable_Decl({type=t})
                 parser_skip(p, .STAR)
                 parser_advance(p)
                 var.name = parser_expect(p, .IDENTIFER).lexeme
-                parser_skip(p, .COMMA)
+                parser_skip(p, .COMMA, depth=1)
                 append(&decl.args, var)
             } else do panic("Could not determen type")
-        }
+        }else do parser_panic(parser_peek(p), "Could not determen type")
+        
     }
 
     for arg in decl.args do logln(arg)
@@ -734,6 +807,10 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
         type,ok := parse_type(p)
         if !ok do panic("TODO")
         decl.type = type
+    }
+    else {
+        decl.type = Basic(.VOID);
+        parser_panic(start, fmt.tprintf("warning: '%s' no type set" ,decl.name), 0)
     }
 
     return decl
@@ -879,7 +956,8 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
 parse_program :: proc(p: ^Parser) -> Program {
     p.program = new(Program)
     for parser_peek(p).kind != .EOF && parser_peek(p).kind != .INVALID  {
-        logln(parser_peek(p))
+        bef := parser_peek(p)
+        logln(bef)
         #partial switch parser_peek(p).kind {
             case .EXTERN:
             parser_advance(p)
@@ -895,6 +973,7 @@ parse_program :: proc(p: ^Parser) -> Program {
             append(&p.program.functions, func)
         }
         parser_skip(p,.SEMICOLON)
+        if bef == parser_peek(p) do parser_advance(p)
         logln("after prase", parser_peek(p))
     }
     return p.program^
@@ -907,33 +986,70 @@ print_indent :: proc(depth: int) {
     }
 }
 
+type_to_string :: proc(type: Type) -> string {
+    switch v in type {
+    case Basic:
+        return strings.to_lower(fmt.tprintf("%s", v))
+    case Pointer:
+        return fmt.tprintf("*%s", type_to_string(v.to^))
+    case Array:
+        return fmt.tprintf("[]%s", type_to_string(v.of^))
+    }
+    return "<unknown type>"
+}
+
 decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
         case Function_Decl: panic("TODO")
         case Variable_Decl:
-        return fmt.tprintf("let %s : %s = %s", decl.name, decl.type, expr_to_string(decl.initlizer))
+        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer))
     }
 
     return "<unknown expr>"
 }
+
+
+operator_to_string :: proc(token: Token_Kind) -> string {
+    #partial switch token {
+    case .EQUAL:   return "="
+    case .LESS:    return "<"
+    case .GREATER: return ">"
+    case .LEQ:     return "<="
+    case .GEQ:     return ">="
+    case .AND:     return "&&"
+    case .OR:      return "||"
+    case .UP:      return "^"
+    case .AMPER:   return "&"
+    case .PLUS:    return "+"
+    case .MINUS:   return "-"
+    case .STAR:    return "*"
+    case .DIVIDE:  return "/"
+
+    }
+    return "<unknown operator>"
+}
+
 
 expr_to_string :: proc(expr_u: Expr) -> string {
     #partial switch expr in expr_u {
     case Expr_Binary:
         left := expr_to_string(expr.left^)
         right := expr_to_string(expr.right^)
-        return fmt.tprintf("(%s %v %s)", left, expr.op, right)
+        return fmt.tprintf("%s %v %s", left, operator_to_string(expr.op), right)
 
     case Expr_Subscript:
         left := expr_to_string(expr.left^)
         index := expr_to_string(expr.index^)
         return fmt.tprintf("%s[%s]", left, index)
 
-    case Expr_Integer:
+    case Expr_Number:
         return fmt.tprintf("%s", expr.value)
 
     case Expr_String:
         return fmt.tprintf("%s", expr.value)
+
+    case Expr_Unary:
+        return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
     case Expr_Identifier:
         return expr.value
@@ -968,8 +1084,8 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
         print_expr(expr.left^, depth + 1)
         print_expr(expr.index^, depth + 1)
 
-    case Expr_Integer:
-        logln("Integer: ", expr.value)
+    case Expr_Number:
+        logln("Number: ", expr.value)
 
     case Expr_String:
         logln("String: \"", expr.value, "\"")
@@ -977,7 +1093,7 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Identifier:
         logln("Identifier: ", expr.value)
     case Expr_Unary:
-        logln("Unary: ", expr.operand.value, " ", expr.operator)
+        logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
 
 
     case Expr_Call:
@@ -1058,3 +1174,54 @@ print_program :: proc(program: Program) {
         print_decl(func, 1)
     }
 }
+
+// FREE MEMORY
+
+delete_expression :: proc(expr_u: ^Expr) {
+    switch expr in expr_u {
+    case Expr_Array: panic("TODO")
+    case Expr_Subscript: panic("TODO")
+    case Expr_Number: panic("TODO")
+    case Expr_String: panic("TODO")
+    case Expr_Identifier: panic("TODO")
+    case Expr_Binary: panic("TODO")
+    case Expr_Call: panic("TODO")
+    case Expr_Unary: panic("TODO")
+    }
+}
+
+
+// delete_block :: proc(block: ^Block) {
+//     for item_u in block.items {
+//         switch item in item_u {
+//         case Decl:
+//             #partial switch decl in item {
+//                 case Function_Decl:
+//                 if decl.block != nil do delete_block(decl.block)
+//                 delete(decl.args)
+//             }
+//         case Stmt:
+//             switch &stmt in item {
+//             case Expr: delete_expression(&stmt)
+//             case Return_Stmt: panic("TODO")
+//             case If_Stmt: panic("TODO")
+//             case While_Stmt: panic("TODO")
+//             case Block: delete_block(&stmt)
+//             }
+//         }
+//     }
+// }
+
+// delete_function :: proc(func: ^Function_Decl) {
+//     if func.block != nil do delete_block(func.block)
+//     delete(func.args)
+// }
+
+// delete_program :: proc(program: ^Program) {
+//     for &func in program.functions {
+//         delete_function(&func)
+//     }
+//     delete(program.extern)
+//     delete(program.functions)
+//     delete(program.variables)
+// }

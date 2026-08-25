@@ -36,14 +36,22 @@ Token_Kind :: enum {
     EXTERN,
     FOR,
     NUMBER,
+    NUMBER_FLOAT,
+    NUMBER_DOUBLE,
+    NUMBER_BOOL,
     EQUAL,
     COLON,
+    AND,
+    OR,
     SEMICOLON,
     IDENTIFER,
     STRING,
     STRING_LITERAL,
     LET,
     VOID,
+    BOOL,
+    TRUE,
+    FALSE,
     INT,
     FLOAT,
     DOUBLE,
@@ -140,16 +148,22 @@ is_digit :: proc(a: byte) -> bool {
 }
 
 is_char :: proc(a: byte) -> bool {
-    return (65 <= int(a) && int(a) <= 90) || (97 <= int(a) && int(a) <= 172)
+    return (65 <= int(a) && int(a) <= 90) || (97 <= int(a) && int(a) <= 122)
 }
 
 read_number :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
-    for is_digit(peek(lexer)) {
+    float  := false
+    double := false
+    for is_digit(peek(lexer)) || peek(lexer) == 'f' || peek(lexer) == 'd' {
+        if !float && peek(lexer)  == 'f' do float = true
+        if !double && peek(lexer) == 'd' do double = true
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
     }
-    return Token({kind=.NUMBER, lexeme=strings.to_string(buffer)})
+    if      float  do return Token({kind=.NUMBER_FLOAT, lexeme=strings.to_string(buffer)})
+    else if double do return Token({kind=.NUMBER_DOUBLE, lexeme=strings.to_string(buffer)})
+    else           do return Token({kind=.NUMBER, lexeme=strings.to_string(buffer)})
 }
 read_identifier :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
@@ -165,11 +179,14 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "for": kind = .FOR
     case "let": kind = .LET
     case "void": kind = .VOID
+    case "bool": kind = .BOOL
+    case "true": kind = .NUMBER_BOOL
+    case "false": kind = .NUMBER_BOOL
     case "int": kind = .INT
     case "float": kind = .FLOAT
     case "string": kind = .STRING
     case "extern": kind = .EXTERN
-    case "d": kind = .DOUBLE
+    case "double": kind = .DOUBLE
     case "func": kind = .FUNC
     case "start": kind = .START
     case "end": kind = .END
@@ -227,15 +244,28 @@ read_token :: proc (lexer: ^Lexer) -> Token {
     else if c == '"'    do token = read_string(lexer)
     else if c == '=' && peek(lexer,1) == '=' {
         advance(lexer)
+        advance(lexer)
         token = Token({kind=.EQ, lexeme="=="})
     }
     else if c == '>' && peek(lexer,1) == '=' {
+        advance(lexer)
         advance(lexer)
         token = Token({kind=.GEQ, lexeme=">="})
     }
     else if c == '<' && peek(lexer,1) == '=' {
         advance(lexer)
+        advance(lexer)
         token = Token({kind=.LEQ, lexeme="<="})
+    }
+    else if c == '&' && peek(lexer,1) == '&' {
+        advance(lexer)
+        advance(lexer)
+        token = Token({kind=.AND, lexeme="&&"})
+    }
+    else if c == '|' && peek(lexer,1) == '|' {
+        advance(lexer)
+        advance(lexer)
+        token = Token({kind=.OR, lexeme="||"})
     }
     else {
         lexeme := fmt.tprintf("%c",c)
@@ -269,3 +299,18 @@ read_token :: proc (lexer: ^Lexer) -> Token {
 
     return token
 }
+
+print_tokens :: proc (tokens: [dynamic]Token) {
+
+    for token in tokens {
+        log(token.kind)
+        log(" ")
+    }
+    log("\n")
+    for token in tokens {
+        log(token.lexeme)
+        log(" ")
+    }
+}
+
+
