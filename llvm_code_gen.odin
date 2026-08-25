@@ -12,6 +12,8 @@ LLVM_Generator :: struct {
     builder_ref: llvm.BuilderRef,
     module_ref: llvm.ModuleRef,
 
+    current_function: llvm.ValueRef,
+
     // holds variables
     refs : map[string]llvm.ValueRef
 }
@@ -70,10 +72,6 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.V
     
     fun :=  llvm.AddFunction(g.module_ref, fmt.ctprintf(func.name), func_type)
 
-    // for i in 0..<arg_length  {
-    //     arg := func.args[i]
-    //     g.refs[arg.name] = llvm.GetParam(fun, u32(i))
-    // }
     return fun
 }
 
@@ -104,6 +102,7 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
 
 create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueRef {
     func_ref := create_function_decl(g, func);
+    g.current_function = func_ref
     bb_name := cstring("entry\x00")
     entry_bb := llvm.AppendBasicBlockInContext(g.context_ref, func_ref, bb_name)
     llvm.PositionBuilderAtEnd(g.builder_ref, entry_bb)
@@ -137,7 +136,6 @@ create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueR
             create_stmt(g, v);
         }
     }
-
     if !created_return {
         llvm.BuildRetVoid(g.builder_ref)
     }
@@ -180,7 +178,6 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
 create_add :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     lt := get_expr_type(left)
     rt := get_expr_type(right)
-
 
     left := create_expression(g, left)
     right := create_expression(g, right)
@@ -239,6 +236,7 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         case Expr_Identifier:
         ref := g.refs[v.value]
         left_val = ref
+        
         case Expr_Unary:
         if v.operator != .UP do panic("TODO")
         t, ok := get_expr_type(v.operand^).(Pointer)
@@ -266,16 +264,32 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     }
     right_val := create_expression(g, right)
 
+
     
     return llvm.BuildStore(
         g.builder_ref,
         right_val,
         left_val
     )
-
-    
     // fmt.println(left)
     // panic("TODO")
+}
+
+create_less :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
+
+    lhs := create_expression(g,left)
+    rhs := create_expression(g,right)
+
+    fmt.println(lhs, rhs)
+
+    cond := llvm.BuildICmp(
+        g.builder_ref,
+        llvm.IntPredicate.SLE,
+        lhs,
+        rhs,
+        "cond",
+    )
+    return cond
 }
 
 create_binary :: proc (g: ^LLVM_Generator, expr: Expr_Binary) -> llvm.ValueRef {
@@ -285,7 +299,10 @@ create_binary :: proc (g: ^LLVM_Generator, expr: Expr_Binary) -> llvm.ValueRef {
         case .MINUS:  return create_sub(g, expr.left^, expr.right^)
         case .STAR:   return create_mult(g, expr.left^, expr.right^)
         case .DIVIDE: return create_div(g, expr.left^, expr.right^)
+        
         case .EQUAL:  return create_assign(g, expr.left^, expr.right^)
+        
+        case .LESS:  return create_less(g, expr.left^, expr.right^)
 
     }
     panic("TODO")
@@ -358,9 +375,11 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
             fmt.ctprintf("str")
         )
     case Expr_Identifier:
+        // type is not set
         ref,ok := g.refs[v.value]
         if !ok do panic("TODO Could not find the variable")
         type := get_llvm_type(g, v.type)
+        
         return llvm.BuildLoad2(g.builder_ref, type, ref, get_tmp_name())
         //panic("TODO")
     case Expr_Binary: return create_binary(g, v)
@@ -369,6 +388,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     case Expr_Unary:
         #partial switch v.operator {
             case .UP:
+            
             type := get_llvm_type(g, get_expr_type(v.operand^))
             ptr := create_expression(g, v.operand^);
             return load_pointer(g, ptr, type)
@@ -395,9 +415,67 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
     case If_Stmt:
         panic("TODO")
     case While_Stmt:
-        panic("TODO")
+        cond_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.cond",
+        )
+
+        body_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.body",
+        )
+
+        end_bb := llvm.AppendBasicBlockInContext(
+            g.context_ref,
+            g.current_function,
+            "while.end",
+        )
+
+        // Jump into the condition.
+        llvm.BuildBr(g.builder_ref, cond_bb)
+        // while.cond:
+        llvm.PositionBuilderAtEnd(g.builder_ref, cond_bb)
+
+        //fmt.println(expr_to_string(v.condition.(Expr_Binary).right^))
+
+        cond := create_expression(g, v.condition^)
+
+
+        llvm.BuildCondBr(
+            g.builder_ref,
+            cond,
+            body_bb,
+            end_bb,
+        )
+
+        // while.body:
+        llvm.PositionBuilderAtEnd(g.builder_ref, body_bb)
+
+        create_stmt(g, v.block^)
+
+        // Unless the body already terminated (return/break/etc.),
+        // loop back to the condition.
+        llvm.BuildBr(g.builder_ref, cond_bb)
+
+        // while.end:
+        llvm.PositionBuilderAtEnd(g.builder_ref, end_bb)
+
+        return nil
     case Block:
-        panic("TODO")
+        for item in v.items {
+            switch v in item{
+            case Decl:
+                create_decl(g, v);
+            case Stmt:
+                if _, ok := v.(Return_Stmt); ok {
+                    //created_return = true
+                }
+                create_stmt(g, v);
+            }
+        }
+        return nil
     }
     panic("TODO")
 }

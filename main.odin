@@ -75,6 +75,7 @@ main :: proc() {
     parse_args();
     
     o_files := make([dynamic]string)
+    defer delete(o_files)
 
     for file in files {
         path := file
@@ -85,6 +86,8 @@ main :: proc() {
         l := Lexer({input=input,lines=1, col=1, file=path})
         
         tokens := make([dynamic]Token)
+        defer delete(tokens)
+
         for l.cursor < len(l.input) {
             token := read_token(&l)
             append(&tokens, token)
@@ -94,14 +97,14 @@ main :: proc() {
 
 
         
-        parser := Parser({tokens=tokens}) 
-
+        parser := Parser({tokens=tokens})
         program := parse_program(&parser)
         print_program(program)
 
         // Type check program
         check(program)
-        
+
+
     
         llvm_path := strings.builder_make()
         strings.write_string(&llvm_path, "./")
@@ -109,6 +112,7 @@ main :: proc() {
         strings.write_string(&llvm_path, ".ll")
 
         g := LLVM_Generator({})
+        defer delete(g.refs)
         gen_program(&g,program, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
     }
@@ -124,6 +128,7 @@ main :: proc() {
         }
     }
     
+    delete(files)
 }
 
 
