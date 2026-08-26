@@ -502,13 +502,10 @@ new_expr_unary :: proc(operand: ^Expr, operator: Token) -> ^Expr {
     return expr
 }
 
-new_expr_call :: proc(name: string, args: [dynamic]^Expr) -> ^Expr {
+new_expr_call :: proc(name: string, args: [dynamic]^Expr, span: Source_Span) -> ^Expr {
     expr := new(Expr)
     expr^ = Expr_Call({
-        // span=Source_Span{
-        //     start = get_expr_span(operand^).start,
-        //     end = operator.span.end
-        // },
+        span = span,
         name=name,
         args = args
     })
@@ -598,7 +595,11 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             if ident, is := left.(Expr_Identifier); is {
                 p.pos -= 1; // parse_call_args expect peek to be LPAR so we go back once
                 args := parse_call_args(p)
-                left = new_expr_call(ident.value, args)
+                span := Source_Span{
+                    start = get_expr_span(left^).start,
+                    end = ident.span.end
+                }
+                left = new_expr_call(ident.value, args, span)
             }
         }
         else if operator, found := parser_get(p, .LB); found { // subscript
@@ -1028,7 +1029,6 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         logln("parsing if stmt")
         if_stmt := parse_if(p);
         stmt = if_stmt^;
-        free(if_stmt)
         
         case .RETURN:
         logln("parsing return stmt")
@@ -1040,7 +1040,9 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         logln("PARSING-EXPR:", parser_peek(p).kind)
         expr := parse_expression(p)
         if expr == nil do break
+
         print_expr(expr^)
+
         parser_skip(p, .RPAR)
         stmt = expr^
     }
@@ -1096,9 +1098,9 @@ type_to_string :: proc(type: Type) -> string {
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
-        return fmt.tprintf("*%s", type_to_string(v.to^))
+        return fmt.tprintf("ptr")
     case Array:
-        return fmt.tprintf("[]%s", type_to_string(v.of^))
+        return fmt.tprintf("[]")
     }
     return "<unknown type>"
 }
