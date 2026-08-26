@@ -349,10 +349,10 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
             switch &decl in item {
             case Variable_Decl:
                 if decl.initlizer != nil {
-                    init_type := checker_get_type(program, func, &decl.initlizer)
+                    init_type := checker_get_type(program, func, decl.initlizer)
                     dec_type := decl.type
                     if can_cast(dec_type, init_type) {
-                        expr_set_type(&decl.initlizer, dec_type)
+                        expr_set_type(decl.initlizer, dec_type)
                     }
                     else if !check_type(dec_type, init_type) {
                         parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(dec_type), type_to_string(init_type)))

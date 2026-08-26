@@ -2,6 +2,7 @@ package main;
 import "core:strings"
 import "core:strconv"
 import "core:fmt"
+import "core:mem"
 import llvm "./llvm-bind"
 
 
@@ -81,8 +82,8 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
         g.refs[decl.name] = var
 
         if decl.initlizer != nil {
-            logln("init", expr_to_string(decl.initlizer), ":", get_expr_type(decl.initlizer))
-            val := create_expression(g, decl.initlizer)
+            logln("init", expr_to_string(decl.initlizer^), ":", get_expr_type(decl.initlizer^))
+            val := create_expression(g, decl.initlizer^)
             return llvm.BuildStore(
                 g.builder_ref,
                 val,
@@ -634,6 +635,7 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
 }
 
 gen_program :: proc (g: ^LLVM_Generator, p: Program, i_file, o_file: string) {
+
     context_ref := llvm.ContextCreate()
     defer llvm.ContextDispose(context_ref)
 
