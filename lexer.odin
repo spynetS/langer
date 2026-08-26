@@ -155,6 +155,7 @@ is_char :: proc(a: byte) -> bool {
 
 read_number :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
+    defer strings.builder_destroy(&buffer)
     float  := false
     double := false
     for is_digit(peek(lexer)) || peek(lexer) == 'f' || peek(lexer) == 'd' {
@@ -169,6 +170,7 @@ read_number :: proc(lexer: ^Lexer) -> Token {
 }
 read_identifier :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
+    defer strings.builder_destroy(&buffer)
     for is_char(peek(lexer)) || peek(lexer) == '_' || is_digit(peek(lexer)) {
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
@@ -209,19 +211,15 @@ read_string :: proc(lexer: ^Lexer) -> Token {
     advance(lexer)
 
     buffer := strings.builder_make()
+    defer strings.builder_destroy(&buffer)
     for peek(lexer) != '"' {
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
     }
 
-//    if peek(lexer) != '"' do panic(fmt.tprintf("Unexpected char, expected \", got %c", peek(lexer)))
     advance(lexer)
     return Token({kind=.STRING_LITERAL, lexeme=fmt.tprintf("\"%s\"", strings.to_string(buffer))})
 }
-
-// create_token :: proc (kind: Token_Kind, lexeme: string) -> Token {
-    
-// }
 
 skip_comments :: proc(lexer: ^Lexer) {
     if peek(lexer) == '/' && peek(lexer,1) == '/' {

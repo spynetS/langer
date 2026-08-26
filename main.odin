@@ -82,6 +82,7 @@ main :: proc() {
 
         bytes, error := os.read_entire_file_from_path(path, allocator=context.allocator)
         input := strings.clone_from_bytes(bytes)
+        delete(bytes)
         logln(input)
         l := Lexer({input=input,lines=1, col=1, file=path})
         
@@ -104,7 +105,11 @@ main :: proc() {
         
         parser := Parser({tokens=tokens})
         program := parse_program(&parser)
-        defer delete_program(&program);
+        defer {
+            delete_program(&program);
+            free(parser.program)
+        }
+        
         
         print_program(program)
 

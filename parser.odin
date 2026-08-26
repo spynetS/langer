@@ -335,6 +335,7 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind, custom_msg: string = "") 
         }
     }
     if none do parser_panic(token,fmt.tprintf("Got unexpected token. Got '%s' wanted '%s'\n %s", token.kind, strings.to_string(s_kinds), custom_msg))
+    strings.builder_destroy(&s_kinds);
 
     return parser_advance(p)
 }
@@ -591,8 +592,6 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             logln("========================")
             fmt.println(expr_to_string(left^))
             logln("========================")
-
-
         }
         else if operator, found := parser_get(p, .LPAR); found { // FUNCTION CALL
             if ident, is := left.(Expr_Identifier); is {
@@ -604,9 +603,7 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
         else if operator, found := parser_get(p, .LB); found { // subscript
             if ident, is := left.(Expr_Identifier); is {
                 index := parse_expression(p);
-                ls := new(Expr_Identifier)
-                ls^ = ident;
-                left = new_expr_subscript(ls, index)
+                left = new_expr_subscript(&ident, index)
                 parser_expect(p, .RB)
             }
         }
@@ -760,9 +757,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
         case Expr_Identifier: return v.type
         case Expr_String:
         // TODO should be char
-        to := new(Type)
-        to^ = .BYTE
-        return Pointer({to=to})
+        return Pointer({})
         case Expr_Call: return v.type
         case Expr_MemberAccess:
         p_t := get_expr_type(v.obj^)
@@ -775,9 +770,6 @@ get_expr_type :: proc(expr: Expr) -> Type {
                 }
             }
         }
-
-
-
     }
     panic("TODO")
 }
@@ -1180,7 +1172,11 @@ expr_to_string :: proc(expr_u: Expr) -> string {
             strings.write_string(&result, expr_to_string(arg^))
         } 
         strings.write_string(&result, ")")
-        return strings.to_string(result)
+        val := strings.to_string(result)
+
+        strings.builder_destroy(&result)
+
+        return val
     }
 
     return "<unknown expr>"
@@ -1348,12 +1344,10 @@ delete_expression :: proc(expr_u: ^Expr) {
         delete(expr.value)
     case Expr_Identifier:
         delete_type(&expr.type)
-        delete(expr.value)
     case Expr_Binary:
         delete_expression(expr.left)
         delete_expression(expr.right)
     case Expr_Call:
-        delete(expr.name)
         for a in expr.args {
             delete_expression(a)
         }
@@ -1376,7 +1370,6 @@ delete_block :: proc(block: ^Block) {
                 if decl.block != nil do delete_block(decl.block)
                 delete(decl.args)
                 case Variable_Decl:
-                delete(decl.name)
                 delete_type(&decl.type)
                 delete_expression(decl.initlizer)
             }
@@ -1397,8 +1390,12 @@ delete_block :: proc(block: ^Block) {
 
 delete_function :: proc(func: ^Function_Decl) {
     if func.block != nil do delete_block(func.block)
+    delete_type(&func.type)
+    for &a in func.args {
+        delete_type(&a.type)
+        if a.initlizer != nil do delete_expression(a.initlizer)
+    }
     delete(func.args)
-    delete(func.name)
 }
 
 delete_program :: proc(program: ^Program) {
