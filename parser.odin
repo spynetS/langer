@@ -646,15 +646,24 @@ parse_additive :: proc (p: ^Parser) -> ^Expr {
     return left
 }
 
+parse_condition :: proc(p: ^Parser) -> ^Expr {
+    left := parse_additive(p);
+    if operator, is := parser_get(p, .LESS, .GREATER, .EQ, .LEQ, .GEQ); is {
+        right := parse_additive(p);
+        left = new_expr_binary(left, right, operator)
+    }
+    return left
+}
+
 parse_and :: proc (p: ^Parser) -> ^Expr {
-    left := parse_additive(p)
+    left := parse_condition(p)
     for {
         operator, found := parser_get(p, .AND)
         if !found {
             break
         }
 
-        right := parse_additive(p)
+        right := parse_condition(p)
         left = new_expr_binary(left, right, operator)
     }
     return left
