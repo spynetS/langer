@@ -113,7 +113,7 @@ Stmt :: union {
 }
 
 Expr_MemberAccess :: struct {
-    obj: ^Variable_Decl,
+    obj: ^Expr,
     member: string,
     span: Source_Span,
 }
@@ -547,12 +547,52 @@ parse_primary :: proc(p: ^Parser) -> ^Expr {
         })
         return expr
     }
+    else if token, found := parser_get(p, .STRING_LITERAL); found {
+        expr := new(Expr)
+        expr^ = Expr_String({
+            span=token.span,
+            value=token.lexeme,
+        })
+        return expr
+    }
+    else if token, found := parser_get(p, .IDENTIFER); found {
+        expr := new(Expr)
+        expr^ = Expr_Identifier({
+            span=token.span,
+            value=token.lexeme,
+        })
+        return expr
+    }
+    logln("PEEK is", parser_peek(p).kind)
+    panic("TODO")
+}
+
 
 parse_postfix :: proc(p: ^Parser) -> ^Expr {
     left := parse_primary(p);
     for {
         if operator, found := parser_get(p, .UP, .AMPER); found { // DEREFERANCE
             left = new_expr_unary(left, operator)
+        }
+        else if operator, found := parser_get(p, .PUNCT); found { // Memeber access
+            member := parser_expect(p, .IDENTIFER)
+
+            expr := new(Expr)
+            expr^ = Expr_MemberAccess{
+                obj=left,
+                member=member.lexeme,
+                span=Source_Span{
+                    start = get_expr_span(left^).start,
+                    end = member.span.end
+                }
+            }
+            left = expr
+
+            logln("========================")
+            fmt.println(expr_to_string(left^))
+            logln("========================")
+
+
         }
         else if operator, found := parser_get(p, .LPAR); found { // FUNCTION CALL
             if ident, is := left.(Expr_Identifier); is {
@@ -716,9 +756,20 @@ get_expr_type :: proc(expr: Expr) -> Type {
         return Pointer({to=to})
         case Expr_Call: return v.type
         case Expr_MemberAccess:
-        return Basic(.INT)
+        p_t := get_expr_type(v.obj^)
+        if p_t == nil do return nil
+
+        if struc, is := p_t.(Struct_Decl); is {
+            for mem in struc.members {
+                if mem.name == v.member {
+                    return mem.type
+                }
+            }
+        }
+
+
+
     }
-    fmt.println(expr_to_string(expr))
     panic("TODO")
 }
 
@@ -1105,9 +1156,7 @@ expr_to_string :: proc(expr_u: Expr) -> string {
         return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
     case Expr_MemberAccess:
-        return fmt.tprintf("%s.%s", expr.obj.name, expr.member)
-
-
+        return fmt.tprintf("%s.%s", expr_to_string(expr.obj^), expr.member)
     case Expr_Identifier:
         return expr.value
 
@@ -1129,14 +1178,13 @@ expr_to_string :: proc(expr_u: Expr) -> string {
 
 print_expr :: proc(expr_u: Expr, depth: int = 0) {
     print_indent(depth)
-    logln("type =",get_expr_type(expr_u))
+    logln("<", type_to_string(get_expr_type(expr_u)), ">")
     print_indent(depth)
-
     switch expr in expr_u {
     case Expr_Array: panic("TODO")
     case Expr_MemberAccess:
         logln("MemberAccess ");
-        print_decl(expr.obj^,depth=depth+1)
+        print_expr(expr.obj^,depth=depth+1)
         print_indent(depth+1)
         log(expr.member,"\n")
 
@@ -1175,7 +1223,7 @@ print_stmt :: proc(stmt: Stmt, depth: int = 0) {
 
     case Return_Stmt:
         print_indent(depth)
-        logln("type =",v.type)
+        logln("type =", type_to_string(v.type))
         print_indent(depth)
         logln("Return")
         print_expr(v.value^, depth + 1)

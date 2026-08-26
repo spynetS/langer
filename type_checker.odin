@@ -54,33 +54,76 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
     }
 }
 
-get_member :: proc(obj: Expr_MemberAccess, member: string) -> Expr {
-    // TODO make so the memberaccess obj inst an expression
-    // it should be a custom union for struct, package enum etc
-    // here we should return what the .member should return
-    // #partial switch v in obj {
-        
-    // }
-    return {}
-}
+// get_decl_name :: proc(decl: Decl) -> string {
+//     switch v in decl {
+//     case Variable_Decl: return v.name
+//     case Function_Decl: return v.name
+//     case Struct_Decl: return v.name
+//     }
+//     return ""
+
+// }
+
+
+// get_members :: proc(obj: Expr_MemberAccess, access_member: string) -> [dynamic]Variable_Decl {
+//     members := make([dynamic]Variable_Decl)
+//     obj_name : string
+
+//     #partial switch v in obj.obj {
+//     case Struct_Decl:
+//         members = v.members
+//         obj_name = v.name
+//         case: panic("SHOULD BE")
+//     }
+
+//     return members
+// }
+
+// get_member :: proc(obj: Variable_Decl, access_member: string) -> (Variable_Decl, bool) {
+//     members := make([dynamic]Variable_Decl)
+//     defer delete(members)
+//     obj_name : string
+
+//     #partial switch v in obj.type {
+//         case Struct_Decl:
+//         members = v.members
+//         obj_name = v.name
+//         case: panic("SHOULD BE")
+//     }
+
+
+//     for i in 0..<len(members) {
+//         member := members[i]
+//         if member.name == access_member {
+//             return member, true
+//         }
+//     }
+//     parser_panic(obj, fmt.tprintf("'{}' has no member '{}'", obj_name, access_member))
+
+//     return {}, false
+// }
+
+
 
 checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^Expr) -> Type {
     if expr == nil do panic("ASD")
     switch &value in expr {
     case Expr_MemberAccess:
         //checker_get_type(program, current_func, value.obj.(Struct_Decl))
-        found := false
-        struc := value.obj.type.(Struct_Decl)
-        type : Type
-        for i in 0..<len(struc.members) {
-            member := struc.members[i]
-            if member.name == value.member {
-                found = true
-                type = member.type
+        p_t := checker_get_type(program, current_func, value.obj)
+
+        if struc, is := p_t.(Struct_Decl); is {
+            for mem in struc.members {
+                if mem.name == value.member {
+                    // logln("=======================")
+                    // logln("here", type_to_string(mem.type))
+                    // logln("=======================")
+                    return mem.type
+                }
             }
         }
-        if !found do parser_panic(expr^, fmt.tprintf("'{}' has no member '{}'", struc.name, value.member))
-        return type
+
+
     case Expr_Unary:
         //fmt.println(expr_to_string(value.operand^))
         p_t := checker_get_type(program, current_func, value.operand)
@@ -328,9 +371,6 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 logln("type", ans)
             case Return_Stmt:
                 type := checker_get_type(program, func, stmt.value)
-                if !check_type(func.type, type) {
-                    parser_panic(stmt.value^, "Return type doesnt match function type")
-                }
                 stmt.type = type
                 expr_set_type(stmt.value, type)
                 if !check_type(func.type, type) {

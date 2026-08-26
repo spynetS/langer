@@ -385,24 +385,38 @@ load_pointer :: proc (g: ^LLVM_Generator, ptr: llvm.ValueRef, type: llvm.TypeRef
 }
 
 
+
 create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
-    object, found_var := g.refs[expr.obj.name]
-    if !found_var do panic("asd")
+    logln("Creating member access")
+    object : llvm.ValueRef
+    parent: ^Expr = expr.obj
 
-    strc,ok := expr.obj.type.(Struct_Decl)
-    if !ok do panic("asd")
+    // if our parent is member we create member acc
+    // if it is identioder we use it 
+    if par,is := parent.(Expr_MemberAccess); is {
+        object = create_member_access(g, par)
+    }
+    if id,is := parent.(Expr_Identifier); is {
+        object = g.refs[id.value]
+        logln("found var", id.value)
+    }
 
+    // we retrive the struct from the parent
+    struc, ok := get_expr_type(parent^).(Struct_Decl)
+    if !ok do panic("OHH MAN")
+    //creating the indices for llvm
     indices := make([]llvm.ValueRef, 2)
     indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)
-    for i in 0..<len(strc.members) {
-        member := strc.members[i]
+    // retrive the mebmber from the struct 
+    for i in 0..<len(struc.members) {
+        member := struc.members[i]
+        logln(member.name,expr.member)
         if member.name == expr.member {
-
             indices[1] = llvm.ConstInt(get_llvm_type(g, Basic(.INT)), u64(i), 0)
         }
     }
 
-    type_name, ok2 := g.structs[strc.name]
+    type_name, ok2 := g.structs[struc.name]
     if !ok2 do panic("asd")
 
     val := llvm.BuildGEP2(
