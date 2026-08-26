@@ -65,6 +65,7 @@ get_member :: proc(obj: Expr_MemberAccess, member: string) -> Expr {
 }
 
 checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^Expr) -> Type {
+    if expr == nil do panic("ASD")
     switch &value in expr {
     case Expr_MemberAccess:
         //checker_get_type(program, current_func, value.obj.(Struct_Decl))
@@ -101,16 +102,35 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
         }
 
     case Expr_Subscript:
-        type := checker_get_type(program, current_func, cast(^Expr)value.left)
+
+        var, found := checker_get_var(current_func, value.left.value)
+        if !found{
+            parser_panic(value, value.left^, fmt.tprintf("Variable '{}' not found", value.left.value))
+        }
+
+
+        if var.initlizer == nil {
+            parser_panic(value, value.left^, "Variable hasn't been initlized yet")
+        }
+
+        expr := new(Expr)
+        expr^ = value.left^;
+        type := checker_get_type(program, current_func, expr);
+        if type == nil do panic("asd")
+        free(expr)
+
+        value.left.type = type
         checker_get_type(program, current_func, value.index) // type checking index
+        sub_type : Type
         #partial switch v in type {
             case Array:
-            return v.of^;
+            sub_type = v.of^;
             case Pointer:
-            return v.to^;
+            sub_type = v.to^;
         }
-        parser_panic(expr^, "Variable not an array")
-        panic("NOT AN ARRAY?!")
+        value.type = sub_type
+        return sub_type
+
     case Expr_Identifier:
         // look in the ast for the identifer
         //func, f_func := checker_get_func(program, value.value);
@@ -131,6 +151,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
     case Expr_Binary:
         lt := checker_get_type(program, current_func, value.left)
         rt := checker_get_type(program, current_func, value.right)
+        
         if can_cast(rt, lt) {
             expr_set_type(value.right, rt)
         }
@@ -155,7 +176,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])
             //parser_panic(value, fmt.tprintf("{} {}", func_type, call_type), level=0)
-            if can_cast(func_type, call_type) {
+            if can_cast(call_type, func_type) {
                 expr_set_type(value.args[i], func_type)
             }
             else if !check_type(func_type, call_type) {
@@ -164,7 +185,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
         }
         return func_call.type
     }
-    fmt.println(expr)
+    //fmt.println(expr)
     panic("TODO")
 }
 check_type :: proc(a, b: Type) -> bool {
@@ -208,19 +229,72 @@ check_type :: proc(a, b: Type) -> bool {
     return false 
 }
 
+// can_cast :: proc(a, b: Type) -> bool {
+//     if check_type(a, b) do return true
+//     switch x in a {
+//     case Basic:
+//         y, ok := b.(Basic)
+//         if !ok {
+//             return false
+//         }
+//         if ((x == .FLOAT  && y == .INT) || (x == .INT && y == .FLOAT))  do return true
+//         if ((x == .DOUBLE && y == .INT) || (x == .INT && y == .DOUBLE)) do return true
+//         if ((x == .BYTE   && y == .INT) || (x == .INT && y == .BYTE))   do return true
+//         if ((x == .BYTE   && y == .INT) || (x == .INT && y == .BYTE))   do return true
+//     case Pointer:
+        
+//     case Array: return false;
+//     }
+//     return false
+// }
+
 can_cast :: proc(a, b: Type) -> bool {
-    if check_type(a, b) do return true
+    if check_type(a, b) {
+        return true
+    }
+
     switch x in a {
     case Basic:
         y, ok := b.(Basic)
         if !ok {
             return false
         }
-        if ((x == .FLOAT  && y == .INT) || (x == .INT && y == .FLOAT))  do return true
-        if ((x == .DOUBLE && y == .INT) || (x == .INT && y == .DOUBLE)) do return true
-        if ((x == .BYTE   && y == .INT) || (x == .INT && y == .BYTE))   do return true
-    case Pointer, Array, Struct_Decl: return false;
+        // Numeric conversions
+        if (x == .FLOAT && y == .INT) ||
+           (x == .INT   && y == .FLOAT) {
+            return true
+        }
+
+        if (x == .DOUBLE && y == .INT) ||
+           (x == .INT    && y == .DOUBLE) {
+            return true
+        }
+
+        if (x == .BYTE && y == .INT) ||
+           (x == .INT  && y == .BYTE) {
+            return true
+        }
+
+    case Pointer:
+        y, ok := b.(Basic)
+        if !ok {
+            return false
+        }
+
+        // ^BYTE -> STRING
+        if y == .STRING {
+            pointed_to, ok := x.to^.(Basic)
+            if ok && pointed_to == .BYTE {
+                return true
+            }
+        }
+
+    case Array:
+        return false
+    case Struct_Decl:
+        return false
     }
+
     return false
 }
 
@@ -250,14 +324,24 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
         case Stmt:
             switch &stmt in item {
             case Expr:
-                checker_get_type(program, func, &stmt)
+                ans := checker_get_type(program, func, &stmt)
+                logln("type", ans)
             case Return_Stmt:
                 type := checker_get_type(program, func, stmt.value)
                 if !check_type(func.type, type) {
                     parser_panic(stmt.value^, "Return type doesnt match function type")
                 }
                 stmt.type = type
+                expr_set_type(stmt.value, type)
+                if !check_type(func.type, type) {
+                    if can_cast(type, func.type) {
+                        stmt.type = func.type
+                        expr_set_type(stmt.value, func.type)
+                    }
+                    else do parser_panic(stmt.value^, "Return type doesnt match function type")
+                }
 
+                
             case If_Stmt:
                 t := checker_get_type(program, func, stmt.condition)
                 check_block(program, func, stmt.block);
