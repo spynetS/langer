@@ -2,6 +2,7 @@ package main;
 import "core:fmt"
 import "core:strings"
 import "core:os"
+import "core:mem"
 import "core:path/slashpath"
 
 
@@ -17,7 +18,6 @@ clang_stdout := false
 // TODO seprate arrays and pointers
 // TODO chars
 // TODO 32 bit integers
-// TODO parse escape charecters
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
@@ -104,18 +104,17 @@ main :: proc() {
 
         
         parser := Parser({tokens=tokens})
+        arena: mem.Dynamic_Arena
+        mem.dynamic_arena_init(&arena)
+        defer mem.dynamic_arena_destroy(&arena);
+        context.allocator = mem.dynamic_arena_allocator(&arena)
+
         program := parse_program(&parser)
-        defer {
-            delete_program(&program);
-            free(parser.program)
-        }
-        
-        
         print_program(program)
 
-        // Type check program
         check(program)
         print_program(program)
+
 
         llvm_path := strings.builder_make()
         strings.write_string(&llvm_path, "./")
@@ -123,13 +122,12 @@ main :: proc() {
         strings.write_string(&llvm_path, ".ll")
 
         g := LLVM_Generator({})
-        defer delete(g.refs)
-//        gen_program(&g,program, file, strings.to_string(llvm_path))
+        gen_program(&g,program, file, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
 
     }
 
-    if len(o_files) > 0 && false {
+    if len(o_files) > 0 {
         compile_llvm(o_files)
 
         if clean_llvm {

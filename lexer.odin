@@ -164,9 +164,10 @@ read_number :: proc(lexer: ^Lexer) -> Token {
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
     }
-    if      float  do return Token({kind=.NUMBER_FLOAT, lexeme=strings.to_string(buffer)})
-    else if double do return Token({kind=.NUMBER_DOUBLE, lexeme=strings.to_string(buffer)})
-    else           do return Token({kind=.NUMBER, lexeme=strings.to_string(buffer)})
+    val := fmt.tprintf("%s",strings.to_string(buffer))
+    if      float  do return Token({kind=.NUMBER_FLOAT, lexeme=val})
+    else if double do return Token({kind=.NUMBER_DOUBLE, lexeme=val})
+    else           do return Token({kind=.NUMBER, lexeme=val})
 }
 read_identifier :: proc(lexer: ^Lexer) -> Token {
     buffer := strings.builder_make()
@@ -176,7 +177,7 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
         if !advance(lexer) do break
     }
     
-    val := strings.to_string(buffer)
+    val := fmt.tprintf("%s",strings.to_string(buffer))
     kind : Token_Kind = .IDENTIFER
     // KEYWORDS
     switch val {
@@ -218,7 +219,7 @@ read_string :: proc(lexer: ^Lexer) -> Token {
     }
 
     advance(lexer)
-    return Token({kind=.STRING_LITERAL, lexeme=fmt.tprintf("\"%s\"", strings.to_string(buffer))})
+    return Token({kind=.STRING_LITERAL, lexeme=fmt.tprintf("\"%s\"", fmt.tprintf("%s",strings.to_string(buffer)))})
 }
 
 skip_comments :: proc(lexer: ^Lexer) {

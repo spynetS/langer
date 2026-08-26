@@ -2,6 +2,7 @@ package main;
 import "core:strings"
 import "core:strconv"
 import "core:fmt"
+import "core:mem"
 import llvm "./llvm-bind"
 
 
@@ -634,6 +635,7 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
 }
 
 gen_program :: proc (g: ^LLVM_Generator, p: Program, i_file, o_file: string) {
+
     context_ref := llvm.ContextCreate()
     defer llvm.ContextDispose(context_ref)
 
