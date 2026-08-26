@@ -614,13 +614,10 @@ parse_term :: proc(p: ^Parser) -> ^Expr {
         parser_advance(p)
         member := parser_expect(p, .IDENTIFER)
         stru_id, ok := left.(Expr_Identifier)
-        fmt.println(stru_id.value)
-        fmt.println(p.current_block)
+
         var, ok1 := checker_get_var(p.current_block^, stru_id.value)
         if !ok1 do parser_panic(left^, fmt.tprintf("Variable '{}' not found", stru_id.value))
         
-        print_decl(var)
-        fmt.println(decl_to_string(var.type.(Struct_Decl)))
 
         var_obj := new(Variable_Decl)
         var_obj^ = var

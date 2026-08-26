@@ -176,9 +176,6 @@ create_add :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-
-    fmt.println(check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT)))
-
     if      check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
     else if check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFAdd(g.builder_ref, left, right, get_tmp_name())
     else                                                                     do return llvm.BuildAdd(g.builder_ref, left, right, get_tmp_name())
@@ -262,10 +259,7 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
 
         left_val = ptrel
     }
-    fmt.println("BEFORE")
-    print_expr(right)
     right_val := create_expression(g, right)
-
 
     
     return llvm.BuildStore(

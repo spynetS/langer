@@ -151,7 +151,6 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
             }
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])
-            parser_panic(value, fmt.tprintf("want {} got {}", type_to_string(func_type), type_to_string(call_type)), level=0)
             if !check_type(func_type, call_type) {
                 parser_panic(value, value.args[i]^, fmt.tprintf("Argument missmatch {} != {}", type_to_string(func_type), type_to_string(call_type)))
             }
