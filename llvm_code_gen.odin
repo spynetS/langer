@@ -382,7 +382,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
     switch v in expr{
     case Expr_Array: panic("TODO")
     case Expr_Subscript:
-        type := get_llvm_type(g, get_expr_type(v.left^))
+        type := get_llvm_type(g, get_expr_type(v))
         ptr := create_expression(g, v.left^);        
         index := create_expression(g, v.index^)
 

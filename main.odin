@@ -103,9 +103,8 @@ main :: proc() {
 
         // Type check program
         check(program)
+        print_program(program)
 
-
-    
         llvm_path := strings.builder_make()
         strings.write_string(&llvm_path, "./")
         strings.write_string(&llvm_path, slashpath.name(file))
