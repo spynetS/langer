@@ -217,13 +217,12 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     lt := get_expr_type(left)
     rt := get_expr_type(right)
 
-
     left := create_expression(g, left)
     right := create_expression(g, right)
 
-    if      check_type(lt, Basic(.FLOAT)) || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
-    else if  check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE)) do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
-    else                                                 do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
+    if       check_type(lt, Basic(.FLOAT))  || check_type(rt, Basic(.FLOAT))   do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    else if  check_type(lt, Basic(.DOUBLE)) || check_type(rt, Basic(.DOUBLE))  do return llvm.BuildFDiv(g.builder_ref, left, right, get_tmp_name())
+    else                                                                       do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
 }
 
 create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
@@ -363,7 +362,9 @@ create_number :: proc(g: ^LLVM_Generator, expr: Expr_Number) -> llvm.ValueRef {
             
             case .DOUBLE:
             value,_ := strings.replace(expr.value, "d", "",1)
+            value,_ = strings.replace(expr.value, "f", "",1) // float can be double
             val,ok := strconv.parse_f64(value)
+            fmt.println(value)
             if !ok do parser_panic(expr, "Not an double")
             return llvm.ConstReal(get_llvm_type(g,Basic(.DOUBLE)), f64(val))
             
@@ -489,7 +490,6 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
         type := get_llvm_type(g, v.type)
         
         return llvm.BuildLoad2(g.builder_ref, type, ref, get_tmp_name())
-        //panic("TODO")
     case Expr_Binary: return create_binary(g, v)
     case Expr_Call:
         return create_call(g, v);

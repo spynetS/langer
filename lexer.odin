@@ -158,9 +158,11 @@ read_number :: proc(lexer: ^Lexer) -> Token {
     defer strings.builder_destroy(&buffer)
     float  := false
     double := false
-    for is_digit(peek(lexer)) || peek(lexer) == 'f' || peek(lexer) == 'd' {
+    for is_digit(peek(lexer)) || peek(lexer) == 'f' || peek(lexer) == 'd' || peek(lexer) == '.' {
+
         if !float && peek(lexer)  == 'f' do float = true
-        if !double && peek(lexer) == 'd' do double = true
+        if !double && (peek(lexer) == '.' || peek(lexer) == 'd') do double = true
+        
         strings.write_byte(&buffer, peek(lexer))
         if !advance(lexer) do break
     }

@@ -42,6 +42,7 @@ checker_get_var_func :: proc (func: Function_Decl, name: string) -> (Variable_De
 }
 
 expr_set_type :: proc(expr_u: ^Expr, type: Type) {
+    if expr_u == nil do panic("asd")
     #partial switch &expr in expr_u {
         case Expr_Subscript:
         expr.type = type
@@ -51,6 +52,9 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
         expr.type = type
         case Expr_Call:
         expr.type = type
+        case Expr_Binary:
+        expr_set_type(expr.left, type)
+        expr_set_type(expr.right, type)
     }
 }
 
@@ -194,9 +198,11 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
     case Expr_Binary:
         lt := checker_get_type(program, current_func, value.left)
         rt := checker_get_type(program, current_func, value.right)
-        
-        if can_cast(rt, lt) {
-            expr_set_type(value.right, rt)
+
+        if type, can := can_cast(rt, lt); can {
+            expr_set_type(value.right, type)
+            expr_set_type(value.left, type)
+            return type
         }
         else if !check_type(lt, rt) do parser_panic(value, fmt.tprintf("Assigment types doesnt match {} != {}", lt, rt))
 
@@ -219,7 +225,7 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])
             //parser_panic(value, fmt.tprintf("{} {}", func_type, call_type), level=0)
-            if can_cast(call_type, func_type) {
+            if type, can := can_cast(call_type, func_type); can {
                 expr_set_type(value.args[i], func_type)
             }
             else if !check_type(func_type, call_type) {
@@ -291,54 +297,60 @@ check_type :: proc(a, b: Type) -> bool {
 //     return false
 // }
 
-can_cast :: proc(a, b: Type) -> bool {
+can_cast :: proc(a, b: Type) -> (Type, bool) {
     if check_type(a, b) {
-        return true
+        return a, true
     }
 
     switch x in a {
     case Basic:
         y, ok := b.(Basic)
         if !ok {
-            return false
+            return {}, false
         }
         // Numeric conversions
         if (x == .FLOAT && y == .INT) ||
            (x == .INT   && y == .FLOAT) {
-            return true
+               return Basic(.FLOAT),true
         }
 
         if (x == .DOUBLE && y == .INT) ||
            (x == .INT    && y == .DOUBLE) {
-            return true
+               return Basic(.DOUBLE),true
         }
+
+        if (x == .DOUBLE && y == .FLOAT) ||
+           (x == .FLOAT    && y == .DOUBLE) {
+               return Basic(.DOUBLE),true
+        }
+
 
         if (x == .BYTE && y == .INT) ||
            (x == .INT  && y == .BYTE) {
-            return true
+               return Basic(.BYTE),true
         }
 
     case Pointer:
         y, ok := b.(Basic)
         if !ok {
-            return false
+            return {}, false
         }
 
         // ^BYTE -> STRING
         if y == .STRING {
             pointed_to, ok := x.to^.(Basic)
             if ok && pointed_to == .BYTE {
-                return true
+                return a, true
             }
         }
 
     case Array:
-        return false
+        return {}, false
     case Struct_Decl:
-        return false
+        return {}, false
     }
 
-    return false
+    return {}, false
 }
 
 
@@ -351,7 +363,9 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 if decl.initlizer != nil {
                     init_type := checker_get_type(program, func, decl.initlizer)
                     dec_type := decl.type
-                    if can_cast(dec_type, init_type) {
+                    // fmt.printfln("can {} cast to {} {}", dec_type, init_type, can_cast(dec_type, init_type))
+                    // if true do panic("asd")
+                    if type, can := can_cast(dec_type, init_type); can {
                         expr_set_type(decl.initlizer, dec_type)
                     }
                     else if !check_type(dec_type, init_type) {
@@ -374,7 +388,7 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 stmt.type = type
                 expr_set_type(stmt.value, type)
                 if !check_type(func.type, type) {
-                    if can_cast(type, func.type) {
+                    if type, can := can_cast(type, func.type); can {
                         stmt.type = func.type
                         expr_set_type(stmt.value, func.type)
                     }
