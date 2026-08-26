@@ -52,6 +52,7 @@ Token_Kind :: enum {
     BOOL,
     TRUE,
     FALSE,
+    BYTE,
     INT,
     FLOAT,
     DOUBLE,
@@ -183,6 +184,8 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "bool": kind = .BOOL
     case "true": kind = .NUMBER_BOOL
     case "false": kind = .NUMBER_BOOL
+    case "char": kind = .BYTE
+    case "byte": kind = .BYTE
     case "int": kind = .INT
     case "float": kind = .FLOAT
     case "string": kind = .STRING

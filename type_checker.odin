@@ -131,7 +131,10 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
     case Expr_Binary:
         lt := checker_get_type(program, current_func, value.left)
         rt := checker_get_type(program, current_func, value.right)
-        if !check_type(lt, rt) do parser_panic(value, fmt.tprintf("Assigment types doesnt match {} != {}", lt, rt))
+        if can_cast(rt, lt) {
+            expr_set_type(value.right, rt)
+        }
+        else if !check_type(lt, rt) do parser_panic(value, fmt.tprintf("Assigment types doesnt match {} != {}", lt, rt))
 
         return get_expr_type(expr^)
     case Expr_Call:
@@ -151,8 +154,12 @@ checker_get_type :: proc(program: Program, current_func: Function_Decl, expr: ^E
             }
             func_type := func_call.args[i].type
             call_type := checker_get_type(program, current_func, value.args[i])
-            if !check_type(func_type, call_type) {
-                parser_panic(value, value.args[i]^, fmt.tprintf("Argument missmatch {} != {}", type_to_string(func_type), type_to_string(call_type)))
+            //parser_panic(value, fmt.tprintf("{} {}", func_type, call_type), level=0)
+            if can_cast(func_type, call_type) {
+                expr_set_type(value.args[i], func_type)
+            }
+            else if !check_type(func_type, call_type) {
+                parser_panic(value, value.args[i]^, fmt.tprintf("Argument missmatch {} != {}", func_type, call_type))
             }
         }
         return func_call.type
@@ -201,6 +208,23 @@ check_type :: proc(a, b: Type) -> bool {
     return false 
 }
 
+can_cast :: proc(a, b: Type) -> bool {
+    if check_type(a, b) do return true
+    switch x in a {
+    case Basic:
+        y, ok := b.(Basic)
+        if !ok {
+            return false
+        }
+        if ((x == .FLOAT  && y == .INT) || (x == .INT && y == .FLOAT))  do return true
+        if ((x == .DOUBLE && y == .INT) || (x == .INT && y == .DOUBLE)) do return true
+        if ((x == .BYTE   && y == .INT) || (x == .INT && y == .BYTE))   do return true
+    case Pointer, Array, Struct_Decl: return false;
+    }
+    return false
+}
+
+
 check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
     for &items in block.items {
         switch &item in items {
@@ -210,7 +234,10 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block) {
                 if decl.initlizer != nil {
                     init_type := checker_get_type(program, func, &decl.initlizer)
                     dec_type := decl.type
-                    if !check_type(dec_type,init_type) {
+                    if can_cast(dec_type, init_type) {
+                        expr_set_type(&decl.initlizer, dec_type)
+                    }
+                    else if !check_type(dec_type, init_type) {
                         parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(dec_type), type_to_string(init_type)))
                     }
                 }

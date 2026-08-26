@@ -28,6 +28,7 @@ Program :: struct {
 
 Basic :: enum {
     INT,
+    BYTE, // char
     BOOL,
     STRING,
     FLOAT,
@@ -391,9 +392,10 @@ parse_type :: proc (p: ^Parser) -> (Type, bool) {
 
 get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
      #partial switch token {
-         case .VOID:   return Basic(.VOID), true
-         case .INT:    return Basic(.INT), true
-         case .BOOL:   return Basic(.BOOL), true
+         case .VOID: return Basic(.VOID), true
+         case .INT: return Basic(.INT), true
+         case .BYTE: return Basic(.BYTE), true
+         case .BOOL: return Basic(.BOOL), true
          case .STRING: return Basic(.STRING), true
          case .FLOAT:  return Basic(.FLOAT), true
          case .DOUBLE: return Basic(.DOUBLE), true
@@ -407,10 +409,8 @@ is_type :: proc {
 }
 
 is_type_token :: proc (kind: Token_Kind) -> bool {
-    #partial switch kind {
-        case .VOID, .INT, .DOUBLE, .FLOAT, .STRING, .STAR: return true
-    }
-    return false
+    _, found := get_type_token(kind)
+    return found
 }
 
 parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
@@ -689,6 +689,7 @@ parser_skip :: proc (p: ^Parser, kind: Token_Kind, depth: int = MAX_DEPTH) -> To
 }
 
 parse_expression :: proc (p: ^Parser) -> ^Expr {
+    defer logln("\n")
     left := parse_term(p)
     logln("== LEFT expr IS ===")
     print_expr(left^)
@@ -725,7 +726,7 @@ parse_expression :: proc (p: ^Parser) -> ^Expr {
         //parser_panic(parser_peek(p),fmt.tprintf("Unexpected token, got {}", parser_peek(p).kind))
         return left
     }
-
+    
     return left
 }
 

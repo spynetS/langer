@@ -36,6 +36,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
         case Basic:
         #partial switch v {
             case .INT:    return llvm.Int32TypeInContext(g.context_ref)
+            case .BYTE:    return llvm.Int8TypeInContext(g.context_ref)
             case .BOOL:   return llvm.Int1TypeInContext(g.context_ref)
             case .VOID:   return llvm.VoidTypeInContext(g.context_ref)
             case .FLOAT:  return llvm.FloatTypeInContext(g.context_ref)
@@ -69,16 +70,18 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.V
 }
 
 create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
+    logln("create declerations")
     switch decl in decl_u {
     case Variable_Decl:
         type := get_llvm_type(g,decl.type)
+        logln("Creating variable", decl_to_string(decl))
 
         var := llvm.BuildAlloca(g.builder_ref, type, get_tmp_name())
 
         g.refs[decl.name] = var
 
         if decl.initlizer != nil {
-
+            logln("init", expr_to_string(decl.initlizer), ":", get_expr_type(decl.initlizer))
             val := create_expression(g, decl.initlizer)
             return llvm.BuildStore(
                 g.builder_ref,
@@ -244,7 +247,10 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         left_val = ptr
         
         case Expr_Subscript:
-        type := get_llvm_type(g, get_expr_type(v.left^))
+        logln("left is exprsubscript", v.left.type)
+        p,ok := get_expr_type(v.left^).(Pointer)
+        if !ok do panic("ITS NOT A POINTER")
+        type := get_llvm_type(g, p.to^)
         ptr := create_expression(g, v.left^);        
         index := create_expression(g, v.index^)
 
@@ -338,20 +344,28 @@ create_number :: proc(g: ^LLVM_Generator, expr: Expr_Number) -> llvm.ValueRef {
     #partial switch t in expr.type {
     case Basic:
         #partial switch t {
+            case .BYTE:
+            val,ok := strconv.parse_int(expr.value)
+            if !ok do parser_panic(expr, "Not an integer")
+            return llvm.ConstInt(get_llvm_type(g,Basic(.BYTE)), u64(val), 0)
+
             case .INT:
             val,ok := strconv.parse_int(expr.value)
             if !ok do parser_panic(expr, "Not an integer")
             return llvm.ConstInt(get_llvm_type(g,Basic(.INT)), u64(val), 0)
+            
             case .FLOAT:
             value,_ := strings.replace(expr.value, "f", "",1)
             val,ok := strconv.parse_f32(value)
             if !ok do parser_panic(expr, "Not an float")
             return llvm.ConstReal(get_llvm_type(g,Basic(.FLOAT)), f64(val))
+            
             case .DOUBLE:
             value,_ := strings.replace(expr.value, "d", "",1)
             val,ok := strconv.parse_f64(value)
             if !ok do parser_panic(expr, "Not an double")
             return llvm.ConstReal(get_llvm_type(g,Basic(.DOUBLE)), f64(val))
+            
             case .BOOL:
             val : u64 = expr.value == "true" ? 1 : 0
             return llvm.ConstInt(get_llvm_type(g, Basic(.BOOL)), val, 0)
@@ -383,7 +397,8 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
     for i in 0..<len(strc.members) {
         member := strc.members[i]
         if member.name == expr.member {
-            indices[1] = llvm.ConstInt(get_llvm_type(g, member.type), u64(i), 0)
+
+            indices[1] = llvm.ConstInt(get_llvm_type(g, Basic(.INT)), u64(i), 0)
         }
     }
 
