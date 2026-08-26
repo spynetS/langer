@@ -189,8 +189,8 @@ parser_panic :: proc {
 }
 
 parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
-    log_error(fmt.tprintf("{}:{}:{}: {}",span.start.file, span.start.line, span.start.col, error))
-    if level == 1 do os.exit(1)
+    str := fmt.tprintf("{}:{}:{}: {} {}",span.start.file, span.start.line, span.start.col, level==1 ? "error:" : "warning:", error)
+    log_error(str)
 }
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {
