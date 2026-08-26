@@ -384,7 +384,17 @@ load_pointer :: proc (g: ^LLVM_Generator, ptr: llvm.ValueRef, type: llvm.TypeRef
     )
 }
 
-
+get_var :: proc(g: ^LLVM_Generator, expr: Expr) -> (llvm.ValueRef, bool) {
+    logln("looking for var ref", expr_to_string(expr))
+    if par,is := expr.(Expr_MemberAccess); is {
+        return get_var(g, par.obj^)
+    }
+    if id,is := expr.(Expr_Identifier); is {
+        logln("found var", id.value)
+        return g.refs[id.value], true
+    }
+    return {}, false
+}
 
 create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
     logln("Creating member access")
@@ -392,14 +402,10 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
     parent: ^Expr = expr.obj
 
     // if our parent is member we create member acc
-    // if it is identioder we use it 
-    if par,is := parent.(Expr_MemberAccess); is {
-        object = create_member_access(g, par)
-    }
-    if id,is := parent.(Expr_Identifier); is {
-        object = g.refs[id.value]
-        logln("found var", id.value)
-    }
+    // if it is identioder we use it
+    found : bool
+    object, found = get_var(g, parent^)
+    if !found do panic("NOT FOUND")
 
     // we retrive the struct from the parent
     struc, ok := get_expr_type(parent^).(Struct_Decl)
@@ -494,10 +500,11 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
             ptr := create_expression(g, v.operand^);
             return load_pointer(g, ptr, type)
             case .AMPER:
-            lvalue, ok := v.operand.(Expr_Identifier);
-            if !ok do parser_panic(lvalue, "asd")
-
-            return g.refs[lvalue.value]
+            var,found := get_var(g, v.operand^)
+            if !found do panic("asd")
+            
+            return var
+            
         }
         panic("TODO")
     }
