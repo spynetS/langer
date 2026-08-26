@@ -53,7 +53,7 @@ Variable_Decl :: struct {
     span: Source_Span,
     name: string,
     type: Type,
-    initlizer: Expr    
+    initlizer: ^Expr    
 }
 
 Function_Decl :: struct {
@@ -761,7 +761,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
         case Expr_String:
         // TODO should be char
         to := new(Type)
-        to^ = .INT
+        to^ = .BYTE
         return Pointer({to=to})
         case Expr_Call: return v.type
         case Expr_MemberAccess:
@@ -935,28 +935,29 @@ parse_struct :: proc(p: ^Parser) -> Struct_Decl {
 }
 
 
-parse_initlizer :: proc(p: ^Parser) -> (Expr, bool) {
+parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
     token := parser_advance(p)
     // array initlizer
     if token.kind == .START {
-        expr := Expr_Array({})
+        expr := new(Expr)
+        expr_a := Expr_Array({})
         for parser_peek(p).kind != .END {
             val := parse_expression(p)
             parser_skip(p, .COMMA);
-            append(&expr.values, val)
+            append(&expr_a.values, val)
         }
         parser_expect(p, .END)
         parser_skip(p, .SEMICOLON)
-        expr.span = Source_Span{
+        expr_a.span = Source_Span{
             start = token.span.start,
-            end = get_expr_span(expr.values[len(expr.values)-1]^).end
+            end = get_expr_span(expr_a.values[len(expr_a.values)-1]^).end
         }
+        expr^ = expr_a
         return expr, true
     } else {
         p.pos -= 1
         expr := parse_expression(p);
-        defer free(expr)
-        return expr^, true
+        return expr, true
     }
     return {}, false
 }
@@ -1112,7 +1113,7 @@ decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
         case Function_Decl: panic("TODO")
         case Variable_Decl:
-        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer))
+        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
         case Struct_Decl:
         return fmt.tprintf("struct {} {}", decl.name, "{}")
 
@@ -1279,7 +1280,7 @@ print_decl :: proc(decl_u: Decl, depth: int = 0) {
         if decl.initlizer != nil {
             print_indent(depth + 1)
             logln("Initializer")
-            print_expr(decl.initlizer, depth + 2)
+            print_expr(decl.initlizer^, depth + 2)
         }
     }
 }
@@ -1311,52 +1312,100 @@ print_program :: proc(program: Program) {
 
 // FREE MEMORY
 
-delete_expression :: proc(expr_u: ^Expr) {
-    switch expr in expr_u {
-    case Expr_MemberAccess: panic("TODO")
-    case Expr_Array: panic("TODO")
-    case Expr_Subscript: panic("TODO")
-    case Expr_Number: panic("TODO")
-    case Expr_String: panic("TODO")
-    case Expr_Identifier: panic("TODO")
-    case Expr_Binary: panic("TODO")
-    case Expr_Call: panic("TODO")
-    case Expr_Unary: panic("TODO")
+delete_type :: proc(type_u: ^Type) {
+    switch type in type_u {
+    case Basic:
+    case Pointer:
+        delete_type(type.to)
+        free(type.to)
+    case Array:
+        delete_type(type.of)
+        free(type.of)
+    case Struct_Decl:
+        panic("TODO")
+        
     }
 }
 
+delete_expression :: proc(expr_u: ^Expr) {
+    switch &expr in expr_u {
+    case Expr_MemberAccess:
+        delete_expression(expr.obj)
+        delete(expr.member)
+    case Expr_Array:
+        for v in expr.values {
+            delete_expression(v)
+        }
+        delete(expr.values)
+    case Expr_Subscript:
+        delete_expression(cast(^Expr)expr.left);
+        delete_expression(expr.index)
+        delete_type(&expr.type)
+    case Expr_Number:
+        delete_type(&expr.type);
+        delete(expr.value)
+    case Expr_String:
+        delete(expr.value)
+    case Expr_Identifier:
+        delete_type(&expr.type)
+        delete(expr.value)
+    case Expr_Binary:
+        delete_expression(expr.left)
+        delete_expression(expr.right)
+    case Expr_Call:
+        delete(expr.name)
+        for a in expr.args {
+            delete_expression(a)
+        }
+        delete(expr.args)
+        delete_type(&expr.type)
 
-// delete_block :: proc(block: ^Block) {
-//     for item_u in block.items {
-//         switch item in item_u {
-//         case Decl:
-//             #partial switch decl in item {
-//                 case Function_Decl:
-//                 if decl.block != nil do delete_block(decl.block)
-//                 delete(decl.args)
-//             }
-//         case Stmt:
-//             switch &stmt in item {
-//             case Expr: delete_expression(&stmt)
-//             case Return_Stmt: panic("TODO")
-//             case If_Stmt: panic("TODO")
-//             case While_Stmt: panic("TODO")
-//             case Block: delete_block(&stmt)
-//             }
-//         }
-//     }
-// }
+    case Expr_Unary:
+        delete_expression(expr.operand)
+    }
+    free(expr_u)
+}
 
-// delete_function :: proc(func: ^Function_Decl) {
-//     if func.block != nil do delete_block(func.block)
-//     delete(func.args)
-// }
 
-// delete_program :: proc(program: ^Program) {
-//     for &func in program.functions {
-//         delete_function(&func)
-//     }
-//     delete(program.extern)
-//     delete(program.functions)
-//     delete(program.variables)
-// }
+delete_block :: proc(block: ^Block) {
+    for &item_u in block.items {
+        switch &item in item_u {
+        case Decl:
+            #partial switch &decl in item {
+                case Function_Decl:
+                if decl.block != nil do delete_block(decl.block)
+                delete(decl.args)
+                case Variable_Decl:
+                delete(decl.name)
+                delete_type(&decl.type)
+                delete_expression(decl.initlizer)
+            }
+        case Stmt:
+            switch &stmt in item {
+            case Expr: delete_expression(&stmt)
+            case Return_Stmt:
+                delete_expression(stmt.value)
+            case If_Stmt: panic("TODO")
+            case While_Stmt: panic("TODO")
+            case Block: delete_block(&stmt)
+            }
+            
+        }
+    }
+    free(block)
+}
+
+delete_function :: proc(func: ^Function_Decl) {
+    if func.block != nil do delete_block(func.block)
+    delete(func.args)
+    delete(func.name)
+}
+
+delete_program :: proc(program: ^Program) {
+    for &func in program.functions {
+        delete_function(&func)
+    }
+    delete(program.extern)
+    delete(program.functions)
+    delete(program.variables)
+}

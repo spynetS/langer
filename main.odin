@@ -86,7 +86,12 @@ main :: proc() {
         l := Lexer({input=input,lines=1, col=1, file=path})
         
         tokens := make([dynamic]Token)
-        defer delete(tokens)
+        defer {
+            delete(tokens)
+            // free lexer
+            delete(l.input)
+        }
+        
 
         for l.cursor < len(l.input) {
             token := read_token(&l)
@@ -94,11 +99,13 @@ main :: proc() {
         }
         append(&tokens, Token({kind=.EOF}))
         print_tokens(tokens)
-
+   
 
         
         parser := Parser({tokens=tokens})
         program := parse_program(&parser)
+        defer delete_program(&program);
+        
         print_program(program)
 
         // Type check program
@@ -112,11 +119,12 @@ main :: proc() {
 
         g := LLVM_Generator({})
         defer delete(g.refs)
-        gen_program(&g,program, file, strings.to_string(llvm_path))
+//        gen_program(&g,program, file, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
+
     }
 
-    if len(o_files) > 0 {
+    if len(o_files) > 0 && false {
         compile_llvm(o_files)
 
         if clean_llvm {

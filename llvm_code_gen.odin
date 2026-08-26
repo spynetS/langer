@@ -81,8 +81,8 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
         g.refs[decl.name] = var
 
         if decl.initlizer != nil {
-            logln("init", expr_to_string(decl.initlizer), ":", get_expr_type(decl.initlizer))
-            val := create_expression(g, decl.initlizer)
+            logln("init", expr_to_string(decl.initlizer^), ":", get_expr_type(decl.initlizer^))
+            val := create_expression(g, decl.initlizer^)
             return llvm.BuildStore(
                 g.builder_ref,
                 val,
