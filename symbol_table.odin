@@ -37,7 +37,8 @@ create_symbol_table_func :: proc(t: ^SymbolTable,func : Function_Decl) -> ^Symbo
         table.symbols[a.name] = new_symbol(a, a.type, .PUBLIC, nil);
     }
 
-    if func.block == nil do panic("TODO")
+    if func.block == nil do return table
+    
     for item in func.block.items {
         if decl, is := item.(Decl); is {
             table.symbols[decl_get_name(decl)] = new_symbol(decl, decl_get_type(decl), .PUBLIC, nil);
