@@ -112,7 +112,11 @@ main :: proc() {
         program := parse_program(&parser)
         print_program(program)
 
-        check(program)
+        t := create_symbol_table(program);
+        fmt.println("Ceated symbol")
+//        print_symbol_table(t^) // FIXME segfault here
+
+        check(program, t)
         print_program(program)
 
 

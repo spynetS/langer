@@ -23,7 +23,6 @@ Parser :: struct {
 Program :: struct {
     extern    : [dynamic]string,
     functions : [dynamic]Function_Decl,
-    variables : [dynamic]Variable_Decl,
     structs   : [dynamic]Struct_Decl,
 }
 
@@ -217,7 +216,25 @@ get_expr_span :: proc(expr: Expr) -> Source_Span {
     panic("Not an expr")
 }
 
-get_decl_span :: proc(decl: Decl) -> Source_Span {
+decl_get_name :: proc(decl: Decl) -> string {
+    switch v in decl {
+    case Variable_Decl: return v.name
+    case Function_Decl: return v.name
+    case Struct_Decl: return v.name
+    }
+    panic("TODO")
+}
+
+decl_get_type :: proc(decl: Decl) -> Type {
+    switch v in decl {
+    case Variable_Decl: return v.type
+    case Function_Decl: return v.type
+    case Struct_Decl: panic("TODO")
+    }
+    panic("TODO")
+}
+
+decl_get_span :: proc(decl: Decl) -> Source_Span {
     switch v in decl {
     case Variable_Decl: return v.span
     case Function_Decl: return v.span
@@ -267,8 +284,8 @@ parser_panic_expr :: proc(expr: Expr, error: string, level: int = 1) {
 }
 
 parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string, level: int = 1) {
-    c_span := get_decl_span(expr)
-    p_span := get_decl_span(parent)
+    c_span := decl_get_span(expr)
+    p_span := decl_get_span(parent)
     fmt.println(decl_to_string(parent))
     for i in 0..<c_span.start.col - p_span.start.col {
         fmt.print(" ")
@@ -282,7 +299,7 @@ parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string, level:
 
 
 parser_panic_decl :: proc(decl: Decl, error: string, level: int = 1) {
-    span := get_decl_span(decl)
+    span := decl_get_span(decl)
     fmt.println(decl_to_string(decl))
     for i in 0..<len(decl_to_string(decl)) {
         fmt.print("^")
@@ -1107,12 +1124,11 @@ type_to_string :: proc(type: Type) -> string {
 
 decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
-        case Function_Decl: panic("TODO")
+        case Function_Decl: return fmt.tprintf("func {}({}): {}", decl.name, "", decl.type);
         case Variable_Decl:
         return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
         case Struct_Decl:
         return fmt.tprintf("struct {} {}", decl.name, "{}")
-
     }
 
     return "<unknown expr>"
