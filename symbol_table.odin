@@ -52,6 +52,7 @@ create_symbol_table :: proc(program: Program) -> ^SymbolTable {
     for func in program.functions {
         create_symbol_table_func(table, func)
     }
+    print_symbol_table(table^);
     return table
 }
 
@@ -72,7 +73,7 @@ symbol_table_loopup :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
 print_symbol_table :: proc(t: SymbolTable, depth:int = 0) {
     for key, symbol in t.symbols {
         for i in 0..<depth do fmt.print(" ")
-        fmt.println(key, decl_to_string(symbol.node))
+        fmt.println(key, "->",decl_to_string(symbol.node))
         if symbol.scope != nil do print_symbol_table(symbol.scope^, depth+1)
     }
 }

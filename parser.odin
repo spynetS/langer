@@ -115,6 +115,7 @@ Stmt :: union {
 Expr_MemberAccess :: struct {
     obj: ^Expr,
     member: string,
+    type: Type,
     span: Source_Span,
 }
 
@@ -129,7 +130,7 @@ Expr_Array :: struct {
 }
 Expr_Subscript :: struct {
     span: Source_Span,
-    left: ^Expr_Identifier,
+    left: ^Expr,
     index: ^Expr,
     type: Type // TODO ptr or array
 }
@@ -529,7 +530,7 @@ new_expr_call :: proc(name: string, args: [dynamic]^Expr, span: Source_Span) -> 
     return expr
 }
 
-new_expr_subscript :: proc(left: ^Expr_Identifier, index: ^Expr) -> ^Expr {
+new_expr_subscript :: proc(left: ^Expr, index: ^Expr) -> ^Expr {
     expr := new(Expr)
     expr^ = Expr_Subscript({
         span=Source_Span{
@@ -620,11 +621,9 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             }
         }
         else if operator, found := parser_get(p, .LB); found { // subscript
-            if ident, is := left.(Expr_Identifier); is {
-                index := parse_expression(p);
-                left = new_expr_subscript(&ident, index)
-                parser_expect(p, .RB)
-            }
+            index := parse_expression(p);
+            left = new_expr_subscript(left, index)
+            parser_expect(p, .RB)
         }
         else do break
     }
@@ -1126,7 +1125,12 @@ decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
         case Function_Decl: return fmt.tprintf("func {}({}): {}", decl.name, "", decl.type);
         case Variable_Decl:
-        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
+        if decl.initlizer != nil {
+            return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
+        }
+        else {
+            return fmt.tprintf("{} {}", type_to_string(decl.type), decl.name)
+        }
         case Struct_Decl:
         return fmt.tprintf("struct {} {}", decl.name, "{}")
     }

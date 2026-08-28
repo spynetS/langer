@@ -247,7 +247,7 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         left_val = ptr
         
         case Expr_Subscript:
-        logln("left is exprsubscript", v.left.type)
+        logln("left is exprsubscript", v.left)
         p,ok := get_expr_type(v.left^).(Pointer)
         if !ok do panic("ITS NOT A POINTER")
         type := get_llvm_type(g, p.to^)

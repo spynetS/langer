@@ -262,7 +262,8 @@ checker_get_identifier_type :: proc(t: ^SymbolTable, expr: ^Expr_Identifier) -> 
 checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> Type {
     lt := checker_get_type(t, expr.left)
     rt := checker_get_type(t, expr.right)
-
+    print_expr(expr.left^)
+    print_expr(expr.right^)
     fmt.println(lt, rt)
     if t, can := can_cast(lt, rt); can {
         expr_set_type(expr.left, t)
@@ -286,7 +287,6 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
             at := checker_get_type(t, expr.args[i])
             if t, can := can_cast(at, func.args[i].type); can {
                 expr_set_type(expr.args[i], t)
-                return t
             }
             else do parser_panic(expr^, fmt.tprintf("TODO"))
 
@@ -297,17 +297,49 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
     panic("TODO")
 }
 
+check_memberaccess :: proc (t: ^SymbolTable, expr_: ^Expr_MemberAccess) -> Type {
+    expr : Expr_MemberAccess = expr_^;
+    for i in 0..<100 {
+        if m, is := expr.obj.(Expr_MemberAccess); is {
+            expr = m;
+        }
+        if m, is := expr.obj.(Expr_Identifier); is {
+            symbol, found := symbol_table_loopup(t, m.value)
+            if !found do panic("COULDNT FIND")
+            var, is := symbol.node.(Variable_Decl);
+            if !is {
+                fmt.println(symbol.node)
+                panic("ISNT VAR")
+            }
+            struc, is1 := var.type.(Struct_Decl)
+            if !is1 do panic("ISNT STRUC")
+
+            for m in struc.members {
+                fmt.println("is", m.name , "==", expr_.member)
+                if m.name == expr_.member {
+                    expr_.type = m.type;
+                    fmt.println(expr_to_string(expr_^))
+                    return expr_.type
+                }
+            }
+
+        }
+    }
+
+    panic("TODO")
+}
+
 checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> Type {
     if expr == nil do panic("Checker_get type expr is nil")
     switch &v in expr {
-    case Expr_MemberAccess: panic("TODO")
+    case Expr_MemberAccess: return check_memberaccess(t, &v);
     case Expr_Array: panic("TODO")
-    case Expr_Subscript: panic("TODO")
-    case Expr_Number: return v.type;
-    case Expr_String: return Pointer({})
+    case Expr_Subscript:  panic("TODO")
+    case Expr_Number:     return v.type;
+    case Expr_String:     return Pointer({})
     case Expr_Identifier: return checker_get_identifier_type(t, &v)
-    case Expr_Binary: return checker_get_binary_type(t, &v);
-    case Expr_Call: return checker_get_call_type(t, &v);
+    case Expr_Binary:     return checker_get_binary_type(t, &v);
+    case Expr_Call:       return checker_get_call_type(t, &v);
     case Expr_Unary: panic("TODO")
     }
     fmt.println(expr)
