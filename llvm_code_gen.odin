@@ -546,13 +546,15 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
     case Expr_Call:
         return create_call(g, v);
     case Expr_Unary:
+        logln("generating unary")
         #partial switch v.operator {
             case .UP:
             
             type := get_llvm_type(g, get_expr_type(v.operand^))
-            ptr := create_expression(g, v.operand^);
-            
+            ptr := create_expression(g, v.operand^, gen_address);
+             
             if gen_address do return ptr;
+            
             return load_pointer(g, ptr, type)
 
             case .AMPER:

@@ -196,25 +196,6 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
 check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
     logln("CHECKING member", expr_to_string(expr^))
     struc: Struct_Decl;
-    // we look for the first definition by
-    // going backards in the member access tree
-    // looking at each obj (parent)
-    // if m, is := expr.obj.(Expr_MemberAccess); is {
-    //     // we continue look
-    //     logln("Parent was member access")
-    //     type := check_memberaccess(t, &m);
-    //     is1:bool;
-    //     struc, is1 = type.(Struct_Decl)
-    //     if !is1 do panic("TODO ISNT STRUC")
-    // }
-    // if m, is := expr.obj.(Expr_Subscript); is {
-    //     // we continue look
-    //     logln("Parent was subscript")
-    //     type := check_subscript(t, &m);
-    //     is1:bool;
-    //     struc, is1 = type.(Struct_Decl)
-    //     if !is1 do panic("TODO ISNT STRUC")
-    // }
     
     type := checker_get_type(t, expr.obj);
     is1:bool;
@@ -231,34 +212,34 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
     }
 
 
-    if m, is := expr.obj.(Expr_Identifier); is {
+    // if m, is := expr.obj.(Expr_Identifier); is {
 
-        // we found a identifer, could be variable
+    //     // we found a identifer, could be variable
 
-        symbol, found := symbol_table_loopup(t, m.value)
-        if !found do panic("TODO COULDNT FIND VARIABLE")
+    //     symbol, found := symbol_table_loopup(t, m.value)
+    //     if !found do panic("TODO COULDNT FIND VARIABLE")
         
-        var, is := symbol.node.(Variable_Decl);
-        if !is {
-            //fmt.println(symbol.node)
-            panic("TODO ISNT VAR")
-        }
-        is1:bool;
-        struc, is1 = var.type.(Struct_Decl)
-        if !is1 {
-            if ptr, is := var.type.(Pointer); is && ptr.to != nil {
-                struc, is = ptr.to.(Struct_Decl)
-                if !is {
-                    parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
-                    parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
-                }
-            }
-            else {
-                parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
-                parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
-            }
-        }
-    }
+    //     var, is := symbol.node.(Variable_Decl);
+    //     if !is {
+    //         //fmt.println(symbol.node)
+    //         panic("TODO ISNT VAR")
+    //     }
+    //     is1:bool;
+    //     struc, is1 = var.type.(Struct_Decl)
+    //     if !is1 {
+    //         if ptr, is := var.type.(Pointer); is && ptr.to != nil {
+    //             struc, is = ptr.to.(Struct_Decl)
+    //             if !is {
+    //                 parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
+    //                 parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+    //             }
+    //         }
+    //         else {
+    //             parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
+    //             parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+    //         }
+    //     }
+    // }
 
     expr_set_type(expr.obj, struc);
 
