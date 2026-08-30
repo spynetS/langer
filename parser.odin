@@ -482,18 +482,21 @@ is_type_parser :: proc (p: ^Parser) -> bool {
 // ==== PARSING ====
 
 parse_call_args :: proc(p: ^Parser) -> [dynamic]^Expr {
+    logln("starting call args")
     args := make([dynamic]^Expr)
     parser_expect(p, .LPAR)
     first := true
+    logln(parser_peek(p).kind)
     for parser_peek(p).kind != .RPAR {
         if !first do parser_expect(p, .COMMA)
         else      do first = false
         logln("parsing next arg")
         expr := parse_expression(p)
-        logln("ARG:",expr)
+        logln("ARG:",expr_to_string(expr^))
+        logln(parser_peek(p).kind)
         append(&args, expr)
     }
-    parser_skip(p, .RPAR);
+    parser_expect(p, .RPAR);
     return args
 }
 
@@ -599,6 +602,11 @@ parse_primary :: proc(p: ^Parser) -> ^Expr {
         })
         return expr
     }
+    else if token, found := parser_get(p, .LPAR); found {
+        expr := parse_expression(p);
+        parser_expect(p, .RPAR)
+        return expr
+    }
     logln("PEEK is", parser_peek(p).kind)
     panic("TODO")
 }
@@ -636,7 +644,11 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
                     start = get_expr_span(left^).start,
                     end = ident.span.end
                 }
+                id := left // to delete the expr we replace it with expr_call
                 left = new_expr_call(ident.value, args, span)
+                delete_expression(id)
+                logln("AFTER CALL", parser_peek(p).kind)
+                //parser_expect(p, .RPAR)
             }
         }
         else if operator, found := parser_get(p, .LB); found { // subscript
@@ -732,26 +744,7 @@ parse_assignment :: proc (p: ^Parser) -> ^Expr {
 
 parse_expression :: proc (p: ^Parser) -> ^Expr {
     left := parse_assignment(p)
-    // logln("==EXPRESSION==")
-    // logln(expr_to_string(left^))
-    // logln("or")
-
-    // for {
-    //     op, found := parser_get(p, .PLUS, .MINUS)
-    //     if !found {
-    //         break
-    //     }
-
-    //     right := parse_assignment(p)
-    //     left = new_expr_binary(left, right, op)
-    // }
-
-    // logln("==EXPRESSION==")
-    // logln(expr_to_string(left^))
-    // logln("")
-
     parser_skip(p, .SEMICOLON);
-
     return left
 }
 
@@ -1350,101 +1343,97 @@ print_program :: proc(program: Program) {
 // FREE MEMORY
 // NOT USED BECAUSE WE ARE USING AN AREANA
 
-// delete_type :: proc(type_u: ^Type) {
-//     switch type in type_u {
-//     case Basic:
-//     case Pointer:
-//         delete_type(type.to)
-//         free(type.to)
-//     case Array:
-//         delete_type(type.of)
-//         free(type.of)
-//     case Struct_Decl:
-//         panic("TODO")
+delete_type :: proc(type_u: ^Type) {
+    switch type in type_u {
+    case Basic:
+    case Pointer:
+        delete_type(type.to)
+        free(type.to)
+    case Array:
+        delete_type(type.of)
+        free(type.of)
+    case Struct_Decl:
+        panic("TODO")
         
-//     }
-// }
+    }
+}
 
-// delete_expression :: proc(expr_u: ^Expr) {
-//     switch &expr in expr_u {
-//     case Expr_MemberAccess:
-//         delete_expression(expr.obj)
-//         delete(expr.member)
-//     case Expr_Array:
-//         for v in expr.values {
-//             delete_expression(v)
-//         }
-//         delete(expr.values)
-//     case Expr_Subscript:
-//         delete_expression(cast(^Expr)expr.left);
-//         delete_expression(expr.index)
-//         delete_type(&expr.type)
-//     case Expr_Number:
-//         delete_type(&expr.type);
-//         delete(expr.value)
-//     case Expr_String:
-//         delete(expr.value)
-//     case Expr_Identifier:
-//         delete_type(&expr.type)
-//     case Expr_Binary:
-//         delete_expression(expr.left)
-//         delete_expression(expr.right)
-//     case Expr_Call:
-//         for a in expr.args {
-//             delete_expression(a)
-//         }
-//         delete(expr.args)
-//         delete_type(&expr.type)
+delete_expression :: proc(expr_u: ^Expr) {
+    switch &expr in expr_u {
+    case Expr_MemberAccess:
+        delete_expression(expr.obj)
+    case Expr_Array:
+        for v in expr.values {
+            delete_expression(v)
+        }
+        delete(expr.values)
+    case Expr_Subscript:
+        delete_expression(cast(^Expr)expr.left);
+        delete_expression(expr.index)
+        delete_type(&expr.type)
+    case Expr_Number:
+        delete_type(&expr.type);
+    case Expr_String:
+    case Expr_Identifier:
+        delete_type(&expr.type)
+    case Expr_Binary:
+        delete_expression(expr.left)
+        delete_expression(expr.right)
+    case Expr_Call:
+        for a in expr.args {
+            delete_expression(a)
+        }
+        delete(expr.args)
+        delete_type(&expr.type)
 
-//     case Expr_Unary:
-//         delete_expression(expr.operand)
-//     }
-//     free(expr_u)
-// }
+    case Expr_Unary:
+        delete_expression(expr.operand)
+    }
+    free(expr_u)
+}
 
 
-// delete_block :: proc(block: ^Block) {
-//     for &item_u in block.items {
-//         switch &item in item_u {
-//         case Decl:
-//             #partial switch &decl in item {
-//                 case Function_Decl:
-//                 if decl.block != nil do delete_block(decl.block)
-//                 delete(decl.args)
-//                 case Variable_Decl:
-//                 delete_type(&decl.type)
-//                 delete_expression(decl.initlizer)
-//             }
-//         case Stmt:
-//             switch &stmt in item {
-//             case Expr: delete_expression(&stmt)
-//             case Return_Stmt:
-//                 delete_expression(stmt.value)
-//             case If_Stmt: panic("TODO")
-//             case While_Stmt: panic("TODO")
-//             case Block: delete_block(&stmt)
-//             }
+delete_block :: proc(block: ^Block) {
+    for &item_u in block.items {
+        switch &item in item_u {
+        case Decl:
+            #partial switch &decl in item {
+                case Function_Decl:
+                if decl.block != nil do delete_block(decl.block)
+                delete(decl.args)
+                case Variable_Decl:
+                delete_type(&decl.type)
+                delete_expression(decl.initlizer)
+            }
+        case Stmt:
+            switch &stmt in item {
+            case Expr: delete_expression(&stmt)
+            case Return_Stmt:
+                delete_expression(stmt.value)
+            case If_Stmt: panic("TODO")
+            case While_Stmt: panic("TODO")
+            case Block: delete_block(&stmt)
+            }
             
-//         }
-//     }
-//     free(block)
-// }
+        }
+    }
+    free(block)
+}
 
-// delete_function :: proc(func: ^Function_Decl) {
-//     if func.block != nil do delete_block(func.block)
-//     delete_type(&func.type)
-//     for &a in func.args {
-//         delete_type(&a.type)
-//         if a.initlizer != nil do delete_expression(a.initlizer)
-//     }
-//     delete(func.args)
-// }
+delete_function :: proc(func: ^Function_Decl) {
+    if func.block != nil do delete_block(func.block)
+    delete_type(&func.type)
+    for &a in func.args {
+        delete_type(&a.type)
+        if a.initlizer != nil do delete_expression(a.initlizer)
+    }
+    delete(func.args)
+}
 
-// delete_program :: proc(program: ^Program) {
-//     for &func in program.functions {
-//         delete_function(&func)
-//     }
-//     delete(program.extern)
-//     delete(program.functions)
-//     delete(program.variables)
-// }
+delete_program :: proc(program: ^Program) {
+    for &func in program.functions {
+        delete_function(&func)
+    }
+    delete(program.extern)
+    delete(program.functions)
+}
