@@ -13,6 +13,7 @@ out_file := "a.out"
 clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
+clang_stderr := true
 
 // TODO add forloop
 // TODO seprate arrays and pointers
@@ -77,6 +78,12 @@ main :: proc() {
     o_files := make([dynamic]string)
     defer delete(o_files)
 
+    program := Program({})
+    symbol_table := SymbolTable({})
+    
+    default_allocator := context.allocator
+    
+
     for file in files {
         path := file
 
@@ -87,39 +94,52 @@ main :: proc() {
         l := Lexer({input=input,lines=1, col=1, file=path})
         
         tokens := tokenize(&l)
-        defer {
-            delete(tokens)
-            delete(l.input)
-        }
+        // defer {
+        //     delete(tokens)
+        //     delete(l.input)
+        // }
 
         print_tokens(tokens)
         
         parser := Parser({tokens=tokens})
-        arena: mem.Dynamic_Arena
-        mem.dynamic_arena_init(&arena)
-        defer mem.dynamic_arena_destroy(&arena);
-        context.allocator = mem.dynamic_arena_allocator(&arena)
+//        arena: mem.Dynamic_Arena
+        // mem.dynamic_arena_init(&arena)
+        // defer mem.dynamic_arena_destroy(&arena);
+        // context.allocator = mem.dynamic_arena_allocator(&arena)
 
-        program := parse_program(&parser)
-        print_program(program)
+        package_ := parse_package(&parser)
+        package_.file = file
+        print_package(package_)
+        append(&program.packages, package_)
+        
 
-        t := create_symbol_table(program);
-        print_symbol_table(t^)
+        // we go back to the default allocator so 
+        // the memory doesnt get freed on next file
+//        context.allocator = default_allocator
+        t := create_symbol_table_program(package_);
+        t.parent = &symbol_table;
+        symbol_table_add_item(&symbol_table, package_.package_name, new_symbol(Variable_Decl({}), Basic(.INT), .PUBLIC, scope = t))
+    }
+    print_symbol_table(symbol_table);
 
-        check(program, t)
-        print_program(program)
+    check(program, &symbol_table)
 
+
+    for package_ in program.packages {
+        print_package(package_)
 
         llvm_path := strings.builder_make()
         strings.write_string(&llvm_path, "./")
-        strings.write_string(&llvm_path, slashpath.name(file))
+        strings.write_string(&llvm_path, slashpath.name(package_.file))
         strings.write_string(&llvm_path, ".ll")
 
         g := LLVM_Generator({})
-        gen_program(&g,program, file, strings.to_string(llvm_path))
+        gen_program(&g,package_, package_.file, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
 
     }
+    logln("=========== symbol table ===========")
+    print_symbol_table(symbol_table)
 
     if len(o_files) > 0 {
         compile_llvm(o_files)
@@ -152,11 +172,13 @@ compile_llvm :: proc (o_files: [dynamic]string) {
     index+=1
     command[index] = out_file
 
+    fmt.println(command)
+
     link_process,_ := os.process_start({
         working_dir="./",
         command=command,
         stdout= clang_stdout ? os.stdout : nil,
-        stderr= os.stderr
+        stderr= clang_stderr ? os.stderr : nil
     })
 
     _,_ = os.process_wait(link_process)

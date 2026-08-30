@@ -57,30 +57,53 @@ create_symbol_table_func :: proc(t: ^SymbolTable,func : Function_Decl) -> ^Symbo
     return table;
 }
 
-create_symbol_table :: proc(program: Program) -> ^SymbolTable {
+create_symbol_table_program :: proc(package_: Package) -> ^SymbolTable {
     table := new(SymbolTable)
-    for func in program.functions {
+    for func in package_.functions {
         create_symbol_table_func(table, func)
     }
-    print_symbol_table(table^);
     return table
 }
 
-symbol_table_loopup :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
+symbol_table_loopup :: proc {
+    symbol_table_loopup_expr,
+    symbol_table_loopup_str
+}
+
+symbol_table_loopup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool) {
+    if name, is := expr.(Expr_Identifier); is {
+        fmt.println("id searching for", name.value)
+        return symbol_table_loopup_str(t, name.value)
+    }
+
+    if member, is := expr.(Expr_MemberAccess); is {
+        fmt.println("mem searching for", expr_to_string(member.obj^))
+        if obj_t,found := symbol_table_loopup_expr(t, member.obj); found {
+            return symbol_table_loopup(obj_t.scope, member.member)
+        }
+    }
+    return {}, false
+}
+
+symbol_table_loopup_str :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
     current := t
 
     for current != nil {
         if symbol, found := current.symbols[name]; found {
+            fmt.println("FOUND",name)
             return symbol, true
         }
-
+        fmt.println("SEARCHING IN PARENT FOR",name)
         current = current.parent
     }
+
+    fmt.println("")
 
     return {}, false
 }
 
 print_symbol_table :: proc(t: SymbolTable, depth:int = 0) {
+    
     for key, symbol in t.symbols {
         for i in 0..<depth do log(" ")
         logln(key, "->",decl_to_string(symbol.node))

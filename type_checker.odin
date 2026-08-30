@@ -3,8 +3,8 @@ import "core:fmt"
 import "core:strings"
 
 
-checker_get_func :: proc (program: Program, name: string) -> (Function_Decl, bool) {
-    for func in program.functions {
+checker_get_func :: proc (package_: Package, name: string) -> (Function_Decl, bool) {
+    for func in package_.functions {
         if func.name == name do return func, true
     }
     return {}, false
@@ -169,7 +169,8 @@ checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> Type {
 
 
 checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
-    logln("CHECKING caller", expr_to_string(expr^))
+    logln("CHECKING caller", expr_to_string(expr.name^))
+
     // we want to return the function decl type
     // and also check the argument types
     if symbol, found := symbol_table_loopup(t, expr.name); found {
@@ -188,6 +189,9 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
         if symbol.type == nil do panic("SHOULD HAVE TYPE")
         expr_set_type(cast(^Expr)expr, symbol.type)
         return symbol.type
+    }
+    else if !found {
+        parser_panic(expr^, "Not found")
     }
 
     panic("TODO")
@@ -341,7 +345,7 @@ check_type :: proc(a, b: Type) -> bool {
 
 
 
-check_block :: proc(program: Program, func: Function_Decl, block: ^Block, t: ^SymbolTable) {
+check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^SymbolTable) {
     for &items in block.items {
         
         switch &item in items {
@@ -400,7 +404,7 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block, t: ^Sy
                 // check_block(program, func, stmt.block, t);
                 
             case Block:
-                check_block(program, func, &stmt, t)
+                check_block(package_, func, &stmt, t)
             }
             
         }
@@ -409,16 +413,21 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block, t: ^Sy
 
 
 check :: proc(program: Program, t: ^SymbolTable) {
-    for &func in program.functions {
-        if func.block == nil do continue
+    for package_ in program.packages {
+        package_t,found_package := symbol_table_loopup(t, package_.package_name)
+        if !found_package do panic("PACKAGE NOT FOUND!??!?!")
 
-        // if func has no type we assign void to it (default)
-        if func.type == nil do func.type = Basic(.VOID)
+        for &func in package_.functions {
+            if func.block == nil do continue
 
-        func_t,found := symbol_table_loopup(t, func.name)
-        if !found do panic("FUNC NOT FOUND!??!?!")
-        
-        // go trough function block and check all types
-        check_block(program, func, func.block, func_t.scope);
+            // if func has no type we assign void to it (default)
+            if func.type == nil do func.type = Basic(.VOID)
+
+            func_t,found := symbol_table_loopup(package_t.scope, func.name)
+            if !found do panic("FUNC NOT FOUND!??!?!")
+            
+            // go trough function block and check all types
+            check_block(package_, func, func.block, func_t.scope);
+        }
     }
 }

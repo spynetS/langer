@@ -32,6 +32,8 @@ Lexer :: struct {
 
 
 Token_Kind :: enum {
+    PACKAGE,
+    IMPORT,
     INVALID,
     EXTERN,
     FOR,
@@ -194,6 +196,8 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     kind : Token_Kind = .IDENTIFER
     // KEYWORDS
     switch val {
+    case "package": kind = .PACKAGE
+    case "import": kind = .IMPORT
     case "for": kind = .FOR
     case "let": kind = .LET
     case "void": kind = .VOID

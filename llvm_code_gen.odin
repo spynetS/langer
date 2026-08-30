@@ -58,7 +58,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
     panic("TODO")
 }
 
-create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueRef {
+create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: string) -> llvm.ValueRef {
     type := get_llvm_type(g, func.type)
     arg_length := len(func.args)
     param_types := make([]llvm.TypeRef, arg_length)
@@ -68,10 +68,19 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.V
     }
 
     func_type := llvm.FunctionType(type, raw_data(param_types), u32(arg_length), 0)
-    
-    fun :=  llvm.AddFunction(g.module_ref, fmt.ctprintf(func.name), func_type)
+    if package_name != "" {
+        name := fmt.ctprintf("{}_{}", package_name, func.name)
+        fmt.println("CREATE", name)
+        fun :=  llvm.AddFunction(g.module_ref, name, func_type)
+        return fun
+    } else {
+        name := fmt.ctprintf("{}", func.name)
+        fmt.println("CREATE", name)
+        fun :=  llvm.AddFunction(g.module_ref, name, func_type)
+        return fun
 
-    return fun
+    }
+
 }
 
 create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
@@ -102,8 +111,9 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
     panic("HERE")
 }
 
-create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueRef {
-    func_ref := create_function_decl(g, func);
+create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: string) -> llvm.ValueRef {
+    // if we are main we dont change 
+    func_ref := create_function_decl(g, func, func.name != "main" ? package_name : "");
     g.current_function = func_ref
     bb_name := cstring("entry\x00")
     entry_bb := llvm.AppendBasicBlockInContext(g.context_ref, func_ref, bb_name)
@@ -146,7 +156,11 @@ create_function :: proc (g: ^LLVM_Generator, func: Function_Decl) -> llvm.ValueR
 }
 
 create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
-    fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(expr.name))
+    if expr.name == nil do panic("AJ AJ AJ")
+    ename := expr_to_string(expr.name^)
+    name, ok := strings.replace_all(ename, ".","_")
+    fmt.println("create call", name)
+    fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
 
     if fn_ref == nil {
         parser_panic(Expr(expr), fmt.tprintf("Could not find %s", expr.name))
@@ -691,7 +705,7 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
     panic("TODO")
 }
 
-gen_program :: proc (g: ^LLVM_Generator, p: Program, i_file, o_file: string) {
+gen_program :: proc (g: ^LLVM_Generator, p: Package, i_file, o_file: string) {
 
     context_ref := llvm.ContextCreate()
     defer llvm.ContextDispose(context_ref)
@@ -726,8 +740,8 @@ gen_program :: proc (g: ^LLVM_Generator, p: Program, i_file, o_file: string) {
     }
 
     for func in p.functions {
-        if func.extern do create_function_decl(g, func)
-        else do create_function(g, func)
+        if func.extern do create_function_decl(g, func, "")
+        else do create_function(g, func, p.package_name)
     }
     // write the irl to a file
     error_msg: cstring

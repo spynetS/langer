@@ -16,12 +16,18 @@ Program    → contains top-level declarations
 Parser :: struct {
     tokens: [dynamic]Token,
     pos:    int,
-    program: ^Program,
+    package_: ^Package,
     file: string,
     current_block: ^Block
 }
 
 Program :: struct {
+    packages : [dynamic]Package
+}
+
+Package :: struct {
+    package_name: string,
+    file: string,
     extern    : [dynamic]string,
     functions : [dynamic]Function_Decl,
     structs   : [dynamic]Struct_Decl,
@@ -159,7 +165,7 @@ Expr_Binary :: struct {
 }
 Expr_Call :: struct {
     span: Source_Span,
-    name: string,
+    name: ^Expr,
     args: [dynamic]^Expr,
     type: Type
 }
@@ -542,7 +548,7 @@ new_expr_unary :: proc(operand: ^Expr, operator: Token) -> ^Expr {
     return expr
 }
 
-new_expr_call :: proc(name: string, args: [dynamic]^Expr, span: Source_Span) -> ^Expr {
+new_expr_call :: proc(name: ^Expr, args: [dynamic]^Expr, span: Source_Span) -> ^Expr {
     expr := new(Expr)
     expr^ = Expr_Call({
         span = span,
@@ -637,19 +643,15 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             logln("========================")
         }
         else if operator, found := parser_get(p, .LPAR); found { // FUNCTION CALL
-            if ident, is := left.(Expr_Identifier); is {
-                p.pos -= 1; // parse_call_args expect peek to be LPAR so we go back once
-                args := parse_call_args(p)
-                span := Source_Span{
-                    start = get_expr_span(left^).start,
-                    end = ident.span.end
-                }
-                id := left // to delete the expr we replace it with expr_call
-                left = new_expr_call(ident.value, args, span)
-                delete_expression(id)
-                logln("AFTER CALL", parser_peek(p).kind)
-                //parser_expect(p, .RPAR)
+            p.pos -= 1; // parse_call_args expect peek to be LPAR so we go back once
+            args := parse_call_args(p)
+            span := Source_Span{
+                start = get_expr_span(left^).start,
+                end = get_expr_span(left^).end
             }
+            left = new_expr_call(left, args, span)
+            logln("AFTER CALL", parser_peek(p).kind)
+            //parser_expect(p, .RPAR)
         }
         else if operator, found := parser_get(p, .LB); found { // subscript
             index := parse_expression(p);
@@ -797,13 +799,14 @@ get_expr_type :: proc(expr: Expr) -> Type {
 
 
 is_struct ::  proc(p: ^Parser, id: Token) -> bool {
-    for struc in p.program.structs {
+
+    for struc in p.package_.structs {
         if struc.name == id.lexeme do return true
     }
     return false
 }
 get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
-    for struc in p.program.structs {
+    for struc in p.package_.structs {
         if struc.name == id do return struc, true
     }
     return {}, false
@@ -811,6 +814,7 @@ get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
 
 
 is_decl :: proc(p: ^Parser) -> bool {
+
     // if is_type(parser_peek(p).kind) do return true
     if is_type(parser_peek(p).kind) do return true
     if is_struct(p, parser_peek(p)) do return true
@@ -832,6 +836,7 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
     logln("FOUND START")
     for parser_peek(p).kind != .END {
         bef := parser_peek(p)
+
         if is_decl(p) {
             logln("IT IS DECL")
             append(&block.items, parse_decl(p))
@@ -922,7 +927,6 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
 parse_func :: proc(p: ^Parser) -> Function_Decl {
     decl := parse_func_decl(p)
 
-    
     block := parse_block(p, decl.type)
     print_block(block^)
 
@@ -1078,9 +1082,16 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
     return stmt
 }
 
-parse_program :: proc(p: ^Parser) -> Program {
+parse_package :: proc(p: ^Parser) -> Package {
 
-    p.program = new(Program)
+    package_ := Package({})
+    p.package_ = &package_
+    parser_expect(p, .PACKAGE)
+    name := parse_expression(p)
+    package_.package_name = expr_to_string(name^)
+
+    logln("PACKGE NAME IS", package_.package_name)
+
     for parser_peek(p).kind != .EOF && parser_peek(p).kind != .INVALID  {
         bef := parser_peek(p)
         logln(bef)
@@ -1090,22 +1101,22 @@ parse_program :: proc(p: ^Parser) -> Program {
             func := parse_func_decl(p)
             func.extern = true
             parser_skip(p, .SEMICOLON)
-            append(&p.program.functions, func)            
+            append(&package_.functions, func)            
             case .STRUCT:
             struc := parse_struct(p)
-            append(&p.program.structs, struc)
+            append(&package_.structs, struc)
             case .FUNC:
             func := parse_func(p)
             logln("===FUNC===")
             logln(func.name, func.args[:])
             print_block(func.block^)
-            append(&p.program.functions, func)
+            append(&package_.functions, func)
         }
         parser_skip(p,.SEMICOLON)
         if bef == parser_peek(p) do parser_advance(p)
         logln("after prase", parser_peek(p))
     }
-    return p.program^
+    return package_
 
 }
 
@@ -1171,34 +1182,35 @@ operator_to_string :: proc(token: Token_Kind) -> string {
 
 
 expr_to_string :: proc(expr_u: Expr) -> string {
+    
     #partial switch expr in expr_u {
-    case Expr_Binary:
+        case Expr_Binary:
         left := expr_to_string(expr.left^)
         right := expr_to_string(expr.right^)
         return fmt.tprintf("%s %v %s", left, operator_to_string(expr.op), right)
 
-    case Expr_Subscript:
+        case Expr_Subscript:
         left := expr_to_string(expr.left^)
         index := expr_to_string(expr.index^)
         return fmt.tprintf("%s[%s]", left, index)
 
-    case Expr_Number:
+        case Expr_Number:
         return fmt.tprintf("%s", expr.value)
 
-    case Expr_String:
+        case Expr_String:
         return fmt.tprintf("%s", expr.value)
 
-    case Expr_Unary:
-        return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
+        case Expr_Unary:
+        return fmt.tprintf("{}{}", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
-    case Expr_MemberAccess:
-        return fmt.tprintf("%s.%s", expr_to_string(expr.obj^), expr.member)
-    case Expr_Identifier:
+        case Expr_MemberAccess:
+        return fmt.tprintf("{}.{}", expr_to_string(expr.obj^), expr.member)
+        case Expr_Identifier:
         return expr.value
 
         case Expr_Call:
         result := strings.builder_make()
-        strings.write_string(&result, fmt.tprintf("%s(", expr.name))
+        strings.write_string(&result, fmt.tprintf("{}(", expr.name != nil ? expr_to_string(expr.name^) : ""))
 
         for i in 0..<len(expr.args) {
             arg := expr.args[i]
@@ -1224,6 +1236,7 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Array: panic("TODO")
     case Expr_MemberAccess:
         logln("MemberAccess ");
+        if expr.obj == nil do panic("asd")
         print_expr(expr.obj^,depth=depth+1)
         print_indent(depth+1)
         log(expr.member,"\n")
@@ -1249,7 +1262,8 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Unary:
         logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
     case Expr_Call:
-        logln("Call: ", expr.name)
+        fmt.println(expr.name)
+        logln("Call: ", expr.name != nil ? expr_to_string(expr.name^) : "")
         for arg in expr.args {
             print_expr(arg^, depth + 1)
         }
@@ -1330,12 +1344,12 @@ print_block :: proc(block: Block, depth: int = 0) {
     }
 }
 
-print_program :: proc(program: Program) {
-    logln("Program")
-    for struc in program.structs {
+print_package :: proc(package_: Package) {
+    logln("Program", package_.package_name)
+    for struc in package_.structs {
         print_decl(struc, 1)
     }
-    for func in program.functions {
+    for func in package_.functions {
         print_decl(func, 1)
     }
 }
@@ -1430,7 +1444,7 @@ delete_function :: proc(func: ^Function_Decl) {
     delete(func.args)
 }
 
-delete_program :: proc(program: ^Program) {
+delete_program :: proc(program: ^Package) {
     for &func in program.functions {
         delete_function(&func)
     }
