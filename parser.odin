@@ -3,6 +3,7 @@ import "core:fmt"
 import "core:strings"
 import "core:os"
 import "core:mem"
+import "core:strconv"
 
 /*
 Expression → produces a value
@@ -36,7 +37,8 @@ Basic :: enum {
     VOID
 }
 Array :: struct {
-    of: ^Type
+    of: ^Type,
+    length: u64
 }
 Pointer :: struct {
     to: ^Type
@@ -177,6 +179,7 @@ Expr :: union {
 /// ====== LOGGING ======
 log_error :: proc (str : string) {
     fmt.println(str)
+
 }
 parser_panic :: proc {
     parser_panic_pos,    
@@ -191,6 +194,7 @@ parser_panic :: proc {
 parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
     str := fmt.tprintf("{}:{}:{}: {} {}",span.start.file, span.start.line, span.start.col, level==1 ? "error:" : "warning:", error)
     log_error(str)
+    if level == 1 do panic("asd")
 }
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {
@@ -407,12 +411,17 @@ parse_type :: proc (p: ^Parser) -> (Type, bool) {
             return Pointer({to=to}), true
         }
     } else if token.kind == .LB {
+        // FIXME use this value inside the type
+        num := parser_expect(p, .NUMBER)
+        length,ok := strconv.parse_int(num.lexeme)
+        if !ok do panic("TODO HERE")
+        
         parser_expect(p, .RB)
-        // we are pointer
+        // we are array
         if t, ok := parse_type(p); ok {
             of := new(Type)
             of^ = t
-            return Array({of=of}), true
+            return Array({of=of, length = u64(length)}), true
         }
     }
 
@@ -454,10 +463,13 @@ parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
 is_type_parser :: proc (p: ^Parser) -> bool {
     pos := p.pos
     defer p.pos = pos
+
     if is_type_token(parser_peek(p).kind) do return true
     else if parser_is(p, .STAR) && is_type(p) do return true
-    else if parser_is(p, .LB) && parser_is(p, .RB) && is_type(p) do return true
-    
+    else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
+        return true
+    }
+
     return false
 }
 
@@ -630,7 +642,6 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
     }
     return left;
 }
-
 
 parse_term :: proc(p: ^Parser) -> ^Expr {
     left := parse_postfix(p); 
@@ -1109,7 +1120,10 @@ type_to_string :: proc(type: Type) -> string {
     case Pointer:
         return fmt.tprintf("ptr")
     case Array:
-        return fmt.tprintf("[]")
+        if v.of == nil {
+            return fmt.tprintf("[{}]", v.length)
+        }
+        return fmt.tprintf("[{}]{}", v.length, type_to_string(v.of^))
     }
     return "<unknown type>"
 }
@@ -1118,12 +1132,10 @@ decl_to_string :: proc(decl_u: Decl) -> string {
     #partial switch decl in decl_u {
         case Function_Decl: return fmt.tprintf("func {}({}): {}", decl.name, "", decl.type);
         case Variable_Decl:
-        if decl.initlizer != nil {
-            return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
-        }
-        else {
+        if decl.initlizer == nil {
             return fmt.tprintf("{} {}", type_to_string(decl.type), decl.name)
         }
+        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
         case Struct_Decl:
         return fmt.tprintf("struct {} {}", decl.name, "{}")
     }

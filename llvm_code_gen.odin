@@ -45,7 +45,11 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
             case .STRING: return llvm.PointerTypeInContext(g.context_ref, 0)
         }
         case Pointer: return llvm.PointerTypeInContext(g.context_ref, 0)
-        case Array: panic("TODO")
+        case Array:
+        if v.of == nil do panic("ARRAY TYPE IS NIL")
+        // FIXME not use hardcoded length
+        of := get_llvm_type(g, v.of^)
+        return llvm.ArrayType2(of, v.length)
         case Struct_Decl:
         return g.structs[v.name]
 
