@@ -606,7 +606,7 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             left = expr
 
             logln("========================")
-            fmt.println(expr_to_string(left^))
+            logln(expr_to_string(left^))
             logln("========================")
         }
         else if operator, found := parser_get(p, .LPAR); found { // FUNCTION CALL
@@ -778,16 +778,8 @@ get_expr_type :: proc(expr: Expr) -> Type {
         return Pointer({})
         case Expr_Call: return v.type
         case Expr_MemberAccess:
-        p_t := get_expr_type(v.obj^)
-        if p_t == nil do return nil
-
-        if struc, is := p_t.(Struct_Decl); is {
-            for mem in struc.members {
-                if mem.name == v.member {
-                    return mem.type
-                }
-            }
-        }
+        return v.type
+   
     }
     panic("TODO")
 }

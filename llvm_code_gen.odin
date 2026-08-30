@@ -364,7 +364,7 @@ create_number :: proc(g: ^LLVM_Generator, expr: Expr_Number) -> llvm.ValueRef {
             value,_ := strings.replace(expr.value, "d", "",1)
             value,_ = strings.replace(expr.value, "f", "",1) // float can be double
             val,ok := strconv.parse_f64(value)
-            fmt.println(value)
+            
             if !ok do parser_panic(expr, "Not an double")
             return llvm.ConstReal(get_llvm_type(g,Basic(.DOUBLE)), f64(val))
             
@@ -411,7 +411,10 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
 
     // we retrive the struct from the parent
     struc, ok := get_expr_type(parent^).(Struct_Decl)
-    if !ok do panic("OHH MAN")
+    if !ok {
+        fmt.println(parent)
+        panic("OHH MAN")
+    }
     //creating the indices for llvm
     indices := make([]llvm.ValueRef, 2)
     indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)

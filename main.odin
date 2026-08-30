@@ -113,8 +113,7 @@ main :: proc() {
         print_program(program)
 
         t := create_symbol_table(program);
-        fmt.println("Ceated symbol")
-//        print_symbol_table(t^) // FIXME segfault here
+        print_symbol_table(t^)
 
         check(program, t)
         print_program(program)

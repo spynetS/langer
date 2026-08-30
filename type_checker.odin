@@ -43,6 +43,7 @@ checker_get_var_func :: proc (func: Function_Decl, name: string) -> (Variable_De
 }
 
 expr_set_type :: proc(expr_u: ^Expr, type: Type) {
+    logln("trying to set type to be", type_to_string(type), "for", expr_to_string(expr_u^),"which has", get_expr_type(expr_u^))
     if expr_u == nil do panic("asd")
     #partial switch &expr in expr_u {
         case Expr_Subscript:
@@ -53,21 +54,26 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
         expr.type = type
         case Expr_Call:
         expr.type = type
+        case Expr_MemberAccess:
+        expr.type = type
         case Expr_Binary:
         expr_set_type(expr.left, type)
         expr_set_type(expr.right, type)
     }
+    logln(expr_to_string(expr_u^),"has now", type_to_string(get_expr_type(expr_u^)))
 }
 
 
 
 can_cast :: proc(a, b: Type) -> (Type, bool) {
+    logln("can cast?", type_to_string(a), type_to_string(b))
     if check_type(a, b) {
         return a, true
     }
 
     switch x in a {
     case Basic:
+
         y, ok := b.(Basic)
         if !ok {
             return {}, false
@@ -99,9 +105,9 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
         if !ok {
             return {}, false
         }
-
         // ^BYTE -> STRING
         if y == .STRING {
+            if x.to == nil do panic("")
             pointed_to, ok := x.to^.(Basic)
             if ok && pointed_to == .BYTE {
                 return a, true
@@ -247,9 +253,8 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
 // }
 
 checker_get_identifier_type :: proc(t: ^SymbolTable, expr: ^Expr_Identifier) -> Type {
-    fmt.println(expr.type)
+    logln("CHECKING IDENTIDER", expr_to_string(expr^))
     if symb, found := symbol_table_loopup(t, expr.value); found {
-        fmt.println(symb.type)
         expr.type = symb.type
         return symb.type
     }
@@ -260,22 +265,24 @@ checker_get_identifier_type :: proc(t: ^SymbolTable, expr: ^Expr_Identifier) -> 
 }
 
 checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> Type {
+    logln("CHECKING BINARY", expr_to_string(expr^))
     lt := checker_get_type(t, expr.left)
     rt := checker_get_type(t, expr.right)
     print_expr(expr.left^)
     print_expr(expr.right^)
-    fmt.println(lt, rt)
+    logln(lt, rt)
     if t, can := can_cast(lt, rt); can {
         expr_set_type(expr.left, t)
         expr_set_type(expr.right, t)
         return t
     }
-    else do parser_panic(expr^, fmt.tprintf("Can't preform '{}' between types {} {}",expr.op, lt, rt))
+    else do parser_panic(expr^, fmt.tprintf("Can't preform '{}' between types {} {}",expr.op, type_to_string(lt), type_to_string(rt)))
     panic("TODO")
 }
 
 
 checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
+    logln("CHECKING caller", expr_to_string(expr^))
     // we want to return the function decl type
     // and also check the argument types
     if symbol, found := symbol_table_loopup(t, expr.name); found {
@@ -291,40 +298,61 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> Type {
             else do parser_panic(expr^, fmt.tprintf("TODO"))
 
         }
+        if symbol.type == nil do panic("SHOULD HAVE TYPE")
+        expr_set_type(cast(^Expr)expr, symbol.type)
         return symbol.type
     }
 
     panic("TODO")
 }
 
-check_memberaccess :: proc (t: ^SymbolTable, expr_: ^Expr_MemberAccess) -> Type {
-    expr : Expr_MemberAccess = expr_^;
-    for i in 0..<100 {
-        if m, is := expr.obj.(Expr_MemberAccess); is {
-            expr = m;
+check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
+    logln("CHECKING member", expr_to_string(expr^))
+    struc: Struct_Decl;
+    // we look for the first definition by
+    // going backards in the member access tree
+    // looking at each obj (parent)
+    if m, is := expr.obj.(Expr_MemberAccess); is {
+        // we continue look
+        logln("Parent was member access")
+        type := check_memberaccess(t, &m);
+        is1:bool;
+        struc, is1 = type.(Struct_Decl)
+        if !is1 do panic("TODO ISNT STRUC")
+
+    }
+    if m, is := expr.obj.(Expr_Identifier); is {
+
+        // we found a identifer, could be variable
+
+        symbol, found := symbol_table_loopup(t, m.value)
+        if !found do panic("TODO COULDNT FIND VARIABLE")
+        
+        var, is := symbol.node.(Variable_Decl);
+        if !is {
+            //fmt.println(symbol.node)
+            panic("TODO ISNT VAR")
         }
-        if m, is := expr.obj.(Expr_Identifier); is {
-            symbol, found := symbol_table_loopup(t, m.value)
-            if !found do panic("COULDNT FIND")
-            var, is := symbol.node.(Variable_Decl);
-            if !is {
-                fmt.println(symbol.node)
-                panic("ISNT VAR")
-            }
-            struc, is1 := var.type.(Struct_Decl)
-            if !is1 do panic("ISNT STRUC")
+        is1:bool;
+        struc, is1 = var.type.(Struct_Decl)
+        if !is1 do panic("TODO ISNT STRUC")
+    }
 
-            for m in struc.members {
-                fmt.println("is", m.name , "==", expr_.member)
-                if m.name == expr_.member {
-                    expr_.type = m.type;
-                    fmt.println(expr_to_string(expr_^))
-                    return expr_.type
-                }
-            }
+    expr_set_type(expr.obj, struc);
 
+    // retrieve the member
+    for m in struc.members {
+        //fmt.println("is", m.name , "==", expr.member)
+        if m.name == expr.member {
+            expr.type = m.type;
+            //fmt.println(expr_to_string(expr^))
+            //fmt.println("type of expr is", type_to_string(expr.type))
+            return expr.type
         }
     }
+
+    
+    
 
     panic("TODO")
 }
@@ -335,8 +363,14 @@ checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> Type {
     case Expr_MemberAccess: return check_memberaccess(t, &v);
     case Expr_Array: panic("TODO")
     case Expr_Subscript:  panic("TODO")
-    case Expr_Number:     return v.type;
-    case Expr_String:     return Pointer({})
+    case Expr_Number:
+        logln("CHECKING NUMBER", v.value)
+        if v.type == nil do panic("NIIIL")
+        else do return v.type
+    case Expr_String:
+        to := new(Type)
+        to^ = Basic(.BYTE)
+        return Pointer({to=to})
     case Expr_Identifier: return checker_get_identifier_type(t, &v)
     case Expr_Binary:     return checker_get_binary_type(t, &v);
     case Expr_Call:       return checker_get_call_type(t, &v);
@@ -351,7 +385,7 @@ check_type :: proc(a, b: Type) -> bool {
 
     switch x in a {
     case Struct_Decl:
-        struc, ok := a.(Struct_Decl);
+        struc, ok := b.(Struct_Decl);
         if !ok do return false
         return x.name == struc.name 
         
@@ -421,7 +455,7 @@ check_block :: proc(program: Program, func: Function_Decl, block: ^Block, t: ^Sy
                 
             case Expr:
                 ans := checker_get_type(t, &stmt)
-                fmt.println("type", ans)
+                print_stmt(stmt);
                 
             case Return_Stmt:
                 type := checker_get_type(t, stmt.value)
