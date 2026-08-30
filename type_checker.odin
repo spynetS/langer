@@ -356,12 +356,34 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
     panic("TODO")
 }
 
+check_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> Type {
+    lt := checker_get_type(t, expr.left)
+    rt := checker_get_type(t, expr.index)
+
+    if t, can := can_cast(rt, Basic(.INT)); can {
+        expr_set_type(expr.index, Basic(.INT));
+    }
+    else {
+        parser_panic(expr^, expr.index^, "Index must be integer")
+    }
+
+    if ptr, is := lt.(Pointer); is {
+        if ptr.to == nil do panic("HERE")
+        return ptr.to^
+    }
+
+
+    parser_panic(expr^, fmt.tprintf("Cant preform subscript for type '{}'", type_to_string(lt)))
+
+    panic("TODO")
+}
+
 checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> Type {
     if expr == nil do panic("Checker_get type expr is nil")
     switch &v in expr {
     case Expr_MemberAccess: return check_memberaccess(t, &v);
     case Expr_Array: panic("TODO")
-    case Expr_Subscript:  panic("TODO")
+    case Expr_Subscript: return check_subscript(t, &v);
     case Expr_Number:
         logln("CHECKING NUMBER", v.value)
         if v.type == nil do panic("NIIIL")
