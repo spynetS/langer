@@ -86,22 +86,13 @@ main :: proc() {
         logln(input)
         l := Lexer({input=input,lines=1, col=1, file=path})
         
-        tokens := make([dynamic]Token)
+        tokens := tokenize(&l)
         defer {
             delete(tokens)
-            // free lexer
             delete(l.input)
         }
-        
 
-        for l.cursor < len(l.input) {
-            token := read_token(&l)
-            append(&tokens, token)
-        }
-        append(&tokens, Token({kind=.EOF}))
         print_tokens(tokens)
-   
-
         
         parser := Parser({tokens=tokens})
         arena: mem.Dynamic_Arena
@@ -112,7 +103,10 @@ main :: proc() {
         program := parse_program(&parser)
         print_program(program)
 
-        check(program)
+        t := create_symbol_table(program);
+        print_symbol_table(t^)
+
+        check(program, t)
         print_program(program)
 
 

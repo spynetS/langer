@@ -102,6 +102,17 @@ Token :: struct {
     span: Source_Span,
 }
 
+tokenize :: proc(l: ^Lexer) -> [dynamic]Token {
+    tokens := make([dynamic]Token)
+
+    for l.cursor < len(l.input) {
+        token := read_token(l)
+        append(&tokens, token)
+    }
+    append(&tokens, Token({kind=.EOF}))
+    return tokens
+}
+
 is_token :: proc (input: ^strings.Builder, preview: byte) -> (Token, bool) {
     return Token({}), false
 }
