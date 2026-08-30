@@ -335,7 +335,10 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
         }
         is1:bool;
         struc, is1 = var.type.(Struct_Decl)
-        if !is1 do panic("TODO ISNT STRUC")
+        if !is1 {
+            parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
+            parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+        }
     }
 
     expr_set_type(expr.obj, struc);
@@ -350,10 +353,6 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
             return expr.type
         }
     }
-
-    
-    
-
     panic("TODO")
 }
 

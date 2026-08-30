@@ -247,6 +247,7 @@ decl_get_span :: proc(decl: Decl) -> Source_Span {
 parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string, level: int = 1) {
     p_span := get_expr_span(parent)
     c_span := token.span
+    parser_panic_pos(c_span, error, level)
     fmt.println(expr_to_string(parent))
     for i in 0..<c_span.start.col - p_span.start.col {
         fmt.print(" ")
@@ -255,13 +256,13 @@ parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string, level
         fmt.print("^")
     }
     fmt.print("\n")
-    parser_panic_pos(c_span, error, level)
 }
 
 
 parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string, level: int = 1) {
     c_span := get_expr_span(expr)
     p_span := get_expr_span(parent)
+    parser_panic_pos(c_span, error, level)
     fmt.println(expr_to_string(parent))
     for i in 0..<c_span.start.col - p_span.start.col {
         fmt.print(" ")
@@ -270,23 +271,23 @@ parser_panic_expr_parent :: proc(parent: Expr, expr: Expr, error: string, level:
         fmt.print("^")
     }
     fmt.print("\n")
-    parser_panic_pos(c_span, error, level)
 }
 
 
 parser_panic_expr :: proc(expr: Expr, error: string, level: int = 1) {
     span := get_expr_span(expr)
+    parser_panic_pos(span, error, level)
     fmt.println(expr_to_string(expr))
     for i in 0..<len(expr_to_string(expr)) {
         fmt.print("^")
     }
     fmt.println("")
-    parser_panic_pos(span, error, level)
 }
 
 parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string, level: int = 1) {
     c_span := decl_get_span(expr)
     p_span := decl_get_span(parent)
+    parser_panic_pos(c_span, error, level)
     fmt.println(decl_to_string(parent))
     for i in 0..<c_span.start.col - p_span.start.col {
         fmt.print(" ")
@@ -295,24 +296,24 @@ parser_panic_decl_parent :: proc(parent: Decl, expr: Decl, error: string, level:
         fmt.print("^")
     }
     fmt.print("\n")
-    parser_panic_pos(c_span, error, level)
+
 }
 
 
 parser_panic_decl :: proc(decl: Decl, error: string, level: int = 1) {
     span := decl_get_span(decl)
+    parser_panic_pos(span, error, level)
     fmt.println(decl_to_string(decl))
     for i in 0..<len(decl_to_string(decl)) {
         fmt.print("^")
     }
     fmt.println("")
-    parser_panic_pos(span, error, level)
 }
 
 
 parser_panic_token :: proc(token: Token, error: string, level: int = 1) {
-    fmt.println(token.kind)
     parser_panic_pos(token.span, error, level)
+    fmt.println(token.kind)
 }
 
 parser_next :: proc(p: ^Parser, amnt: int = 1) -> (Token, bool) #optional_ok {

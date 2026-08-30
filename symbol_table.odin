@@ -28,20 +28,30 @@ new_symbol :: proc(node: Decl, type: Type, visibilty: Visibilty, scope: ^SymbolT
     s.scope = scope
     return s
 }
+
+symbol_table_add_item :: proc(t: ^SymbolTable, key: string, value: Symbol) {
+    if v, exists := t.symbols[key]; exists {
+        parser_panic(value.node, fmt.tprintf("Redefinition"))
+    }
+
+    t.symbols[key] = value;
+}
+
 create_symbol_table_func :: proc(t: ^SymbolTable,func : Function_Decl) -> ^SymbolTable {
     table := new(SymbolTable)
     table.parent = t
     // FIXME dont hard code public
-    t.symbols[func.name] = new_symbol(func, func.type, .PUBLIC, table);
+    symbol_table_add_item(t, func.name, new_symbol(func, func.type, .PUBLIC, table))
     for a in func.args {
-        table.symbols[a.name] = new_symbol(a, a.type, .PUBLIC, nil);
+        symbol_table_add_item(table, a.name, new_symbol(a, a.type, .PUBLIC, nil))
     }
 
     if func.block == nil do return table
     
     for item in func.block.items {
         if decl, is := item.(Decl); is {
-            table.symbols[decl_get_name(decl)] = new_symbol(decl, decl_get_type(decl), .PUBLIC, nil);
+            val := new_symbol(decl, decl_get_type(decl), .PUBLIC, nil);
+            symbol_table_add_item(table, decl_get_name(decl), val)
         }
     }
     return table;
@@ -72,7 +82,7 @@ symbol_table_loopup :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
 
 print_symbol_table :: proc(t: SymbolTable, depth:int = 0) {
     for key, symbol in t.symbols {
-        for i in 0..<depth do fmt.print(" ")
+        for i in 0..<depth do log(" ")
         logln(key, "->",decl_to_string(symbol.node))
         if symbol.scope != nil do print_symbol_table(symbol.scope^, depth+1)
     }
