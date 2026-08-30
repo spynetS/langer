@@ -236,6 +236,7 @@ decl_get_type :: proc(decl: Decl) -> Type {
     case Function_Decl: return v.type
     case Struct_Decl: panic("TODO")
     }
+    fmt.println(decl)
     panic("TODO")
 }
 
@@ -396,6 +397,9 @@ get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
 
 parse_type :: proc (p: ^Parser) -> (Type, bool) {
     token := parser_advance(p)
+    logln("++++====== token =====")
+    logln(token.lexeme)
+    
     if t,ok := get_type_token(token.kind); ok {
         return t, ok
     }else if is_struct(p, token) {
@@ -465,6 +469,7 @@ is_type_parser :: proc (p: ^Parser) -> bool {
     defer p.pos = pos
 
     if is_type_token(parser_peek(p).kind) do return true
+    else if is_struct(p, parser_peek(p)) do return true
     else if parser_is(p, .STAR) && is_type(p) do return true
     else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
         return true
@@ -833,7 +838,10 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
     logln("FOUND START")
     for parser_peek(p).kind != .END {
         bef := parser_peek(p)
-        if is_decl(p) do append(&block.items, parse_decl(p))
+        if is_decl(p) {
+            logln("IT IS DECL")
+            append(&block.items, parse_decl(p))
+        }
         else {
             stmt := parse_stmt(p)
             append(&block.items, stmt)
@@ -1012,7 +1020,9 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
 parse_decl :: proc(p: ^Parser) -> Decl {
     decl := Decl({})
 
-    if is_type(p) || is_struct(p, parser_peek(p)) {
+    if is_type(p) {
+        logln("====== before parse var =====")
+        logln(parser_peek(p).lexeme)
         decl = parse_variable_decl(p)
     } else if parser_peek(p).kind == .FUNC {
         decl = parse_func(p)
@@ -1118,7 +1128,8 @@ type_to_string :: proc(type: Type) -> string {
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
-        return fmt.tprintf("ptr")
+        if v.to == nil do return fmt.tprintf("ptr")
+        return fmt.tprintf("*{}", type_to_string(v.to^))
     case Array:
         if v.of == nil {
             return fmt.tprintf("[{}]", v.length)

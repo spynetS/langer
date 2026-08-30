@@ -101,19 +101,33 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
         }
 
     case Pointer:
-        y, ok := b.(Basic)
-        if !ok {
-            return {}, false
-        }
-        // ^BYTE -> STRING
-        if y == .STRING {
-            if x.to == nil do panic("")
-            pointed_to, ok := x.to^.(Basic)
-            if ok && pointed_to == .BYTE {
+
+        switch y in b {
+        case Pointer:
+            if pointed_to, ok1 := y.to^.(Basic); ok1 && pointed_to == .BYTE {
                 return a, true
             }
+        case Basic:
+            break;
+        case Array, Struct_Decl:
+            return {}, false
         }
 
+        // ^BYTE -> STRING
+        // if y == .STRING {
+        //     if x.to == nil do panic("")
+        //     pointed_to, ok := x.to^.(Basic)
+        //     if ok && pointed_to == .BYTE {
+        //         return a, true
+        //     }
+        // }
+
+        if pointed_to, ok1 := x.to^.(Basic); ok1 && pointed_to == .BYTE {
+            return b, true
+        }
+  
+        
+        
     case Array:
         return {}, false
     case Struct_Decl:
@@ -319,8 +333,16 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
         is1:bool;
         struc, is1 = type.(Struct_Decl)
         if !is1 do panic("TODO ISNT STRUC")
-
     }
+    if m, is := expr.obj.(Expr_Subscript); is {
+        // we continue look
+        logln("Parent was subscript")
+        type := check_subscript(t, &m);
+        is1:bool;
+        struc, is1 = type.(Struct_Decl)
+        if !is1 do panic("TODO ISNT STRUC")
+    }
+
     if m, is := expr.obj.(Expr_Identifier); is {
 
         // we found a identifer, could be variable
@@ -371,6 +393,11 @@ check_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> Type {
         if ptr.to == nil do panic("HERE")
         return ptr.to^
     }
+    if arr, is := lt.(Array); is {
+        if arr.of == nil do panic("HERE")
+        return arr.of^
+    }
+
 
 
     parser_panic(expr^, fmt.tprintf("Cant preform subscript for type '{}'", type_to_string(lt)))

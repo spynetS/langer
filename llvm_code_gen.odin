@@ -229,6 +229,51 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     else                                                                       do return llvm.BuildSDiv(g.builder_ref, left, right, get_tmp_name())
 }
 
+create_subscript_ptr :: proc(g: ^LLVM_Generator, ptr_expr: Expr_Subscript, element_type: Type) -> llvm.ValueRef {
+            
+    
+    type  := get_llvm_type     (g, element_type)
+    ptr   := create_expression (g, ptr_expr.left^);
+    index := create_expression (g, ptr_expr.index^)
+
+    ptrel := llvm.BuildGEP2(
+        g.builder_ref,
+        type,
+        ptr,
+            &index,
+        1,
+        cstring("element_ptr"),
+    )
+    return ptrel;
+}
+
+create_subscript_arr :: proc(g: ^LLVM_Generator, expr: Expr_Subscript, element_type: Type) -> llvm.ValueRef {
+    left_type := get_expr_type(expr.left^)
+    
+    ptr   := create_expression(g, expr.left^, true)
+    index := create_expression (g, expr.index^)
+
+    array_llvm_type := get_llvm_type(g, left_type)
+    zero := llvm.ConstInt(
+        llvm.Int32TypeInContext(g.context_ref),
+        0,
+        0,
+    )
+    indices := [2]llvm.ValueRef{
+        zero,
+        index,
+    }
+    return llvm.BuildGEP2(
+        g.builder_ref,
+        array_llvm_type,
+        ptr,
+            &indices[0],
+        2,
+        cstring("element_ptr"),
+    )
+}
+
+
 create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
 
     left_val : llvm.ValueRef = {}
@@ -252,22 +297,19 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         
         case Expr_Subscript:
         logln("left is exprsubscript", v.left)
-        p,ok := get_expr_type(v.left^).(Pointer)
-        if !ok do panic("ITS NOT A POINTER")
-        type := get_llvm_type(g, p.to^)
-        ptr := create_expression(g, v.left^);        
-        index := create_expression(g, v.index^)
 
-        ptrel := llvm.BuildGEP2(
-            g.builder_ref,
-            type,
-            ptr,
-            &index,
-            1,
-            cstring("element_ptr"),
-        )
+        if p,ok := get_expr_type(v.left^).(Pointer); ok {
+            if p.to == nil do panic("HERE")
+            left_val = create_subscript_ptr(g, v, p.to^)
+        }
 
-        left_val = ptrel
+        // FIXME add check if its over array length
+        if arr,ok := get_expr_type(v.left^).(Array); ok {
+            if arr.of == nil do panic("HERE")
+            left_val = create_subscript_arr(g, v, arr.of^)
+        }
+
+
     }
     right_val := create_expression(g, right)
 
@@ -410,8 +452,7 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
     // if our parent is member we create member acc
     // if it is identioder we use it
     found : bool
-    object, found = get_var(g, parent^)
-    if !found do panic("NOT FOUND")
+    object = create_expression(g, parent^, true)
 
     // we retrive the struct from the parent
     struc, ok := get_expr_type(parent^).(Struct_Decl)
@@ -446,26 +487,26 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
 }
 
 
-
-create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
+create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = false) -> llvm.ValueRef{
     switch v in expr{
     case Expr_MemberAccess:
+        logln("generating memberaccess")
         ptr := create_member_access(g, v)
+        if gen_address do return ptr
         return load_pointer(g, ptr, get_llvm_type(g, get_expr_type(v)))
     case Expr_Array: panic("TODO")
     case Expr_Subscript:
+        logln("generating subscript")
         type := get_llvm_type(g, get_expr_type(v))
-        ptr := create_expression(g, v.left^);        
-        index := create_expression(g, v.index^)
+        ptrel: llvm.ValueRef
+        if p, is := get_expr_type(v.left^).(Pointer); is {
+            ptrel = create_subscript_ptr(g,v, p.to^);
+        }
+        if p, is := get_expr_type(v.left^).(Array); is {
+            ptrel = create_subscript_arr(g,v, p.of^);
+        }
 
-        ptrel := llvm.BuildGEP2(
-            g.builder_ref,
-            type,
-            ptr,
-                &index,
-            1,
-            cstring("element_ptr"),
-        )
+        if gen_address do return ptrel
 
         return llvm.BuildLoad2(
             g.builder_ref,
@@ -473,10 +514,11 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
             ptrel,
             "ptrval"
         )
-
     case Expr_Number:
+        logln("generating num")
         return create_number(g, v);
     case Expr_String:
+        logln("generating string")
         s,_ := strings.replace_all(v.value, "\\n", "\n")
         s,_ = strings.replace_all(s, "\\n", "\n")
         s,_ = strings.replace_all(s, "\\t", "\t")
@@ -491,11 +533,14 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
             fmt.ctprintf("str")
         )
     case Expr_Identifier:
+        logln("generating identifer")
         // type is not set
         ref,ok := g.refs[v.value]
         if !ok do panic("TODO Could not find the variable")
-        type := get_llvm_type(g, v.type)
         
+        if gen_address do return ref
+
+        type := get_llvm_type(g, v.type)
         return llvm.BuildLoad2(g.builder_ref, type, ref, get_tmp_name())
     case Expr_Binary: return create_binary(g, v)
     case Expr_Call:
@@ -506,7 +551,10 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr) -> llvm.ValueRef{
             
             type := get_llvm_type(g, get_expr_type(v.operand^))
             ptr := create_expression(g, v.operand^);
+            
+            if gen_address do return ptr;
             return load_pointer(g, ptr, type)
+
             case .AMPER:
             var,found := get_var(g, v.operand^)
             if !found do panic("asd")
