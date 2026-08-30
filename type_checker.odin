@@ -56,6 +56,8 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
         expr.type = type
         case Expr_MemberAccess:
         expr.type = type
+        case Expr_Unary:
+        expr.type = type
         case Expr_Binary:
         expr_set_type(expr.left, type)
         expr_set_type(expr.right, type)
@@ -197,22 +199,37 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
     // we look for the first definition by
     // going backards in the member access tree
     // looking at each obj (parent)
-    if m, is := expr.obj.(Expr_MemberAccess); is {
-        // we continue look
-        logln("Parent was member access")
-        type := check_memberaccess(t, &m);
-        is1:bool;
-        struc, is1 = type.(Struct_Decl)
-        if !is1 do panic("TODO ISNT STRUC")
+    // if m, is := expr.obj.(Expr_MemberAccess); is {
+    //     // we continue look
+    //     logln("Parent was member access")
+    //     type := check_memberaccess(t, &m);
+    //     is1:bool;
+    //     struc, is1 = type.(Struct_Decl)
+    //     if !is1 do panic("TODO ISNT STRUC")
+    // }
+    // if m, is := expr.obj.(Expr_Subscript); is {
+    //     // we continue look
+    //     logln("Parent was subscript")
+    //     type := check_subscript(t, &m);
+    //     is1:bool;
+    //     struc, is1 = type.(Struct_Decl)
+    //     if !is1 do panic("TODO ISNT STRUC")
+    // }
+    
+    type := checker_get_type(t, expr.obj);
+    is1:bool;
+    struc, is1 = type.(Struct_Decl)
+    if !is1 {
+        if ptr, is := type.(Pointer); is && ptr.to != nil {
+            struc, is = ptr.to.(Struct_Decl);
+            if !is do panic("TODO ISNT STRUC")
+        }
+        else {
+            fmt.println(type)
+            panic("TODO ISNT STRUC")
+        }
     }
-    if m, is := expr.obj.(Expr_Subscript); is {
-        // we continue look
-        logln("Parent was subscript")
-        type := check_subscript(t, &m);
-        is1:bool;
-        struc, is1 = type.(Struct_Decl)
-        if !is1 do panic("TODO ISNT STRUC")
-    }
+
 
     if m, is := expr.obj.(Expr_Identifier); is {
 
@@ -229,8 +246,17 @@ check_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> Type {
         is1:bool;
         struc, is1 = var.type.(Struct_Decl)
         if !is1 {
-            parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
-            parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+            if ptr, is := var.type.(Pointer); is && ptr.to != nil {
+                struc, is = ptr.to.(Struct_Decl)
+                if !is {
+                    parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
+                    parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+                }
+            }
+            else {
+                parser_panic(expr^, expr.obj^, fmt.tprintf("Object is not type struct, it is {}", type_to_string(var.type)))
+                parser_panic(var, fmt.tprintf("Declared here", type_to_string(var.type)))
+            }
         }
     }
 
@@ -276,12 +302,28 @@ check_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> Type {
     panic("TODO")
 }
 
+checker_get_unary :: proc(t: ^SymbolTable, expr: ^Expr_Unary) -> Type {
+    #partial switch expr.operator {
+        case .UP:
+        t := checker_get_type(t, expr.operand);
+        if ptr, ok := t.(Pointer); ok {
+            if ptr.to == nil do panic("PTR IS NIL?s")
+            expr_set_type(cast(^Expr)expr, ptr.to^)
+            return ptr.to^;
+        }
+        else do panic("ASD")
+        case .AMPER: panic("TODO")
+    }
+
+    panic("TODO")
+}
+
 checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> Type {
     if expr == nil do panic("Checker_get type expr is nil")
     switch &v in expr {
     case Expr_MemberAccess: return check_memberaccess(t, &v);
     case Expr_Array: panic("TODO")
-    case Expr_Subscript: return check_subscript(t, &v);
+    case Expr_Subscript:  return check_subscript(t, &v);
     case Expr_Number:
         logln("CHECKING NUMBER", v.value)
         if v.type == nil do panic("NIIIL")
@@ -293,7 +335,7 @@ checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> Type {
     case Expr_Identifier: return checker_get_identifier_type(t, &v)
     case Expr_Binary:     return checker_get_binary_type(t, &v);
     case Expr_Call:       return checker_get_call_type(t, &v);
-    case Expr_Unary: panic("TODO")
+    case Expr_Unary:      return checker_get_unary(t, &v);
     }
     fmt.println(expr)
     panic("TODO")

@@ -457,7 +457,7 @@ create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llv
     // we retrive the struct from the parent
     struc, ok := get_expr_type(parent^).(Struct_Decl)
     if !ok {
-        fmt.println(parent)
+        fmt.println(get_expr_type(parent^))
         panic("OHH MAN")
     }
     //creating the indices for llvm

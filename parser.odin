@@ -124,7 +124,8 @@ Expr_MemberAccess :: struct {
 Expr_Unary :: struct {
     span: Source_Span,
     operator: Token_Kind,
-    operand: ^Expr
+    operand: ^Expr,
+    type: Type
 }
 Expr_Array :: struct {
     span: Source_Span,
@@ -787,7 +788,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
             case: return get_expr_type(v.left^)
         }
         case Expr_Unary:
-        return get_expr_type(v.operand^)
+        return v.type
         case Expr_Number: return v.type
         case Expr_Identifier: return v.type
         case Expr_String:
