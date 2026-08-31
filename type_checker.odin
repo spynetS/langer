@@ -74,6 +74,7 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
     }
 
     switch x in a {
+    case NamedType: panic("TODO")
     case Basic:
 
         y, ok := b.(Basic)
@@ -105,6 +106,7 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
     case Pointer:
 
         switch y in b {
+        case NamedType: panic("TODO")
         case Pointer:
             if pointed_to, ok1 := y.to^.(Basic); ok1 && pointed_to == .BYTE {
                 return a, true
@@ -306,6 +308,7 @@ check_type :: proc(a, b: Type) -> bool {
     if a == nil || b == nil do return false
 
     switch x in a {
+    case NamedType: panic("TODO")
     case Struct_Decl:
         struc, ok := b.(Struct_Decl);
         if !ok do return false

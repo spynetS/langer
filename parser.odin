@@ -43,10 +43,14 @@ Basic :: enum {
     DOUBLE,
     VOID
 }
+NamedType :: struct {
+    value: string
+}
 Array :: struct {
     of: ^Type,
     length: u64
 }
+
 Pointer :: struct {
     to: ^Type
 }
@@ -55,7 +59,8 @@ Type :: union {
     Basic,
     Array,
     Pointer,
-    Struct_Decl
+    Struct_Decl,
+    NamedType
 }
 
 Variable_Decl :: struct {
@@ -379,95 +384,95 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind, custom_msg: string = "") 
 }
 
 // ==== TYPE ======
-get_type :: proc {
-    get_type_parser,
-    get_type_token,
-}
+// get_type :: proc {
+//     get_type_parser,
+//     get_type_token,
+// }
 
-get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
-    if t,ok := get_type_token(parser_peek(p).kind); ok {
-        return t, ok
-    }
-    else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
-        parser_advance(p);
-        to := new(Type)
-        to^,_ = get_type_parser(p);
-        type := Pointer({to=to})
-        return type, true
-    }
-    else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
-        // we are pointer
-        if t,ok := get_type_token(parser_next(p).kind); ok {
-            to := new(Type)
-            to^ = t
-            type := Pointer({to=to})
-            return type, true
-        }
-    }
+// get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
+//     if t,ok := get_type_token(parser_peek(p).kind); ok {
+//         return t, ok
+//     }
+//     else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
+//         parser_advance(p);
+//         to := new(Type)
+//         to^,_ = get_type_parser(p);
+//         type := Pointer({to=to})
+//         return type, true
+//     }
+//     else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
+//         // we are pointer
+//         if t,ok := get_type_token(parser_next(p).kind); ok {
+//             to := new(Type)
+//             to^ = t
+//             type := Pointer({to=to})
+//             return type, true
+//         }
+//     }
 
-    return {}, false
-}
+//     return {}, false
+// }
 
-parse_type :: proc (p: ^Parser) -> (Type, bool) {
-    token := parser_advance(p)
-    logln("++++====== token =====")
-    logln(token.lexeme)
+// parse_type :: proc (p: ^Parser) -> (Type, bool) {
+//     token := parser_advance(p)
+//     logln("++++====== token =====")
+//     logln(token.lexeme)
     
-    if t,ok := get_type_token(token.kind); ok {
-        return t, ok
-    }else if is_struct(p, token) {
-        struc, ok := get_struct(p, token.lexeme)
-        if ok do return struc, true
-        else  do panic("TODO")
-    }
-    else if token.kind == .STAR {
-        // we are pointer
-        if t, ok := parse_type(p); ok {
-            to := new(Type)
-            to^ = t
-            return Pointer({to=to}), true
-        }
-    } else if token.kind == .LB {
-        // FIXME use this value inside the type
-        num := parser_expect(p, .NUMBER)
-        length,ok := strconv.parse_int(num.lexeme)
-        if !ok do panic("TODO HERE")
+//     if t,ok := get_type_token(token.kind); ok {
+//         return t, ok
+//     }else if is_struct(p, token) {
+//         struc, ok := get_struct(p, token.lexeme)
+//         if ok do return struc, true
+//         else  do panic("TODO")
+//     }
+//     else if token.kind == .STAR {
+//         // we are pointer
+//         if t, ok := parse_type(p); ok {
+//             to := new(Type)
+//             to^ = t
+//             return Pointer({to=to}), true
+//         }
+//     } else if token.kind == .LB {
+//         // FIXME use this value inside the type
+//         num := parser_expect(p, .NUMBER)
+//         length,ok := strconv.parse_int(num.lexeme)
+//         if !ok do panic("TODO HERE")
         
-        parser_expect(p, .RB)
-        // we are array
-        if t, ok := parse_type(p); ok {
-            of := new(Type)
-            of^ = t
-            return Array({of=of, length = u64(length)}), true
-        }
-    }
+//         parser_expect(p, .RB)
+//         // we are array
+//         if t, ok := parse_type(p); ok {
+//             of := new(Type)
+//             of^ = t
+//             return Array({of=of, length = u64(length)}), true
+//         }
+//     }
 
-    return {}, false
-}
+//     return {}, false
+// }
 
 
-get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
-     #partial switch token {
-         case .VOID: return Basic(.VOID), true
-         case .INT: return Basic(.INT), true
-         case .BYTE: return Basic(.BYTE), true
-         case .BOOL: return Basic(.BOOL), true
-         case .STRING: return Basic(.STRING), true
-         case .FLOAT:  return Basic(.FLOAT), true
-         case .DOUBLE: return Basic(.DOUBLE), true
-     }
-    return {}, false
-}
+// get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
+//      #partial switch token {
+//          case .VOID: return Basic(.VOID), true
+//          case .INT: return Basic(.INT), true
+//          case .BYTE: return Basic(.BYTE), true
+//          case .BOOL: return Basic(.BOOL), true
+//          case .STRING: return Basic(.STRING), true
+//          case .FLOAT:  return Basic(.FLOAT), true
+//          case .DOUBLE: return Basic(.DOUBLE), true
+//      }
+//     return {}, false
+// }
 
-is_type :: proc {
-    is_type_token,
-    is_type_parser
-}
+// is_type :: proc {
+//     is_type_token,
+//     is_type_parser
+// }
 
-is_type_token :: proc (kind: Token_Kind) -> bool {
-    _, found := get_type_token(kind)
-    return found
-}
+// is_type_token :: proc (kind: Token_Kind) -> bool {
+//     _, found := get_type_token(kind)
+//     return found
+// }
 
 parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
     if parser_peek(p).kind == kind {
@@ -477,19 +482,19 @@ parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
     return false
 }
 
-is_type_parser :: proc (p: ^Parser) -> bool {
-    pos := p.pos
-    defer p.pos = pos
+// is_type_parser :: proc (p: ^Parser) -> bool {
+//     pos := p.pos
+//     defer p.pos = pos
 
-    if is_type_token(parser_peek(p).kind) do return true
-    else if is_struct(p, parser_peek(p)) do return true
-    else if parser_is(p, .STAR) && is_type(p) do return true
-    else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
-        return true
-    }
+//     if is_type_token(parser_peek(p).kind) do return true
+//     else if is_struct(p, parser_peek(p)) do return true
+//     else if parser_is(p, .STAR) && is_type(p) do return true
+//     else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
+//         return true
+//     }
 
-    return false
-}
+//     return false
+// }
 
 // ==== PARSING ====
 
@@ -577,19 +582,19 @@ new_expr_subscript :: proc(left: ^Expr, index: ^Expr) -> ^Expr {
     return expr
 }
 
-get_token_type :: proc(token: Token_Kind) -> (Type, bool) {
-    #partial switch token {
-        case .NUMBER: return Basic(.INT), true
-        case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
-        case .NUMBER_FLOAT: return Basic(.FLOAT), true
-        case .NUMBER_BOOL: return Basic(.BOOL), true
-    }
-    return {}, false
-}
+// get_token_type :: proc(token: Token_Kind) -> (Type, bool) {
+//     #partial switch token {
+//         case .NUMBER: return Basic(.INT), true
+//         case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
+//         case .NUMBER_FLOAT: return Basic(.FLOAT), true
+//         case .NUMBER_BOOL: return Basic(.BOOL), true
+//     }
+//     return {}, false
+// }
 
 parse_primary :: proc(p: ^Parser) -> ^Expr {
     if token, found := parser_get(p, .NUMBER, .NUMBER_BOOL, .NUMBER_FLOAT, .NUMBER_DOUBLE); found {
-        type, has := get_token_type(token.kind)
+        type, ok := parse_type_token(token)
         expr := new(Expr)
         expr^ = Expr_Number({
             span=token.span,
@@ -803,8 +808,6 @@ get_expr_type :: proc(expr: Expr) -> Type {
     panic("TODO")
 }
 
-
-
 is_struct ::  proc(p: ^Parser, id: Token) -> bool {
     for struc in p.package_.structs {
         fmt.println("is", struc.name, id.lexeme)
@@ -821,14 +824,14 @@ get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
 
 
 is_decl :: proc(p: ^Parser) -> bool {
-
-    // if is_type(parser_peek(p).kind) do return true
-    if is_type(parser_peek(p).kind) do return true
-    if is_struct(p, parser_peek(p)) do return true
-    if parser_peek(p).kind == .FUNC do return true
-    if parser_peek(p).kind == .STAR do return true
-    if parser_peek(p).kind == .STRUCT do return true
-    if parser_peek(p).kind == .LB   do return true
+//    if is_type(parser_peek(p).kind) do return true
+    if parser_next(p).kind         == .COLON do return true
+    if parser_next(p, amnt=2).kind == .COLON do return true
+    if parser_next(p).kind         == .COLON do return true
+    if parser_peek(p).kind         == .FUNC do return true
+    if parser_peek(p).kind         == .STAR do return true
+    if parser_peek(p).kind         == .STRUCT do return true
+    if parser_peek(p).kind         == .LB   do return true
     return false
 }
 
@@ -891,6 +894,69 @@ parse_return :: proc(p: ^Parser) -> Return_Stmt {
     return ret
 }
 
+parse_type_token :: proc(token: Token) -> (Type, bool) {
+    #partial switch token.kind {
+        case .INT:           return Basic(.INT), true
+        case .BYTE:          return Basic(.BYTE), true
+        case .BOOL:          return Basic(.BOOL), true
+        case .STRING:        return Basic(.STRING), true
+        case .FLOAT:         return Basic(.FLOAT), true
+        case .DOUBLE:        return Basic(.DOUBLE), true
+        case .VOID:          return Basic(.VOID), true
+        case .NUMBER:        return Basic(.INT), true
+        case .NUMBER_FLOAT:  return Basic(.FLOAT), true
+        case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
+        case .NUMBER_BOOL:   return Basic(.BOOL), true
+
+    }
+    return {}, false
+}
+
+parse_type_name :: proc(p: ^Parser) -> (Type, bool) {
+    tn := strings.builder_make()
+    defer strings.builder_destroy(&tn)
+    
+    name := parser_advance(p)
+    if name.kind != .IDENTIFER {
+        p.pos -= 1;
+        return {}, false
+    }
+
+    strings.write_string(&tn, name.lexeme)
+    for parser_is(p, .PUNCT) {
+        strings.write_string(&tn, ".")
+        strings.write_string(&tn, parser_expect(p, .IDENTIFER).lexeme)
+    }
+    return NamedType({value=fmt.tprintf("%s", strings.to_string(tn))}), true
+}
+
+parse_type :: proc(p: ^Parser) -> (Type, bool) {
+    if parser_is(p, .STAR) {
+
+        to_, ok := parse_type(p)
+        if !ok {
+            return {}, false
+        }
+        to := new(Type)
+        to^ = to_
+
+        return Pointer{to=to}, true
+    }
+
+    if t, ok := parse_type_token(parser_peek(p)); ok {
+        parser_advance(p)
+        return t, true
+    }
+
+    // named type
+    expr, ok := parse_type_name(p)
+    if ok {
+        return expr, true
+    }
+    
+    return {}, false
+}
+
 parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl := Function_Decl({})
     start := parser_skip(p, .FUNC).span
@@ -901,26 +967,27 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     decl.args = make([dynamic]Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
-        if is_type(p) {
-            if t, ok := get_type(p); ok {
-                var := Variable_Decl({type=t})
-                parser_skip(p, .STAR)
-                parser_advance(p)
-                var.name = parser_expect(p, .IDENTIFER).lexeme
-                parser_skip(p, .COMMA, depth=1)
-                append(&decl.args, var)
-            } else do panic("Could not determen type")
-        }else do parser_panic(parser_peek(p), "Could not determen type")
+        var := parse_variable_decl(p)
+        parser_skip(p, .COMMA, depth=1)
+        append(&decl.args, var)
+//     var := Variable_Decl({type=t})
+        //     parser_skip(p, .STAR)
+        //     parser_advance(p)
+        //     var.name = parser_expect(p, .IDENTIFER).lexeme
+        //     parser_skip(p, .COMMA, depth=1)
+        //     append(&decl.args, var)
+        // } else do panic("Could not determen type")
+        //        }else do parser_panic(parser_peek(p), "Could not determen type")
         
     }
 
     for arg in decl.args do logln(arg)
     parser_skip(p, .RPAR,depth=1)
 
-    if parser_peek(p).kind == .COLON {
-        logln(parser_advance(p))
-        type,ok := parse_type(p)
-        if !ok do panic("TODO")
+    if parser_is(p, .COLON) {
+        type, ok := parse_type(p);
+        if !ok do panic("EXPRESSION CANT BE TYPE")
+        logln(type)
         decl.type = type
     }
     else {
@@ -990,33 +1057,40 @@ parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
 }
 
 parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
-    logln("parse Variable decl")
-    start := parser_peek(p).span.start
     decl := Variable_Decl({})
-    type, ok := parse_type(p);
-    if !ok do parser_panic(parser_peek(p), "No type")
-
-    logln("TYPE:",type)
-
-    decl.type = type;
+    // this makes let variable declerations usable
+    parser_skip(p, .LET, depth=1)
 
     name := parser_expect(p, .IDENTIFER)
     decl.name = name.lexeme
-    logln("NAME:", decl.name)
 
-    if parser_peek(p).kind == .EQUAL {
-        parser_advance(p) // consume equal
-        init,ok := parse_initlizer(p)
-        if !ok do panic("TOOD")
-        decl.initlizer = init
+    logln("Var name is", decl.name)
+
+    decl.span.start=name.span.start;
+    
+    parser_expect(p, .COLON)
+
+    decl.span.end = parser_peek(p).span.end
+    logln("Var looking for type", decl.name)
+
+    type, ok := parse_type(p);
+    if ok {
+        decl.type = type
+        logln("Var type is", decl.type)
     }
-    end := parser_peek(p).span.end
-    logln("INIT:", decl.initlizer)
-    parser_skip(p, .SEMICOLON)
 
-    decl.span = Source_Span{
-        start = start,
-        end = end
+
+    if parser_is(p, .EQUAL) {
+        if init, is := parse_initlizer(p); is {
+            logln(name.lexeme, "=", expr_to_string(init^))
+            decl.initlizer = init
+            logln(get_expr_type(decl.initlizer^))
+            if decl.type == nil do decl.type = get_expr_type(decl.initlizer^)
+
+        }
+        else {
+            panic("HERE")
+        }
     }
 
     return decl
@@ -1024,17 +1098,17 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
 
 parse_decl :: proc(p: ^Parser) -> Decl {
     decl := Decl({})
-
-    if is_type(p) {
-        logln("====== before parse var =====")
-        logln(parser_peek(p).lexeme)
-        decl = parse_variable_decl(p)
-    } else if parser_peek(p).kind == .FUNC {
+    
+    if parser_peek(p).kind == .FUNC {
         decl = parse_func(p)
     }
     else if parser_peek(p).kind == .STRUCT {
         decl = parse_struct(p)
     }
+    else {
+        decl = parse_variable_decl(p)
+    }
+
     
     parser_skip(p, .SEMICOLON)
     return decl
@@ -1153,6 +1227,7 @@ print_indent :: proc(depth: int) {
 
 type_to_string :: proc(type: Type) -> string {
     switch v in type {
+    case NamedType: return fmt.tprintf("'%s'", v.value)
     case Struct_Decl:
         return fmt.tprintf("'%s'", v.name)
     case Basic:
@@ -1384,6 +1459,7 @@ print_package :: proc(package_: Package) {
 
 delete_type :: proc(type_u: ^Type) {
     switch type in type_u {
+    case NamedType: panic("TODO")
     case Basic:
     case Pointer:
         delete_type(type.to)
