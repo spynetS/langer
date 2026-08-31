@@ -163,7 +163,7 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
 
     if fn_ref == nil {
-        parser_panic(Expr(expr), fmt.tprintf("Could not find %s", expr.name))
+        parser_panic(Expr(expr), fmt.tprintf("Could not find {}", expr_to_string(expr.name^)))
     }
     fn_type := llvm.GlobalGetValueType(fn_ref)
 
@@ -705,7 +705,7 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
     panic("TODO")
 }
 
-gen_program :: proc (g: ^LLVM_Generator, p: Package, i_file, o_file: string) {
+gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_file: string) {
 
     context_ref := llvm.ContextCreate()
     defer llvm.ContextDispose(context_ref)
@@ -720,7 +720,21 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, i_file, o_file: string) {
     builder_ref := llvm.CreateBuilderInContext(context_ref)
     defer llvm.DisposeBuilder(builder_ref)
     g.builder_ref = builder_ref
-    
+
+    for import_ in p.imports {
+        if symbol, found := symbol_table_loopup(t, import_.value); found {
+            fmt.println("found", expr_to_string(import_.value^))
+            #partial switch v in symbol.node {
+                case Function_Decl:
+                name := strings.split(expr_to_string(import_.value^),".")[0]
+                create_function_decl(g, v, name)
+                case Variable_Decl: panic("TODO")
+                case Struct_Decl:  panic("TODO")
+            }
+        }
+
+    }
+
     for struc in p.structs {
         struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
 

@@ -134,7 +134,7 @@ main :: proc() {
         strings.write_string(&llvm_path, ".ll")
 
         g := LLVM_Generator({})
-        gen_program(&g,package_, package_.file, strings.to_string(llvm_path))
+        gen_program(&g, package_, &symbol_table, package_.file, strings.to_string(llvm_path))
         append(&o_files, strings.to_string(llvm_path))
 
     }

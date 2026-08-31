@@ -31,6 +31,7 @@ Package :: struct {
     extern    : [dynamic]string,
     functions : [dynamic]Function_Decl,
     structs   : [dynamic]Struct_Decl,
+    imports   : [dynamic]Import_Stmt,
 }
 
 Basic :: enum {
@@ -101,9 +102,14 @@ Block :: struct {
     items: [dynamic]BlockItem,
 }
 Return_Stmt :: struct {
-    span: Source_Span,
     value: ^Expr,
-    type: Type
+    type: Type,
+    span: Source_Span,
+}
+
+Import_Stmt :: struct {
+    value: ^Expr,
+    span: Source_Span,
 }
 
 Decl :: union {
@@ -1043,6 +1049,13 @@ parse_while :: proc(p: ^Parser) -> While_Stmt {
     })
 }
 
+parse_import :: proc(p: ^Parser) -> Import_Stmt {
+    parser_expect(p, .IMPORT)
+    value := parse_expression(p)
+    return Import_Stmt{
+        value = value
+    }
+}
 
 parse_stmt :: proc(p: ^Parser) -> Stmt {
     token := parser_advance(p)
@@ -1053,15 +1066,18 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         case .WHILE:
         logln("parsing for stmt")
         stmt = parse_while(p);
+
         case .IF:
         logln("parsing if stmt")
         if_stmt := parse_if(p);
         stmt = if_stmt^;
-        
+
         case .RETURN:
         logln("parsing return stmt")
         ret_stmt := parse_return(p)
         stmt = ret_stmt
+
+
         case:
         p.pos -= 1
         logln("parsing other stmt")
@@ -1102,9 +1118,17 @@ parse_package :: proc(p: ^Parser) -> Package {
             func.extern = true
             parser_skip(p, .SEMICOLON)
             append(&package_.functions, func)            
+
             case .STRUCT:
             struc := parse_struct(p)
             append(&package_.structs, struc)
+
+            
+            case .IMPORT:
+            logln("parsing import stmt")
+            import_stmt := parse_import(p)
+            append(&package_.imports, import_stmt)
+            
             case .FUNC:
             func := parse_func(p)
             logln("===FUNC===")
