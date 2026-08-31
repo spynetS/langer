@@ -59,7 +59,6 @@ Type :: union {
     Basic,
     Array,
     Pointer,
-    Struct_Decl,
     NamedType
 }
 
@@ -1086,12 +1085,12 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
             decl.initlizer = init
             logln(get_expr_type(decl.initlizer^))
             if decl.type == nil do decl.type = get_expr_type(decl.initlizer^)
-
         }
         else {
             panic("HERE")
         }
     }
+    parser_skip(p, .SEMICOLON, depth=1)
 
     return decl
 }
@@ -1228,8 +1227,6 @@ print_indent :: proc(depth: int) {
 type_to_string :: proc(type: Type) -> string {
     switch v in type {
     case NamedType: return fmt.tprintf("'%s'", v.value)
-    case Struct_Decl:
-        return fmt.tprintf("'%s'", v.name)
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
@@ -1318,7 +1315,7 @@ expr_to_string :: proc(expr_u: Expr) -> string {
             strings.write_string(&result, expr_to_string(arg^))
         } 
         strings.write_string(&result, ")")
-        val := strings.to_string(result)
+        val := fmt.tprintf("%s", strings.to_string(result))
 
         strings.builder_destroy(&result)
 
@@ -1466,10 +1463,7 @@ delete_type :: proc(type_u: ^Type) {
         free(type.to)
     case Array:
         delete_type(type.of)
-        free(type.of)
-    case Struct_Decl:
-        panic("TODO")
-        
+        free(type.of)        
     }
 }
 

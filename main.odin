@@ -92,7 +92,6 @@ main :: proc() {
         delete(bytes)
         logln(input)
         l := Lexer({input=input,lines=1, col=1, file=path})
-        
         tokens := tokenize(&l)
         // defer {
         //     delete(tokens)

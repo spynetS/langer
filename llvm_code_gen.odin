@@ -50,8 +50,10 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
         // FIXME not use hardcoded length
         of := get_llvm_type(g, v.of^)
         return llvm.ArrayType2(of, v.length)
-        case Struct_Decl:
-        return g.structs[v.name]
+        case NamedType:
+        fmt.println(v)
+        fmt.println(g.structs)
+        panic("TODO")
 
     }
     fmt.println(type)
@@ -459,45 +461,47 @@ get_var :: proc(g: ^LLVM_Generator, expr: Expr) -> (llvm.ValueRef, bool) {
 }
 
 create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
-    logln("Creating member access")
-    object : llvm.ValueRef
-    parent: ^Expr = expr.obj
+    // logln("Creating member access")
+    // object : llvm.ValueRef
+    // parent: ^Expr = expr.obj
 
-    // if our parent is member we create member acc
-    // if it is identioder we use it
-    found : bool
-    object = create_expression(g, parent^, true)
+    // // if our parent is member we create member acc
+    // // if it is identioder we use it
+    // found : bool
+    // object = create_expression(g, parent^, true)
 
-    // we retrive the struct from the parent
-    struc, ok := get_expr_type(parent^).(Struct_Decl)
-    if !ok {
-        fmt.println(get_expr_type(parent^))
-        panic("OHH MAN")
-    }
-    //creating the indices for llvm
-    indices := make([]llvm.ValueRef, 2)
-    indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)
-    // retrive the mebmber from the struct 
-    for i in 0..<len(struc.members) {
-        member := struc.members[i]
-        logln(member.name,expr.member)
-        if member.name == expr.member {
-            indices[1] = llvm.ConstInt(get_llvm_type(g, Basic(.INT)), u64(i), 0)
-        }
-    }
+    // // we retrive the struct from the parent
+    // struc, ok := get_expr_type(parent^).(Struct_Decl)
+    // if !ok {
+    //     fmt.println(get_expr_type(parent^))
+    //     panic("OHH MAN")
+    // }
+    // //creating the indices for llvm
+    // indices := make([]llvm.ValueRef, 2)
+    // indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)
+    // // retrive the mebmber from the struct 
+    // for i in 0..<len(struc.members) {
+    //     member := struc.members[i]
+    //     logln(member.name,expr.member)
+    //     if member.name == expr.member {
+    //         indices[1] = llvm.ConstInt(get_llvm_type(g, Basic(.INT)), u64(i), 0)
+    //     }
+    // }
 
-    type_name, ok2 := g.structs[struc.name]
-    if !ok2 do panic("asd")
+    // type_name, ok2 := g.structs[struc.name]
+    // if !ok2 do panic("asd")
 
-    val := llvm.BuildGEP2(
-        g.builder_ref,
-        type_name,
-        object,
-        &indices[0],
-        u32(len(indices)),
-        "member_ptr",
-    )
-    return val
+    // val := llvm.BuildGEP2(
+    //     g.builder_ref,
+    //     type_name,
+    //     object,
+    //     &indices[0],
+    //     u32(len(indices)),
+    //     "member_ptr",
+    // )
+    // return val
+    panic("TODO")
+    //return nil
 }
 
 
@@ -705,6 +709,33 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
     panic("TODO")
 }
 
+create_struct :: proc(g: ^LLVM_Generator, t: ^SymbolTable, struc: Struct_Decl) -> llvm.TypeRef {
+    struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
+
+    field_types := make([dynamic]llvm.TypeRef)
+
+    for field in struc.members {
+        dptr := checker_dereferance(field.type)
+        if nt, is := dptr.(NamedType); is {
+            if symbol, found := symbol_table_lookup_path(t, nt.value); found {
+                append(&field_types, get_llvm_type(g, symbol.type))
+            }
+        }
+        else {
+            append(&field_types, get_llvm_type(g, field.type))
+        }
+    }
+
+    llvm.StructSetBody(
+        struct_type,
+        raw_data(field_types),
+        u32(len(field_types)),
+        0,
+    )
+    g.structs[struc.name] = struct_type
+    return struct_type
+}
+
 gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_file: string) {
 
     context_ref := llvm.ContextCreate()
@@ -722,35 +753,21 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     g.builder_ref = builder_ref
 
     for import_ in p.imports {
-        if symbol, found := symbol_table_loopup(t, import_.value); found {
+        if symbol, found := symbol_table_lookup(t, import_.value); found {
             fmt.println("found", expr_to_string(import_.value^))
             #partial switch v in symbol.node {
                 case Function_Decl:
                 name := strings.split(expr_to_string(import_.value^),".")[0]
                 create_function_decl(g, v, name)
                 case Variable_Decl: panic("TODO")
-                case Struct_Decl:  panic("TODO")
+                case Struct_Decl:  create_struct(g, t, v)
             }
         }
 
     }
 
     for struc in p.structs {
-        struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
-
-        field_types := make([dynamic]llvm.TypeRef)
-
-        for field in struc.members {
-            append(&field_types, get_llvm_type(g, field.type))
-        }
-
-        llvm.StructSetBody(
-            struct_type,
-            raw_data(field_types),
-            u32(len(field_types)),
-            0,
-        )
-        g.structs[struc.name] = struct_type
+        create_struct(g, t, struc)
     }
 
     for func in p.functions {
