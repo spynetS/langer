@@ -804,9 +804,10 @@ get_expr_type :: proc(expr: Expr) -> Type {
 }
 
 
-is_struct ::  proc(p: ^Parser, id: Token) -> bool {
 
+is_struct ::  proc(p: ^Parser, id: Token) -> bool {
     for struc in p.package_.structs {
+        fmt.println("is", struc.name, id.lexeme)
         if struc.name == id.lexeme do return true
     }
     return false

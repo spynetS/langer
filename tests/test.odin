@@ -1284,6 +1284,20 @@ test_complex_pointer_style_expression1 :: proc(t: ^testing.T) {
     main.delete_expression(expr)
 }
 
+@(test)
+test_package_type :: proc(t: ^testing.T) {
+    p := init("foo bar;")
+    defer delete(p.tokens)
+    defer free(p)
+
+    decl := main.parse_decl(p)
+
+   _decl, is := decl.(main.Variable_Decl);
+    testing.expect(t, is, "Expected variable decl")
+
+}
+
+
 // @(test)
 // test_func1 :: proc(t: ^testing.T) {
 //     p := init("func main(): int { return 0; }")
