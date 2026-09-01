@@ -69,6 +69,8 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
 
 can_cast :: proc(a, b: Type) -> (Type, bool) {
     logln("can cast?", type_to_string(a), type_to_string(b))
+    if a == nil && b != nil do return b, true
+    
     if check_type(a, b) {
         return a, true
     }
@@ -167,7 +169,7 @@ checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> (Type, ^
     if t, can := can_cast(lt, rt); can {
         expr_set_type(expr.left, t)
         expr_set_type(expr.right, t)
-        return t,scope
+        return t, scope
     }
     else do parser_panic(expr^, fmt.tprintf("Can't preform '{}' between types {} {}",expr.op, type_to_string(lt), type_to_string(rt)))
     panic("TODO")
@@ -187,12 +189,14 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
             if i >= len(expr.args) do parser_panic(expr^, "Call length is to short")
             at,scope := checker_get_type(t, expr.args[i])
             if t, can := can_cast(at, func.args[i].type); can {
+                logln("casting args")
                 expr_set_type(expr.args[i], t)
             }
             else do parser_panic(expr^, fmt.tprintf("TODO"))
 
         }
         if symbol.type == nil do panic("SHOULD HAVE TYPE")
+        logln("casting function call to")
         expr_set_type(cast(^Expr)expr, symbol.type)
         return symbol.type, symbol.scope
     }
@@ -292,7 +296,10 @@ checker_get_unary :: proc(t: ^SymbolTable, expr: ^Expr_Unary) -> (Type, ^SymbolT
             expr_set_type(cast(^Expr)expr, ptr.to^)
             return ptr.to^, scope
         }
-        else do panic("ASD")
+        else {
+              fmt.println(t)
+              panic("TODO")
+        }
         case .AMPER: panic("TODO")
     }
 
@@ -383,12 +390,14 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
             case Variable_Decl:
                 if decl.initlizer != nil {
                     it,_ := checker_get_type(t, decl.initlizer)
+
                     if type, can := can_cast(decl.type, it); can {
-                        expr_set_type(decl.initlizer, decl.type)
+                        expr_set_type(decl.initlizer, type)
                     }
                     else if !check_type(decl.type, it) {
                         parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(decl.type), type_to_string(it)))
                     }
+
 
                 }
             case Function_Decl:

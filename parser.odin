@@ -1225,6 +1225,7 @@ print_indent :: proc(depth: int) {
 }
 
 type_to_string :: proc(type: Type) -> string {
+    if type == nil do return "<nil type>"
     switch v in type {
     case NamedType: return fmt.tprintf("'%s'", v.value)
     case Basic:
