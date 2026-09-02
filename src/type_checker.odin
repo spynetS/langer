@@ -41,7 +41,7 @@ checker_get_var_func :: proc (func: Function_Decl, name: string) -> (Variable_De
 
     return checker_get_var_block(func.block^, name)
 }
-
+*/
 expr_set_type :: proc(expr_u: ^Expr, type: Type) {
     logln("trying to set type to be", type_to_string(type), "for", expr_to_string(expr_u^),"which has", get_expr_type(expr_u^))
     if expr_u == nil do panic("asd")
@@ -64,8 +64,6 @@ expr_set_type :: proc(expr_u: ^Expr, type: Type) {
     }
     logln(expr_to_string(expr_u^),"has now", type_to_string(get_expr_type(expr_u^)))
 }
-
-
 
 can_cast :: proc(a, b: Type) -> (Type, bool) {
     logln("can cast?", type_to_string(a), type_to_string(b))
@@ -175,6 +173,7 @@ checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> (Type, ^
     panic("TODO")
 }
 
+/*
 
 checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^SymbolTable) {
     logln("CHECKING caller", expr_to_string(expr.name^))
@@ -336,8 +335,8 @@ checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> (Type, ^SymbolTable) {
     case Expr_Subscript:    panic("TODO") // return checker_subscript(t, &v);
     case Expr_Number:       return checker_get_number(t, &v)
     case Expr_String:       panic("TODO") // return checker_get_string(t, &v)
-    case Expr_Identifier:   panic("TODO") // return checker_get_identifier_type(t, &v)
-    case Expr_Binary:       panic("TODO") // return checker_get_binary_type(t, &v);
+    case Expr_Identifier:   return checker_get_identifier_type(t, &v)
+    case Expr_Binary:       return checker_get_binary_type(t, &v);
     case Expr_Call:         panic("TODO") // return checker_get_call_type(t, &v);
     case Expr_Unary:        panic("TODO") // return checker_get_unary(t, &v);
     }
@@ -390,6 +389,8 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
         case Decl:
             switch &decl in item {
             case Variable_Decl:
+                _, f := symbol_table_lookup_type(t, decl.type)
+                if !f do parser_panic(decl, "Type not found")
                 if decl.initlizer != nil {
                     it,_ := checker_get_type(t, decl.initlizer)
                     fmt.println("IT", it)
@@ -399,7 +400,7 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
                     // else if !check_type(decl.type, it) {
                     //     parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(decl.type), type_to_string(it)))
                     // }
-                    panic("TODO")
+                    // panic("TODO")
                 }
             case Function_Decl:
                 panic("Function declartion not support in function")
@@ -453,7 +454,7 @@ check :: proc(program: Program, t: ^SymbolTable) {
             if !found do panic("FUNC NOT FOUND!??!?!")
 
             // go trough function block and check all types
-            check_block(package_, func, func.block, func_t.scope);
+            check_block(package_, func^, func.block, func_t.scope);
         }
     }
 }

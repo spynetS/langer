@@ -36,8 +36,8 @@ Package :: struct {
     package_name: string,
     file: string,
     extern    : [dynamic]string,
-    functions : [dynamic]Function_Decl,
-    structs   : [dynamic]Struct_Decl,
+    functions : [dynamic]^Function_Decl,
+    structs   : [dynamic]^Struct_Decl,
     imports   : [dynamic]Import_Stmt,
 }
 
@@ -53,7 +53,7 @@ Function_Decl :: struct {
     span: Source_Span,
     name: string,
     type: Type,
-    args: [dynamic]Variable_Decl,
+    args: [dynamic]^Variable_Decl,
     block: ^Block,
     extern: bool
 }
@@ -61,7 +61,7 @@ Function_Decl :: struct {
 Struct_Decl :: struct {
     span: Source_Span,
     name: string,
-    members: [dynamic]Variable_Decl,
+    members: [dynamic]^Variable_Decl,
 }
 
 
@@ -83,7 +83,7 @@ BlockItem :: union {
 }
 
 Block :: struct {
-    items: [dynamic]BlockItem,
+    items: [dynamic]^BlockItem,
 }
 Return_Stmt :: struct {
     value: ^Expr,

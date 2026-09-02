@@ -112,7 +112,7 @@ main :: proc() {
         print_package(p)
     }
 
-    if true do panic("asd")
+    //if true do panic("asd")
     for package_ in program.packages {
         print_package(package_)
 

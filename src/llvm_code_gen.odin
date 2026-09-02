@@ -32,41 +32,40 @@ get_tmp_name :: proc () -> cstring {
 }
 
 
-get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> llvm.TypeRef {
+get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #optional_ok {
     #partial switch v in type {
         case Basic:
         #partial switch v {
-            case .INT:    return llvm.Int32TypeInContext(g.context_ref)
-            case .BYTE:    return llvm.Int8TypeInContext(g.context_ref)
-            case .BOOL:   return llvm.Int1TypeInContext(g.context_ref)
-            case .VOID:   return llvm.VoidTypeInContext(g.context_ref)
-            case .FLOAT:  return llvm.FloatTypeInContext(g.context_ref)
-            case .DOUBLE: return llvm.DoubleTypeInContext(g.context_ref)
-            case .STRING: return llvm.PointerTypeInContext(g.context_ref, 0)
+            case .INT:    return llvm.Int32TypeInContext(g.context_ref), true
+            case .BYTE:    return llvm.Int8TypeInContext(g.context_ref), true
+            case .BOOL:   return llvm.Int1TypeInContext(g.context_ref), true
+            case .VOID:   return llvm.VoidTypeInContext(g.context_ref), true
+            case .FLOAT:  return llvm.FloatTypeInContext(g.context_ref), true
+            case .DOUBLE: return llvm.DoubleTypeInContext(g.context_ref), true
+            case .STRING: return llvm.PointerTypeInContext(g.context_ref, 0), true
         }
-        case Pointer: return llvm.PointerTypeInContext(g.context_ref, 0)
+        case Pointer: return llvm.PointerTypeInContext(g.context_ref, 0), true
         case Array:
         if v.of == nil do panic("ARRAY TYPE IS NIL")
-        // FIXME not use hardcoded length
-        of := get_llvm_type(g, v.of^)
-        return llvm.ArrayType2(of, v.length)
-        case NamedType:
-        fmt.println(v)
-        fmt.println(g.structs)
-        panic("TODO")
+        
+        of, found := get_llvm_type(g, v.of^)
+        if !found do return {}, false;
+        return llvm.ArrayType2(of, v.length), true
 
+        case NamedType:
+        return g.structs[v.path[len(v.path)-1]]
     }
     fmt.println(type)
     panic("TODO")
 }
 
 create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: string) -> llvm.ValueRef {
-    type := get_llvm_type(g, func.type)
+    type,_ := get_llvm_type(g, func.type)
     arg_length := len(func.args)
     param_types := make([]llvm.TypeRef, arg_length)
     for i in 0..<arg_length  {
         arg := func.args[i]
-        param_types[i] = get_llvm_type(g, arg.type)
+        param_types[i],_ = get_llvm_type(g, arg.type)
     }
 
     func_type := llvm.FunctionType(type, raw_data(param_types), u32(arg_length), 0)
@@ -89,8 +88,13 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
     logln("create declerations")
     switch decl in decl_u {
     case Variable_Decl:
-        type := get_llvm_type(g,decl.type)
         logln("Creating variable", decl_to_string(decl))
+        type,ok := get_llvm_type(g,decl.type)
+        if !ok {
+            fmt.println(type)
+            panic("AHH")
+        }
+
 
         var := llvm.BuildAlloca(g.builder_ref, type, get_tmp_name())
 
@@ -108,8 +112,8 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
         return var
         
     case Function_Decl: panic("TODO")
-    case Struct_Decl: panic("TODO")
-    case Package_Decl: panic("ASD")
+    case Struct_Decl:   panic("TODO")
+    case Package_Decl:  panic("ASD")
     }
     panic("HERE")
 }
@@ -129,7 +133,7 @@ create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: 
     for i in 0..<len(func.args) {
         arg := func.args[i]
         param := llvm.GetParam(func_ref, u32(i))
-        type := get_llvm_type(g, arg.type)
+        type,_ := get_llvm_type(g, arg.type)
         var := llvm.BuildAlloca(g.builder_ref, type, "arg_var")
 
         llvm.BuildStore(g.builder_ref,
@@ -249,7 +253,7 @@ create_div :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
 create_subscript_ptr :: proc(g: ^LLVM_Generator, ptr_expr: Expr_Subscript, element_type: Type) -> llvm.ValueRef {
             
     
-    type  := get_llvm_type     (g, element_type)
+    type,_:= get_llvm_type     (g, element_type)
     ptr   := create_expression (g, ptr_expr.left^);
     index := create_expression (g, ptr_expr.index^)
 
@@ -270,7 +274,7 @@ create_subscript_arr :: proc(g: ^LLVM_Generator, expr: Expr_Subscript, element_t
     ptr   := create_expression(g, expr.left^, true)
     index := create_expression (g, expr.index^)
 
-    array_llvm_type := get_llvm_type(g, left_type)
+    array_llvm_type,_ := get_llvm_type(g, left_type)
     zero := llvm.ConstInt(
         llvm.Int32TypeInContext(g.context_ref),
         0,
@@ -309,7 +313,7 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
         if !ok do panic("TODO")
 
         ptr := create_expression(g, v.operand^);
-        type := get_llvm_type(g, get_expr_type(v.operand^))
+        type,_ := get_llvm_type(g, get_expr_type(v.operand^))
         left_val = ptr
         
         case Expr_Subscript:
@@ -512,11 +516,12 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
         logln("generating memberaccess")
         ptr := create_member_access(g, v)
         if gen_address do return ptr
-        return load_pointer(g, ptr, get_llvm_type(g, get_expr_type(v)))
+        t,_ := get_llvm_type(g, get_expr_type(v))
+        return load_pointer(g, ptr, t)
     case Expr_Array: panic("TODO")
     case Expr_Subscript:
         logln("generating subscript")
-        type := get_llvm_type(g, get_expr_type(v))
+        type,_a := get_llvm_type(g, get_expr_type(v))
         ptrel: llvm.ValueRef
         if p, is := get_expr_type(v.left^).(Pointer); is {
             ptrel = create_subscript_ptr(g,v, p.to^);
@@ -559,7 +564,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
         
         if gen_address do return ref
 
-        type := get_llvm_type(g, v.type)
+        type,_ := get_llvm_type(g, v.type)
         return llvm.BuildLoad2(g.builder_ref, type, ref, get_tmp_name())
     case Expr_Binary: return create_binary(g, v)
     case Expr_Call:
@@ -569,7 +574,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
         #partial switch v.operator {
             case .UP:
             
-            type := get_llvm_type(g, get_expr_type(v.operand^))
+            type,_ := get_llvm_type(g, get_expr_type(v.operand^))
             ptr := create_expression(g, v.operand^, gen_address);
              
             if gen_address do return ptr;
@@ -718,10 +723,13 @@ create_struct :: proc(g: ^LLVM_Generator, t: ^SymbolTable, struc: Struct_Decl) -
     for field in struc.members {
         dptr := checker_dereferance(field.type)
         if nt, is := dptr.(NamedType); is {
-            panic("ASD")
-            // if symbol, found := symbol_table_lookup_path(t, nt.value); found {
-            //     append(&field_types, get_llvm_type(g, symbol.type))
-            // }
+            fmt.println("looking for ", nt.path)
+            if symbol, found := symbol_table_lookup_path(t, nt.path); found {
+                fmt.println(symbol.type)
+                llvm_type, found := get_llvm_type(g, symbol.type)
+                if !found do panic("ASD")
+                append(&field_types, llvm_type)
+            }
         }
         else {
             append(&field_types, get_llvm_type(g, field.type))
@@ -755,6 +763,7 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     g.builder_ref = builder_ref
 
     for import_ in p.imports {
+        logln("handeling import", expr_to_string(import_.value^))
         if symbol, found := symbol_table_lookup(t, import_.value); found {
             fmt.println("found", expr_to_string(import_.value^))
             #partial switch v in symbol.node {
@@ -769,12 +778,12 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     }
 
     for struc in p.structs {
-        create_struct(g, t, struc)
+        create_struct(g, t, struc^)
     }
 
     for func in p.functions {
-        if func.extern do create_function_decl(g, func, "")
-        else do create_function(g, func, p.package_name)
+        if func.extern do create_function_decl(g, func^, "")
+        else do create_function(g, func^, p.package_name)
     }
     // write the irl to a file
     error_msg: cstring

@@ -60,6 +60,11 @@ new_symbol :: proc(node: ^Decl, type: Type, visibilty: Visibilty, scope: ^Symbol
         if type == nil do break
         s.type = create_type(scope, &type)
         decl_set_type(node, s.type)
+        
+        case Struct_Decl:
+        if type == nil do break
+        s.type = create_type(scope, &type)
+
     }
     s.node = node^
 
@@ -89,23 +94,27 @@ create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^Symb
     table := new(SymbolTable)
     table.parent = t
 
-    // FIXME dont hard code public
-    symbol_table_add_item(t, func.name, new_symbol(cast(^Decl)func, func.type, .PUBLIC, table))
+    decl := Decl(func^)
+    symbol_table_add_item(t, func.name, new_symbol(&decl, func.type, .PUBLIC, table))
+    func^ = decl.(Function_Decl)
     for &a in func.args {
         a_table := new(SymbolTable)
         a_table.parent = table
-
-        symbol_table_add_item(table, a.name, new_symbol(cast(^Decl)&a, a.type, .PUBLIC, a_table))
+        a_decl := Decl(a^)
+        symbol_table_add_item(table, a.name, new_symbol(&a_decl, a.type, .PUBLIC, a_table))
+        a^ = a_decl.(Variable_Decl)
     }
 
     if func.block == nil do return table
 
-    for item in func.block.items {
+    for &item in func.block.items {
         if decl, is := item.(Decl); is {
             a_table := new(SymbolTable)
             a_table.parent = table
 
             val := new_symbol(&decl, decl_get_type(decl), .PUBLIC, a_table);
+            // we have to update the item body
+            item^ = decl
             symbol_table_add_item(table, decl_get_name(decl), val)
         }
     }
@@ -118,13 +127,17 @@ create_symbol_table_struc :: proc(t: ^SymbolTable, struc: ^Struct_Decl) -> ^Symb
 
     type := new_named_type({struc.name})
 
-    fmt.println(struc)
-    symbol_table_add_item(t, struc.name, new_symbol(struc, type, .PUBLIC, table))
+    decl := Decl(struc^)
+    symbol_table_add_item(t, struc.name, new_symbol(&decl, type, .PUBLIC, table))
+    struc^ = decl.(Struct_Decl)
 
+    
     for &a in struc.members {
         a_table := new(SymbolTable)
         a_table.parent = table
-        sym := new_symbol(cast(^Decl)&a, a.type, .PUBLIC, a_table)
+        a_decl := Decl(a^)
+        sym := new_symbol(&a_decl, a.type, .PUBLIC, a_table)
+        a^ = a_decl.(Variable_Decl)
         symbol_table_add_item(table, a.name, sym)
     }
     return table;
@@ -145,12 +158,12 @@ create_symbol_table_program :: proc(symbol_table: ^SymbolTable, package_: Packag
                           package_.package_name,
                           package_t.parent_symbol)
 
-    fmt.println("PACKGE DONE")
+    fmt.println("PACKGE DONE", package_.package_name)
     for &struc in package_.structs {
-        create_symbol_table_struc(package_t, &struc)
+        create_symbol_table_struc(package_t, struc)
     }
     for &func in package_.functions {
-        create_symbol_table_func(package_t, &func)
+        create_symbol_table_func(package_t, func)
     }
     fmt.println("DONEN")
     return package_t;
@@ -160,6 +173,19 @@ symbol_table_lookup :: proc {
     symbol_table_lookup_expr,
     symbol_table_lookup_str
 }
+
+symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) {
+
+    #partial switch v in type {
+        case NamedType:
+        return symbol_table_lookup_path(t, v.path);
+        case Pointer: if v.to != nil do symbol_table_lookup_type(t, v.to^)
+        case Basic: return {}, true // the type exists but no symbol
+        case Array: panic("TODO")
+    }
+    return {}, false
+}
+
 
 symbol_table_lookup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool) {
     if name, is := expr.(Expr_Identifier); is {
@@ -176,21 +202,19 @@ symbol_table_lookup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool)
     return {}, false
 }
 
-symbol_table_lookup_path :: proc(t: ^SymbolTable, path: string) -> (Symbol, bool) {
-    parts := strings.split(path, ".")
-
-    if len(parts) == 0 {
+symbol_table_lookup_path :: proc(t: ^SymbolTable, path: [dynamic]string) -> (Symbol, bool) {
+    if len(path) == 0 {
         return {}, false
     }
 
     // First name is resolved normally through lexical scopes.
-    symbol, found := symbol_table_lookup_str(t, parts[0])
+    symbol, found := symbol_table_lookup_str(t, path[0])
     if !found {
         return {}, false
     }
 
     // Remaining names are resolved inside the previous symbol.
-    for part in parts[1:] {
+    for part in path[1:] {
         // Whatever mechanism you use to get the symbol table
         // belonging to the type/definition of `symbol`.
         scope := symbol.scope

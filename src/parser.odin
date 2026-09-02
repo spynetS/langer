@@ -85,8 +85,8 @@ decl_get_span :: proc(decl: Decl) -> Source_Span {
     switch v in decl {
     case Variable_Decl: return v.span
     case Function_Decl: return v.span
-    case Struct_Decl: return v.span
-    case Package_Decl: panic("ASD")
+    case Struct_Decl:   return v.span
+    case Package_Decl:  return Source_Span({})
     }
     panic("Not an decl")
 }
@@ -639,12 +639,12 @@ is_struct ::  proc(p: ^Parser, id: Token) -> bool {
     }
     return false
 }
-get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
-    for struc in p.package_.structs {
-        if struc.name == id do return struc, true
-    }
-    return {}, false
-}
+// get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
+//     for struc in p.package_.structs {
+//         if struc.name == id do return struc, true
+//     }
+//     return {}, false
+// }
 
 
 is_decl :: proc(p: ^Parser) -> bool {
@@ -673,11 +673,15 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
 
         if is_decl(p) {
             logln("IT IS DECL")
-            append(&block.items, parse_decl(p))
+            // memort leak?
+            val := new(BlockItem)
+            val^ = parse_decl(p)^
+            append(&block.items, val)
         }
         else {
-            stmt := parse_stmt(p)
-            append(&block.items, stmt)
+            val := new(BlockItem)
+            val^ = parse_stmt(p)^
+            append(&block.items, val)
         }
         if bef == parser_peek(p) do parser_advance(p);
         logln("next stmt in block is", parser_peek(p).kind)
@@ -712,8 +716,8 @@ parse_if :: proc(p: ^Parser) -> ^If_Stmt {
     return stmt    
 }
 
-parse_return :: proc(p: ^Parser) -> Return_Stmt {
-    ret := Return_Stmt({})
+parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
+    ret := new(Return_Stmt)
     ret.value = parse_expression(p)
     return ret
 }
@@ -779,19 +783,19 @@ parse_type :: proc(p: ^Parser) -> (Type, bool) {
     return {}, false
 }
 
-parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
-    decl := Function_Decl({})
+parse_func_decl :: proc(p: ^Parser) -> ^Function_Decl {
+    decl := new(Function_Decl)
     start := parser_skip(p, .FUNC).span
     logln("PEEK:",parser_peek(p))
     token := parser_expect(p, .IDENTIFER)
     decl.name = token.lexeme
 
-    decl.args = make([dynamic]Variable_Decl)
+    decl.args = make([dynamic]^Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
         var := parse_variable_decl(p)
         parser_skip(p, .COMMA, depth=1)
-        append(&decl.args, var)
+        append(&decl.args, cast(^Variable_Decl)var)
     }
 
     for arg in decl.args do logln(arg)
@@ -811,19 +815,18 @@ parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
     return decl
 }
 
-parse_func :: proc(p: ^Parser) -> Function_Decl {
-    decl := parse_func_decl(p)
+parse_func :: proc(p: ^Parser) -> ^Function_Decl {
+    fun := parse_func_decl(p)
 
-    block := parse_block(p, decl.type)
+    block := parse_block(p, fun.type)
     print_block(block^)
 
-    decl.block = block;
-
-    return decl
+    fun.block = block;
+    return fun
 }
 
-parse_struct :: proc(p: ^Parser) -> Struct_Decl {
-    decl := Struct_Decl({})
+parse_struct :: proc(p: ^Parser) -> ^Struct_Decl {
+    decl := new(Struct_Decl)
     parser_expect(p, .STRUCT)
     decl.name = parser_expect(p, .IDENTIFER).lexeme
 
@@ -831,12 +834,11 @@ parse_struct :: proc(p: ^Parser) -> Struct_Decl {
 
     for parser_peek(p).kind != .END {
         var := parse_variable_decl(p);
-        append(&decl.members, var)
+        append(&decl.members, cast(^Variable_Decl)var)
         
-        print_decl(var)
+        print_decl(var^)
     }
     
-    print_decl(decl)
 
     return decl
 }
@@ -869,7 +871,7 @@ parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
     return {}, false
 }
 
-parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
+parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
     decl := Variable_Decl({})
     // this makes let variable declerations usable
     parser_skip(p, .LET, depth=1)
@@ -906,20 +908,23 @@ parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
     }
     parser_skip(p, .SEMICOLON, depth=1)
 
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
-parse_decl :: proc(p: ^Parser) -> Decl {
-    decl := Decl({})
+parse_decl :: proc(p: ^Parser) -> ^Decl {
+    decl := new(Decl)
     
     if parser_peek(p).kind == .FUNC {
-        decl = parse_func(p)
+        decl^ = parse_func(p)^
     }
     else if parser_peek(p).kind == .STRUCT {
-        decl = parse_struct(p)
+        decl^ = parse_struct(p)^
     }
     else {
-        decl = parse_variable_decl(p)
+        decl^ = parse_variable_decl(p)^
+
     }
 
     
@@ -945,25 +950,25 @@ parse_import :: proc(p: ^Parser) -> Import_Stmt {
     }
 }
 
-parse_stmt :: proc(p: ^Parser) -> Stmt {
+parse_stmt :: proc(p: ^Parser) -> ^Stmt {
     token := parser_advance(p)
-    stmt := Stmt({})
+    stmt := new(Stmt)
     logln("stmt next is ", parser_next(p).kind)
 
     #partial switch token.kind {
         case .WHILE:
         logln("parsing for stmt")
-        stmt = parse_while(p);
+        stmt^ = parse_while(p);
 
         case .IF:
         logln("parsing if stmt")
         if_stmt := parse_if(p);
-        stmt = if_stmt^;
+        stmt^ = if_stmt^;
 
         case .RETURN:
         logln("parsing return stmt")
         ret_stmt := parse_return(p)
-        stmt = ret_stmt
+        stmt^ = ret_stmt^
 
 
         case:
@@ -976,13 +981,11 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         print_expr(expr^)
 
         parser_skip(p, .RPAR)
-        stmt = expr^
+        stmt^ = expr^
     }
 
- 
-
-
     parser_skip(p,.SEMICOLON)
+
     return stmt
 }
 
@@ -1219,7 +1222,7 @@ print_decl :: proc(decl_u: Decl, depth: int = 0) {
         print_indent(depth)
         logln("Struct: ", decl.name)
         for member in decl.members {
-            print_decl(member, depth+1)
+            print_decl(member^, depth+1)
         }
         
         case Function_Decl:
@@ -1262,10 +1265,10 @@ print_block :: proc(block: Block, depth: int = 0) {
 print_package :: proc(package_: Package) {
     logln("Program", package_.package_name)
     for struc in package_.structs {
-        print_decl(struc, 1)
+        print_decl(struc^, 1)
     }
     for func in package_.functions {
-        print_decl(func, 1)
+        print_decl(func^, 1)
     }
 }
 
@@ -1359,7 +1362,7 @@ delete_function :: proc(func: ^Function_Decl) {
 
 delete_program :: proc(program: ^Package) {
     for &func in program.functions {
-        delete_function(&func)
+        delete_function(func)
     }
     delete(program.extern)
     delete(program.functions)
