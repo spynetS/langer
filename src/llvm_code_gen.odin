@@ -55,8 +55,19 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
         case NamedType:
         panic("SHOULDNT BE THIS RIGHT")
         case StructType:
-        fmt.println(g.structs)
-        return g.structs[v.path[len(v.path)-1]]
+        
+        type, exists := g.structs[v.path[len(v.path)-1]]
+        if !exists {
+            fmt.println("Couln't find struct in this file create it", v.path[:])
+            for m in v.members {
+                fmt.println(m.type)
+            }
+            type = create_struct(g, Struct_Decl{
+                name = v.path[len(v.path)-1],
+                members = v.members
+            })
+        }
+        return type, true
     }
     fmt.println(type)
     panic("TODO")
@@ -97,7 +108,7 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
             fmt.println(type)
             panic("AHH")
         }
-
+        logln("==done with type", decl_to_string(decl))
 
         var := llvm.BuildAlloca(g.builder_ref, type, get_tmp_name())
 
@@ -112,6 +123,7 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
                 var,
             )
         }
+        logln("done with variable", decl_to_string(decl))
         return var
         
     case Function_Decl: panic("TODO")
@@ -731,16 +743,8 @@ create_struct :: proc(g: ^LLVM_Generator, struc: Struct_Decl) -> llvm.TypeRef {
         dptr := checker_dereferance(field.type)
         fmt.println(decl_to_string(field^))
         if nt, is := dptr.(StructType); is {
-
-            fmt.println("TYPE", get_llvm_type(g, dptr))
-            //append(&field_types,get_llvm_type(g, dptr))
-            // fmt.println("looking for ", nt.path)
-            // if symbol, found := symbol_table_lookup_path(t, nt.path); found {
-            //     fmt.println(symbol.type)
-            //     llvm_type, found := get_llvm_type(g, symbol.type)
-            //     if !found do panic("ASD")
-            //     append(&field_types, llvm_type)
-            // }
+            llvm_type:= get_llvm_type(g, dptr)
+            append(&field_types, llvm_type)
         }
         else {
             append(&field_types, get_llvm_type(g, field.type))
