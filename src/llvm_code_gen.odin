@@ -87,11 +87,13 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
         name := fmt.ctprintf("{}_{}", package_name, func.name)
         fmt.println("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
+        g.refs[func.name] = fun
         return fun
     } else {
         name := fmt.ctprintf("{}", func.name)
         fmt.println("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
+        g.refs[func.name] = fun
         return fun
 
     }
@@ -177,12 +179,27 @@ create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: 
     return func_ref
 }
 
+get_package_name :: proc(name_: string) -> string {
+    ename := name_
+    name, ok := strings.replace_all(ename, ".","_")
+    return name
+}
+
 create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     if expr.name == nil do panic("AJ AJ AJ")
-    ename := expr_to_string(expr.name^)
-    name, ok := strings.replace_all(ename, ".","_")
+    name := get_package_name(expr_to_string(expr.name^))
     fmt.println("create call", name)
-    fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
+    //fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
+    fn_ref, exists := g.refs[name]
+    if !exists {
+        fn_ref = create_function_decl(g, Function_Decl{
+            name = name,
+            type = expr.type,
+            args = nil,
+            
+        },"")
+        //panic("HAVE TO CREATE THE FUNCTION")
+    }
 
     if fn_ref == nil {
         parser_panic(Expr(expr), fmt.tprintf("Could not find {}", expr_to_string(expr.name^)))

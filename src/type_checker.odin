@@ -223,6 +223,7 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
         }
         if symbol.type == nil do panic("SHOULD HAVE TYPE")
         logln("casting function call to")
+        symbol.type = checker_replace_named_type(t, symbol.type)
         expr_set_type(cast(^Expr)expr, symbol.type)
         return symbol.type, symbol.scope
     }
@@ -411,8 +412,8 @@ check_type :: proc(a,b: Type) -> bool {
     if a == nil || b == nil do return false
 
     switch x in a {
-    case StructType: panic("TODO")
-    case NamedType: panic("TODO")
+    case StructType: return false
+    case NamedType: return false
         
     case Basic:
         y, ok := b.(Basic)
@@ -448,15 +449,16 @@ check_type :: proc(a,b: Type) -> bool {
 
 checker_variable_decl :: proc(t: ^SymbolTable, decl: ^Variable_Decl) -> Type {
     type_symbol, f := symbol_table_lookup_type(t, decl.type)
+    decl.type = checker_replace_named_type(t, decl.type)
 
-    if nt, is := type_symbol.type.(NamedType); is {
-        decl.type = checker_replace_named_type(t, nt)
-    }
 
 
     if !f do parser_panic(decl^, "Type not found")
     if decl.initlizer != nil {
         it,_ := checker_get_type(t, decl.initlizer)
+
+        expr_set_type(decl.initlizer, checker_replace_named_type(t, it))
+        
         fmt.println("IT", it)
         // if type, can := can_cast(decl.type, it); can {
         //     expr_set_type(decl.initlizer, type)
@@ -530,11 +532,12 @@ check :: proc(program: Program, t: ^SymbolTable) {
             // if func has no type we assign void to it (default)
             if func.type == nil do func.type = Basic(.VOID)
 
-            if nt, is := func.type.(NamedType); is do func.type = checker_replace_named_type(t, nt);
+            func.type = checker_replace_named_type(t, func.type);
 
             func_t,found := symbol_table_lookup(package_t.scope, func.name)
             if !found do panic("FUNC NOT FOUND!??!?!")
 
+            
             // go trough function block and check all types
             check_block(package_, func^, func.block, func_t.scope);
         }
