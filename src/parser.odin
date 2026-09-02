@@ -1044,7 +1044,8 @@ print_indent :: proc(depth: int) {
 type_to_string :: proc(type: Type) -> string {
     if type == nil do return "<nil type>"
     switch v in type {
-    case NamedType: return fmt.tprintf("'{}'", v.path)
+    case StructType: return fmt.tprintf("'struc {}'", v.path)
+    case NamedType: return fmt.tprintf("'named {}'", v.path)
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
@@ -1277,6 +1278,7 @@ print_package :: proc(package_: Package) {
 
 delete_type :: proc(type_u: ^Type) {
     switch type in type_u {
+    case StructType: panic("TODO")
     case NamedType: panic("TODO")
     case Basic:
     case Pointer:

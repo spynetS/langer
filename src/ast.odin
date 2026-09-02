@@ -23,11 +23,17 @@ Pointer :: struct {
     to: ^Type
 }
 
+StructType :: struct {
+    path: [dynamic]string,
+    members: [dynamic]^Variable_Decl,
+}
+
 Type :: union {
     Basic,
     Array,
     Pointer,
-    NamedType
+    NamedType,
+    StructType
 }
 
 

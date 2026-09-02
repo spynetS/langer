@@ -27,9 +27,11 @@ create_type :: proc(t: ^SymbolTable, type: ^Type) -> Type {
 
     logln("CREATING TYPE")
     switch &v in type {
+    case StructType: panic("TODO")
     case Basic: return v
     case Pointer:
-        if v.to != nil do return create_type(t, v.to)
+        if v.to != nil do v.to^ = create_type(t, v.to)
+        return v
     case Array:
         if v.of != nil do return create_type(t, v.of)
     case NamedType:
@@ -50,8 +52,8 @@ create_type :: proc(t: ^SymbolTable, type: ^Type) -> Type {
 }
 
 new_symbol :: proc(node: ^Decl, type: Type, visibilty: Visibilty, scope: ^SymbolTable) -> Symbol {
-    fmt.println("new symbol", node)
-    fmt.println("t", type)
+    // fmt.println("new symbol", node)
+    // fmt.println("t", type)
     type := type // to make it adressable
     s := Symbol({})
     
@@ -158,14 +160,14 @@ create_symbol_table_program :: proc(symbol_table: ^SymbolTable, package_: Packag
                           package_.package_name,
                           package_t.parent_symbol)
 
-    fmt.println("PACKGE DONE", package_.package_name)
+    // fmt.println("PACKGE DONE", package_.package_name)
     for &struc in package_.structs {
         create_symbol_table_struc(package_t, struc)
     }
     for &func in package_.functions {
         create_symbol_table_func(package_t, func)
     }
-    fmt.println("DONEN")
+    // fmt.println("DONEN")
     return package_t;
 }
 
@@ -178,8 +180,10 @@ symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) 
 
     #partial switch v in type {
         case NamedType:
+        return symbol_table_lookup_path(t, v.path); 
+        case StructType:
         return symbol_table_lookup_path(t, v.path);
-        case Pointer: if v.to != nil do symbol_table_lookup_type(t, v.to^)
+        case Pointer: if v.to != nil do return symbol_table_lookup_type(t, v.to^)
         case Basic: return {}, true // the type exists but no symbol
         case Array: panic("TODO")
     }
@@ -189,12 +193,12 @@ symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) 
 
 symbol_table_lookup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool) {
     if name, is := expr.(Expr_Identifier); is {
-        fmt.println("id searching for", name.value)
+        // fmt.println("id searching for", name.value)
         return symbol_table_lookup_str(t, name.value)
     }
 
     if member, is := expr.(Expr_MemberAccess); is {
-        fmt.println("mem searching for", expr_to_string(member.obj^))
+        // fmt.println("mem searching for", expr_to_string(member.obj^))
         if obj_t,found := symbol_table_lookup_expr(t, member.obj); found {
             return symbol_table_lookup(obj_t.scope, member.member)
         }
@@ -237,15 +241,15 @@ symbol_table_lookup_str :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool)
     
     for current != nil {
         if symbol, found := current.symbols[name]; found {
-            fmt.println("FOUND",name)
+            // fmt.println("FOUND",name)
             return symbol, true
         }
-        fmt.println("SEARCHING IN PARENT FOR",name)
+        // fmt.println("SEARCHING IN PARENT FOR",name)
         current = current.parent
 //        print_symbol_table(current^)
     }
 
-    fmt.println("")
+    // fmt.println("")
 
     return {}, false
 }

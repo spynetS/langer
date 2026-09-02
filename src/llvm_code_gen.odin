@@ -53,6 +53,9 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
         return llvm.ArrayType2(of, v.length), true
 
         case NamedType:
+        panic("SHOULDNT BE THIS RIGHT")
+        case StructType:
+        fmt.println(g.structs)
         return g.structs[v.path[len(v.path)-1]]
     }
     fmt.println(type)
@@ -296,12 +299,13 @@ create_subscript_arr :: proc(g: ^LLVM_Generator, expr: Expr_Subscript, element_t
 
 
 create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
-
+    logln("create assignment")
     left_val : llvm.ValueRef = {}
 
     #partial switch v in left {
         case Expr_MemberAccess:
         left_val = create_member_access(g, v)
+        fmt.println("HERE")
 
         case Expr_Identifier:
         ref := g.refs[v.value]
@@ -465,48 +469,48 @@ get_var :: proc(g: ^LLVM_Generator, expr: Expr) -> (llvm.ValueRef, bool) {
     return {}, false
 }
 
+// alfred.data.age
+get_member_index :: proc(type: Type, member: string) -> (int, bool) {
+    struc_t, is := type.(StructType)
+    if !is do return -1, false
+    
+    for i in 0..<len(struc_t.members) {
+        m := struc_t.members[i]
+        fmt.println(member, "==", m.name)
+        if m.name == member do return i, true
+    }
+
+    return 0, false
+}
+
+
 create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
-    // logln("Creating member access")
-    // object : llvm.ValueRef
-    // parent: ^Expr = expr.obj
+    fmt.println("Creating member access")
+    fmt.println(expr_to_string(expr))
 
-    // // if our parent is member we create member acc
-    // // if it is identioder we use it
-    // found : bool
-    // object = create_expression(g, parent^, true)
+    obj_ptr := create_expression(g, expr.obj^, gen_address=true)
+    obj_type := get_expr_type(expr.obj^)
+    obj_type = checker_dereferance(obj_type)
+    
+    fmt.println("obj type is ", obj_type)
 
-    // // we retrive the struct from the parent
-    // struc, ok := get_expr_type(parent^).(Struct_Decl)
-    // if !ok {
-    //     fmt.println(get_expr_type(parent^))
-    //     panic("OHH MAN")
-    // }
-    // //creating the indices for llvm
-    // indices := make([]llvm.ValueRef, 2)
-    // indices[0] = llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),0,0)
-    // // retrive the mebmber from the struct 
-    // for i in 0..<len(struc.members) {
-    //     member := struc.members[i]
-    //     logln(member.name,expr.member)
-    //     if member.name == expr.member {
-    //         indices[1] = llvm.ConstInt(get_llvm_type(g, Basic(.INT)), u64(i), 0)
-    //     }
-    // }
 
-    // type_name, ok2 := g.structs[struc.name]
-    // if !ok2 do panic("asd")
+    member_index, found := get_member_index(obj_type, expr.member);
+    if !found do parser_panic(expr, "Could not find member for object")
 
-    // val := llvm.BuildGEP2(
-    //     g.builder_ref,
-    //     type_name,
-    //     object,
-    //     &indices[0],
-    //     u32(len(indices)),
-    //     "member_ptr",
-    // )
-    // return val
-    panic("TODO")
-    //return nil
+    llvm_type, found2 := get_llvm_type(g, obj_type)
+    if !found2 do panic("AHH")
+
+    member := llvm.BuildStructGEP2(
+        g.builder_ref,
+        llvm_type,
+        obj_ptr,
+        u32(member_index),
+        "member",
+    )
+    logln("done with", expr_to_string(expr))
+
+    return member;
 }
 
 
@@ -715,21 +719,28 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
     panic("TODO")
 }
 
-create_struct :: proc(g: ^LLVM_Generator, t: ^SymbolTable, struc: Struct_Decl) -> llvm.TypeRef {
+create_struct :: proc(g: ^LLVM_Generator, struc: Struct_Decl) -> llvm.TypeRef {
+    fmt.println("creasting struct", struc.name)
     struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
 
     field_types := make([dynamic]llvm.TypeRef)
 
+    fmt.println("membners", struc.members)
+
     for field in struc.members {
         dptr := checker_dereferance(field.type)
-        if nt, is := dptr.(NamedType); is {
-            fmt.println("looking for ", nt.path)
-            if symbol, found := symbol_table_lookup_path(t, nt.path); found {
-                fmt.println(symbol.type)
-                llvm_type, found := get_llvm_type(g, symbol.type)
-                if !found do panic("ASD")
-                append(&field_types, llvm_type)
-            }
+        fmt.println(decl_to_string(field^))
+        if nt, is := dptr.(StructType); is {
+
+            fmt.println("TYPE", get_llvm_type(g, dptr))
+            //append(&field_types,get_llvm_type(g, dptr))
+            // fmt.println("looking for ", nt.path)
+            // if symbol, found := symbol_table_lookup_path(t, nt.path); found {
+            //     fmt.println(symbol.type)
+            //     llvm_type, found := get_llvm_type(g, symbol.type)
+            //     if !found do panic("ASD")
+            //     append(&field_types, llvm_type)
+            // }
         }
         else {
             append(&field_types, get_llvm_type(g, field.type))
@@ -771,14 +782,14 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
                 name := strings.split(expr_to_string(import_.value^),".")[0]
                 create_function_decl(g, v, name)
                 case Variable_Decl: panic("TODO")
-                case Struct_Decl:  create_struct(g, t, v)
+                case Struct_Decl:  create_struct(g, v)
             }
         }
 
     }
 
     for struc in p.structs {
-        create_struct(g, t, struc^)
+        create_struct(g, struc^)
     }
 
     for func in p.functions {
