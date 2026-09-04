@@ -76,6 +76,21 @@ new_symbol :: proc(node: ^Decl, type: Type, visibilty: Visibilty, scope: ^Symbol
     return s
 }
 
+symbol_table_set_type :: proc(t: ^SymbolTable, key: string, type: Type) -> bool {
+    current : ^SymbolTable = t
+    
+    for current != nil {
+        if symbol, found := current.symbols[key]; found {
+            symbol.type = type
+            decl_set_type(&symbol.node, type)
+            current.symbols[key] = symbol
+            return true
+        }
+        current = current.parent
+    }
+    return false
+}
+
 symbol_table_add_item :: proc(t: ^SymbolTable, key: string, value: Symbol) {
     if v, exists := t.symbols[key]; exists {
         parser_panic(value.node, fmt.tprintf("Redefinition"))

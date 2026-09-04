@@ -350,6 +350,7 @@ checker_get_string :: proc(t: ^SymbolTable, v: ^Expr_String) -> (Type, ^SymbolTa
 
 // alfred.person.data
 checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Type, ^SymbolTable) {
+    logln("Checking memberaccess", expr_to_string(expr^))
     // retrieve the type of our "parent"
     type, scope := checker_get_type(t, expr.obj)
     type = checker_dereferance(type)
@@ -448,25 +449,28 @@ check_type :: proc(a,b: Type) -> bool {
 }
 
 checker_variable_decl :: proc(t: ^SymbolTable, decl: ^Variable_Decl) -> Type {
-    type_symbol, f := symbol_table_lookup_type(t, decl.type)
-    decl.type = checker_replace_named_type(t, decl.type)
 
-
-
-    if !f do parser_panic(decl^, "Type not found")
+    if decl.type != nil {
+        type_symbol, f := symbol_table_lookup_type(t, decl.type)
+        decl.type = checker_replace_named_type(t, decl.type)
+        if !f do parser_panic(decl^, "Type not found when checking type")
+    }
     if decl.initlizer != nil {
         it,_ := checker_get_type(t, decl.initlizer)
+
+        it = checker_replace_named_type(t, it)
 
         expr_set_type(decl.initlizer, checker_replace_named_type(t, it))
         
         fmt.println("IT", it)
-        // if type, can := can_cast(decl.type, it); can {
-        //     expr_set_type(decl.initlizer, type)
-        // }
-        // else if !check_type(decl.type, it) {
-        //     parser_panic(decl, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(decl.type), type_to_string(it)))
-        // }
-        // panic("TODO")
+        if type, can := can_cast(decl.type, it); can {
+            expr_set_type(decl.initlizer, type)
+            decl.type = type
+        }
+        else if !check_type(decl.type, it) {
+            parser_panic(decl^, fmt.tprintf("Variable declartion type missmatch %s != %s", type_to_string(decl.type), type_to_string(it)))
+        }
+        //panic("TODO")
     }
     return decl.type
 }
@@ -478,14 +482,20 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
         case Decl:
             switch &decl in item {
             case Variable_Decl:
-                checker_variable_decl(t, &decl)
+                decl.type = checker_variable_decl(t, &decl)
+                ok := symbol_table_set_type(t, decl.name, decl.type)
+                fmt.println("=========CHECKED VARIABLE =========", decl.type)
+                print_symbol_table(t^)
+                fmt.println("===================================")
+                if !ok do panic("PANIC, couldnt update type")
+
             case Function_Decl:
                 panic("Function declartion not support in function")
                 
             case Struct_Decl:
-                panic("Function declartion not support in function")
+                panic("Struct declartion not support in function")
             case Package_Decl:
-                panic("ASD")
+                panic("Package cant be in function")
             }
         case Stmt:
             switch &stmt in item {
