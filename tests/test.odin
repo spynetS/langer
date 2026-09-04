@@ -1,7 +1,7 @@
 package tests
 
 import "core:testing"
-import main "../"
+import main "../src"
 
 init :: proc (input: string) -> ^main.Parser {
     l := main.Lexer({input=input,lines=1, col=1, file=""})
@@ -1285,8 +1285,8 @@ test_complex_pointer_style_expression1 :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_package_type :: proc(t: ^testing.T) {
-    p := init("foo bar;")
+test_variable_type :: proc(t: ^testing.T) {
+    p := init("foo: bar;")
     defer delete(p.tokens)
     defer free(p)
 
@@ -1295,6 +1295,7 @@ test_package_type :: proc(t: ^testing.T) {
    _decl, is := decl.(main.Variable_Decl);
     testing.expect(t, is, "Expected variable decl")
 
+    main.delete_decl(decl)
 }
 
 

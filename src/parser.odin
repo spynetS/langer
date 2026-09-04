@@ -629,6 +629,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
         return v.type
    
     }
+    fmt.println(expr)
     panic("TODO")
 }
 
@@ -783,8 +784,8 @@ parse_type :: proc(p: ^Parser) -> (Type, bool) {
     return {}, false
 }
 
-parse_func_decl :: proc(p: ^Parser) -> ^Function_Decl {
-    decl := new(Function_Decl)
+parse_func_decl :: proc(p: ^Parser) -> ^Decl {
+    decl := Function_Decl({})
     start := parser_skip(p, .FUNC).span
     logln("PEEK:",parser_peek(p))
     token := parser_expect(p, .IDENTIFER)
@@ -811,22 +812,23 @@ parse_func_decl :: proc(p: ^Parser) -> ^Function_Decl {
         decl.type = Basic(.VOID);
         parser_panic(start, fmt.tprintf("warning: '%s' no type set" ,decl.name), 0)
     }
-
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
-parse_func :: proc(p: ^Parser) -> ^Function_Decl {
+parse_func :: proc(p: ^Parser) -> ^Decl {
     fun := parse_func_decl(p)
 
-    block := parse_block(p, fun.type)
+    block := parse_block(p, (cast(^Function_Decl)fun).type)
     print_block(block^)
 
-    fun.block = block;
+    (cast(^Function_Decl)fun).block = block;
     return fun
 }
 
-parse_struct :: proc(p: ^Parser) -> ^Struct_Decl {
-    decl := new(Struct_Decl)
+parse_struct :: proc(p: ^Parser) -> ^Decl {
+    decl := Struct_Decl({})
     parser_expect(p, .STRUCT)
     decl.name = parser_expect(p, .IDENTIFER).lexeme
 
@@ -839,8 +841,9 @@ parse_struct :: proc(p: ^Parser) -> ^Struct_Decl {
         print_decl(var^)
     }
     
-
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
 
@@ -914,17 +917,16 @@ parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
 }
 
 parse_decl :: proc(p: ^Parser) -> ^Decl {
-    decl := new(Decl)
+    decl : ^Decl;
     
     if parser_peek(p).kind == .FUNC {
-        decl^ = parse_func(p)^
+        decl = parse_func(p)
     }
     else if parser_peek(p).kind == .STRUCT {
-        decl^ = parse_struct(p)^
+        decl = parse_struct(p)
     }
     else {
-        decl^ = parse_variable_decl(p)^
-
+        decl = parse_variable_decl(p)
     }
 
     
@@ -1005,13 +1007,13 @@ parse_package :: proc(p: ^Parser) -> Package {
         #partial switch parser_peek(p).kind {
             case .EXTERN:
             parser_advance(p)
-            func := parse_func_decl(p)
+            func := cast(^Function_Decl)parse_func_decl(p)
             func.extern = true
             parser_skip(p, .SEMICOLON)
             append(&package_.functions, func)            
 
             case .STRUCT:
-            struc := parse_struct(p)
+            struc := cast(^Struct_Decl)parse_struct(p)
             append(&package_.structs, struc)
 
             
@@ -1021,7 +1023,7 @@ parse_package :: proc(p: ^Parser) -> Package {
             append(&package_.imports, import_stmt)
             
             case .FUNC:
-            func := parse_func(p)
+            func := cast(^Function_Decl)parse_func(p)
             logln("===FUNC===")
             logln(func.name, func.args[:])
             print_block(func.block^)
@@ -1279,7 +1281,8 @@ print_package :: proc(package_: Package) {
 delete_type :: proc(type_u: ^Type) {
     switch type in type_u {
     case StructType: panic("TODO")
-    case NamedType: panic("TODO")
+    case NamedType:
+        delete(type.path)
     case Basic:
     case Pointer:
         delete_type(type.to)
@@ -1290,10 +1293,37 @@ delete_type :: proc(type_u: ^Type) {
     }
 }
 
+delete_decl :: proc(decl_u: ^Decl) {
+    switch &decl in decl_u {
+    case Variable_Decl:
+        if decl.initlizer != nil {
+            delete_expression(decl.initlizer)
+        }
+        delete_type(&decl.type)
+    case Struct_Decl:
+        for m in decl.members {
+            delete_decl(cast(^Decl)m)
+        }
+        delete(decl.members)
+        
+    case Function_Decl:
+        for m in decl.args {
+            delete_decl(cast(^Decl)m)
+        }
+        delete_type(&decl.type)
+        delete_block(decl.block)
+        delete(decl.args)
+    case Package_Decl: panic("TODO")
+    }
+    free(decl_u)
+
+}
+
 delete_expression :: proc(expr_u: ^Expr) {
     switch &expr in expr_u {
     case Expr_MemberAccess:
         delete_expression(expr.obj)
+        delete_type(&expr.type)
     case Expr_Array:
         for v in expr.values {
             delete_expression(v)
@@ -1306,6 +1336,7 @@ delete_expression :: proc(expr_u: ^Expr) {
     case Expr_Number:
         delete_type(&expr.type);
     case Expr_String:
+        delete_type(&expr.type)
     case Expr_Identifier:
         delete_type(&expr.type)
     case Expr_Binary:
@@ -1315,11 +1346,13 @@ delete_expression :: proc(expr_u: ^Expr) {
         for a in expr.args {
             delete_expression(a)
         }
+        delete_expression(expr.name)
         delete(expr.args)
         delete_type(&expr.type)
 
     case Expr_Unary:
         delete_expression(expr.operand)
+        delete_type(&expr.type)
     }
     free(expr_u)
 }
