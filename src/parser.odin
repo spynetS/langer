@@ -16,166 +16,14 @@ Program    → contains top-level declarations
 Parser :: struct {
     tokens: [dynamic]Token,
     pos:    int,
-    program: ^Program,
+    package_: ^Package,
     file: string,
     current_block: ^Block
 }
 
 Program :: struct {
-    extern    : [dynamic]string,
-    functions : [dynamic]Function_Decl,
-    structs   : [dynamic]Struct_Decl,
+    packages : [dynamic]Package
 }
-
-Basic :: enum {
-    INT,
-    BYTE, // char
-    BOOL,
-    STRING,
-    FLOAT,
-    DOUBLE,
-    VOID
-}
-Array :: struct {
-    of: ^Type,
-    length: u64
-}
-Pointer :: struct {
-    to: ^Type
-}
-
-Type :: union {
-    Basic,
-    Array,
-    Pointer,
-    Struct_Decl
-}
-
-Variable_Decl :: struct {
-    span: Source_Span,
-    name: string,
-    type: Type,
-    initlizer: ^Expr    
-}
-
-Function_Decl :: struct {
-    span: Source_Span,
-    name: string,
-    type: Type,
-    args: [dynamic]Variable_Decl,
-    block: ^Block,
-    extern: bool
-}
-
-Struct_Decl :: struct {
-    span: Source_Span,
-    name: string,
-    members: [dynamic]Variable_Decl,
-}
-
-
-If_Stmt :: struct {
-    span: Source_Span,
-    condition: ^Expr,
-    block: ^Block,
-    else_block: ^Block,
-}
-While_Stmt :: struct {
-    span: Source_Span,
-    condition: ^Expr,
-    block: ^Block,   
-}
-
-BlockItem :: union {
-    Decl,
-    Stmt,
-}
-
-Block :: struct {
-    items: [dynamic]BlockItem,
-}
-Return_Stmt :: struct {
-    span: Source_Span,
-    value: ^Expr,
-    type: Type
-}
-
-Decl :: union {
-    Function_Decl,
-    Variable_Decl,
-    Struct_Decl
-}
-
-Stmt :: union {
-    Expr,
-    Return_Stmt,
-    If_Stmt,
-    While_Stmt,
-    Block,
-}
-
-Expr_MemberAccess :: struct {
-    obj: ^Expr,
-    member: string,
-    type: Type,
-    span: Source_Span,
-}
-
-Expr_Unary :: struct {
-    span: Source_Span,
-    operator: Token_Kind,
-    operand: ^Expr,
-    type: Type
-}
-Expr_Array :: struct {
-    span: Source_Span,
-    values: [dynamic]^Expr
-}
-Expr_Subscript :: struct {
-    span: Source_Span,
-    left: ^Expr,
-    index: ^Expr,
-    type: Type // TODO ptr or array
-}
-Expr_Number :: struct {
-    span: Source_Span,
-    value: string,
-    type: Type
-}
-Expr_String :: struct {
-    span: Source_Span,
-    value: string,
-}
-Expr_Identifier :: struct {
-    span: Source_Span,
-    value: string,
-    type: Type
-}
-Expr_Binary :: struct {
-    span: Source_Span,
-    op: Token_Kind,
-    left: ^Expr,
-    right: ^Expr
-}
-Expr_Call :: struct {
-    span: Source_Span,
-    name: string,
-    args: [dynamic]^Expr,
-    type: Type
-}
-
-Expr :: union {
-    Expr_MemberAccess,
-    Expr_Array,
-    Expr_Subscript,
-    Expr_Number,
-    Expr_String,
-    Expr_Identifier,
-    Expr_Binary,
-    Expr_Call,
-    Expr_Unary
-}
-
 
 /// ====== LOGGING ======
 log_error :: proc (str : string) {
@@ -227,25 +75,18 @@ decl_get_name :: proc(decl: Decl) -> string {
     case Variable_Decl: return v.name
     case Function_Decl: return v.name
     case Struct_Decl: return v.name
+    case Package_Decl: panic("ASD")
     }
     panic("TODO")
 }
 
-decl_get_type :: proc(decl: Decl) -> Type {
-    switch v in decl {
-    case Variable_Decl: return v.type
-    case Function_Decl: return v.type
-    case Struct_Decl: panic("TODO")
-    }
-    fmt.println(decl)
-    panic("TODO")
-}
 
 decl_get_span :: proc(decl: Decl) -> Source_Span {
     switch v in decl {
     case Variable_Decl: return v.span
     case Function_Decl: return v.span
-    case Struct_Decl: return v.span
+    case Struct_Decl:   return v.span
+    case Package_Decl:  return Source_Span({})
     }
     panic("Not an decl")
 }
@@ -367,95 +208,95 @@ parser_expect :: proc(p: ^Parser, kinds: ..Token_Kind, custom_msg: string = "") 
 }
 
 // ==== TYPE ======
-get_type :: proc {
-    get_type_parser,
-    get_type_token,
-}
+// get_type :: proc {
+//     get_type_parser,
+//     get_type_token,
+// }
 
-get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
-    if t,ok := get_type_token(parser_peek(p).kind); ok {
-        return t, ok
-    }
-    else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
-        parser_advance(p);
-        to := new(Type)
-        to^,_ = get_type_parser(p);
-        type := Pointer({to=to})
-        return type, true
-    }
-    else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
-        // we are pointer
-        if t,ok := get_type_token(parser_next(p).kind); ok {
-            to := new(Type)
-            to^ = t
-            type := Pointer({to=to})
-            return type, true
-        }
-    }
+// get_type_parser :: proc (p: ^Parser) -> (Type, bool) {
+//     if t,ok := get_type_token(parser_peek(p).kind); ok {
+//         return t, ok
+//     }
+//     else if parser_peek(p).kind == .STAR && parser_next(p).kind == .STAR {
+//         parser_advance(p);
+//         to := new(Type)
+//         to^,_ = get_type_parser(p);
+//         type := Pointer({to=to})
+//         return type, true
+//     }
+//     else if parser_peek(p).kind == .STAR && is_type_token(parser_next(p).kind) {
+//         // we are pointer
+//         if t,ok := get_type_token(parser_next(p).kind); ok {
+//             to := new(Type)
+//             to^ = t
+//             type := Pointer({to=to})
+//             return type, true
+//         }
+//     }
 
-    return {}, false
-}
+//     return {}, false
+// }
 
-parse_type :: proc (p: ^Parser) -> (Type, bool) {
-    token := parser_advance(p)
-    logln("++++====== token =====")
-    logln(token.lexeme)
+// parse_type :: proc (p: ^Parser) -> (Type, bool) {
+//     token := parser_advance(p)
+//     logln("++++====== token =====")
+//     logln(token.lexeme)
     
-    if t,ok := get_type_token(token.kind); ok {
-        return t, ok
-    }else if is_struct(p, token) {
-        struc, ok := get_struct(p, token.lexeme)
-        if ok do return struc, true
-        else  do panic("TODO")
-    }
-    else if token.kind == .STAR {
-        // we are pointer
-        if t, ok := parse_type(p); ok {
-            to := new(Type)
-            to^ = t
-            return Pointer({to=to}), true
-        }
-    } else if token.kind == .LB {
-        // FIXME use this value inside the type
-        num := parser_expect(p, .NUMBER)
-        length,ok := strconv.parse_int(num.lexeme)
-        if !ok do panic("TODO HERE")
+//     if t,ok := get_type_token(token.kind); ok {
+//         return t, ok
+//     }else if is_struct(p, token) {
+//         struc, ok := get_struct(p, token.lexeme)
+//         if ok do return struc, true
+//         else  do panic("TODO")
+//     }
+//     else if token.kind == .STAR {
+//         // we are pointer
+//         if t, ok := parse_type(p); ok {
+//             to := new(Type)
+//             to^ = t
+//             return Pointer({to=to}), true
+//         }
+//     } else if token.kind == .LB {
+//         // FIXME use this value inside the type
+//         num := parser_expect(p, .NUMBER)
+//         length,ok := strconv.parse_int(num.lexeme)
+//         if !ok do panic("TODO HERE")
         
-        parser_expect(p, .RB)
-        // we are array
-        if t, ok := parse_type(p); ok {
-            of := new(Type)
-            of^ = t
-            return Array({of=of, length = u64(length)}), true
-        }
-    }
+//         parser_expect(p, .RB)
+//         // we are array
+//         if t, ok := parse_type(p); ok {
+//             of := new(Type)
+//             of^ = t
+//             return Array({of=of, length = u64(length)}), true
+//         }
+//     }
 
-    return {}, false
-}
+//     return {}, false
+// }
 
 
-get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
-     #partial switch token {
-         case .VOID: return Basic(.VOID), true
-         case .INT: return Basic(.INT), true
-         case .BYTE: return Basic(.BYTE), true
-         case .BOOL: return Basic(.BOOL), true
-         case .STRING: return Basic(.STRING), true
-         case .FLOAT:  return Basic(.FLOAT), true
-         case .DOUBLE: return Basic(.DOUBLE), true
-     }
-    return {}, false
-}
+// get_type_token :: proc (token: Token_Kind) -> (Type, bool) #optional_ok {
+//      #partial switch token {
+//          case .VOID: return Basic(.VOID), true
+//          case .INT: return Basic(.INT), true
+//          case .BYTE: return Basic(.BYTE), true
+//          case .BOOL: return Basic(.BOOL), true
+//          case .STRING: return Basic(.STRING), true
+//          case .FLOAT:  return Basic(.FLOAT), true
+//          case .DOUBLE: return Basic(.DOUBLE), true
+//      }
+//     return {}, false
+// }
 
-is_type :: proc {
-    is_type_token,
-    is_type_parser
-}
+// is_type :: proc {
+//     is_type_token,
+//     is_type_parser
+// }
 
-is_type_token :: proc (kind: Token_Kind) -> bool {
-    _, found := get_type_token(kind)
-    return found
-}
+// is_type_token :: proc (kind: Token_Kind) -> bool {
+//     _, found := get_type_token(kind)
+//     return found
+// }
 
 parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
     if parser_peek(p).kind == kind {
@@ -465,19 +306,19 @@ parser_is :: proc(p: ^Parser, kind: Token_Kind) -> bool{
     return false
 }
 
-is_type_parser :: proc (p: ^Parser) -> bool {
-    pos := p.pos
-    defer p.pos = pos
+// is_type_parser :: proc (p: ^Parser) -> bool {
+//     pos := p.pos
+//     defer p.pos = pos
 
-    if is_type_token(parser_peek(p).kind) do return true
-    else if is_struct(p, parser_peek(p)) do return true
-    else if parser_is(p, .STAR) && is_type(p) do return true
-    else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
-        return true
-    }
+//     if is_type_token(parser_peek(p).kind) do return true
+//     else if is_struct(p, parser_peek(p)) do return true
+//     else if parser_is(p, .STAR) && is_type(p) do return true
+//     else if parser_is(p, .LB) && parser_is(p, .NUMBER) && parser_is(p, .RB) && is_type(p) {
+//         return true
+//     }
 
-    return false
-}
+//     return false
+// }
 
 // ==== PARSING ====
 
@@ -542,7 +383,7 @@ new_expr_unary :: proc(operand: ^Expr, operator: Token) -> ^Expr {
     return expr
 }
 
-new_expr_call :: proc(name: string, args: [dynamic]^Expr, span: Source_Span) -> ^Expr {
+new_expr_call :: proc(name: ^Expr, args: [dynamic]^Expr, span: Source_Span) -> ^Expr {
     expr := new(Expr)
     expr^ = Expr_Call({
         span = span,
@@ -565,19 +406,19 @@ new_expr_subscript :: proc(left: ^Expr, index: ^Expr) -> ^Expr {
     return expr
 }
 
-get_token_type :: proc(token: Token_Kind) -> (Type, bool) {
-    #partial switch token {
-        case .NUMBER: return Basic(.INT), true
-        case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
-        case .NUMBER_FLOAT: return Basic(.FLOAT), true
-        case .NUMBER_BOOL: return Basic(.BOOL), true
-    }
-    return {}, false
-}
+// get_token_type :: proc(token: Token_Kind) -> (Type, bool) {
+//     #partial switch token {
+//         case .NUMBER: return Basic(.INT), true
+//         case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
+//         case .NUMBER_FLOAT: return Basic(.FLOAT), true
+//         case .NUMBER_BOOL: return Basic(.BOOL), true
+//     }
+//     return {}, false
+// }
 
 parse_primary :: proc(p: ^Parser) -> ^Expr {
     if token, found := parser_get(p, .NUMBER, .NUMBER_BOOL, .NUMBER_FLOAT, .NUMBER_DOUBLE); found {
-        type, has := get_token_type(token.kind)
+        type, ok := parse_type_token(token)
         expr := new(Expr)
         expr^ = Expr_Number({
             span=token.span,
@@ -637,19 +478,15 @@ parse_postfix :: proc(p: ^Parser) -> ^Expr {
             logln("========================")
         }
         else if operator, found := parser_get(p, .LPAR); found { // FUNCTION CALL
-            if ident, is := left.(Expr_Identifier); is {
-                p.pos -= 1; // parse_call_args expect peek to be LPAR so we go back once
-                args := parse_call_args(p)
-                span := Source_Span{
-                    start = get_expr_span(left^).start,
-                    end = ident.span.end
-                }
-                id := left // to delete the expr we replace it with expr_call
-                left = new_expr_call(ident.value, args, span)
-                delete_expression(id)
-                logln("AFTER CALL", parser_peek(p).kind)
-                //parser_expect(p, .RPAR)
+            p.pos -= 1; // parse_call_args expect peek to be LPAR so we go back once
+            args := parse_call_args(p)
+            span := Source_Span{
+                start = get_expr_span(left^).start,
+                end = get_expr_span(left^).end
             }
+            left = new_expr_call(left, args, span)
+            logln("AFTER CALL", parser_peek(p).kind)
+            //parser_expect(p, .RPAR)
         }
         else if operator, found := parser_get(p, .LB); found { // subscript
             index := parse_expression(p);
@@ -778,7 +615,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
             case .GREATER: return Basic(.BOOL)
             case .AND:     return Basic(.BOOL)
             case .OR:      return Basic(.BOOL)
-            case: return get_expr_type(v.left^)
+            case:          return get_expr_type(v.left^)
         }
         case Expr_Unary:
         return v.type
@@ -792,32 +629,34 @@ get_expr_type :: proc(expr: Expr) -> Type {
         return v.type
    
     }
+    fmt.println(expr)
     panic("TODO")
 }
 
-
 is_struct ::  proc(p: ^Parser, id: Token) -> bool {
-    for struc in p.program.structs {
+    for struc in p.package_.structs {
+        logln("is", struc.name, id.lexeme)
         if struc.name == id.lexeme do return true
     }
     return false
 }
-get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
-    for struc in p.program.structs {
-        if struc.name == id do return struc, true
-    }
-    return {}, false
-}
+// get_struct ::  proc(p: ^Parser, id: string) -> (Struct_Decl, bool) {
+//     for struc in p.package_.structs {
+//         if struc.name == id do return struc, true
+//     }
+//     return {}, false
+// }
 
 
 is_decl :: proc(p: ^Parser) -> bool {
-    // if is_type(parser_peek(p).kind) do return true
-    if is_type(parser_peek(p).kind) do return true
-    if is_struct(p, parser_peek(p)) do return true
-    if parser_peek(p).kind == .FUNC do return true
-    if parser_peek(p).kind == .STAR do return true
-    if parser_peek(p).kind == .STRUCT do return true
-    if parser_peek(p).kind == .LB   do return true
+//    if is_type(parser_peek(p).kind) do return true
+    if parser_next(p).kind         == .COLON do return true
+    if parser_next(p, amnt=2).kind == .COLON do return true
+    if parser_next(p).kind         == .COLON do return true
+    if parser_peek(p).kind         == .FUNC do return true
+    if parser_peek(p).kind         == .STAR do return true
+    if parser_peek(p).kind         == .STRUCT do return true
+    if parser_peek(p).kind         == .LB   do return true
     return false
 }
 
@@ -832,13 +671,18 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
     logln("FOUND START")
     for parser_peek(p).kind != .END {
         bef := parser_peek(p)
+
         if is_decl(p) {
             logln("IT IS DECL")
-            append(&block.items, parse_decl(p))
+            // memort leak?
+            val := new(BlockItem)
+            val^ = parse_decl(p)^
+            append(&block.items, val)
         }
         else {
-            stmt := parse_stmt(p)
-            append(&block.items, stmt)
+            val := new(BlockItem)
+            val^ = parse_stmt(p)^
+            append(&block.items, val)
         }
         if bef == parser_peek(p) do parser_advance(p);
         logln("next stmt in block is", parser_peek(p).kind)
@@ -873,65 +717,117 @@ parse_if :: proc(p: ^Parser) -> ^If_Stmt {
     return stmt    
 }
 
-parse_return :: proc(p: ^Parser) -> Return_Stmt {
-    ret := Return_Stmt({})
+parse_return :: proc(p: ^Parser) -> ^Return_Stmt {
+    ret := new(Return_Stmt)
     ret.value = parse_expression(p)
     return ret
 }
 
-parse_func_decl :: proc(p: ^Parser) -> Function_Decl {
+parse_type_token :: proc(token: Token) -> (Type, bool) {
+    #partial switch token.kind {
+        case .INT:           return Basic(.INT), true
+        case .BYTE:          return Basic(.BYTE), true
+        case .BOOL:          return Basic(.BOOL), true
+        case .STRING:        return Basic(.STRING), true
+        case .FLOAT:         return Basic(.FLOAT), true
+        case .DOUBLE:        return Basic(.DOUBLE), true
+        case .VOID:          return Basic(.VOID), true
+        case .NUMBER:        return Basic(.INT), true
+        case .NUMBER_FLOAT:  return Basic(.FLOAT), true
+        case .NUMBER_DOUBLE: return Basic(.DOUBLE), true
+        case .NUMBER_BOOL:   return Basic(.BOOL), true
+
+    }
+    return {}, false
+}
+
+parse_type_name :: proc(p: ^Parser) -> (Type, bool) {
+    name := parser_advance(p)
+    if name.kind != .IDENTIFER {
+        p.pos -= 1;
+        return {}, false
+    }
+
+    path := make([dynamic]string)
+    append(&path, name.lexeme)
+
+    for parser_is(p, .PUNCT) {
+        append(&path, parser_expect(p, .IDENTIFER).lexeme)
+    }
+    return NamedType({path=path}), true
+}
+
+parse_type :: proc(p: ^Parser) -> (Type, bool) {
+    if parser_is(p, .STAR) {
+
+        to_, ok := parse_type(p)
+        if !ok {
+            return {}, false
+        }
+        to := new(Type)
+        to^ = to_
+
+        return Pointer{to=to}, true
+    }
+
+    if t, ok := parse_type_token(parser_peek(p)); ok {
+        parser_advance(p)
+        return t, true
+    }
+
+    // named type
+    expr, ok := parse_type_name(p)
+    if ok {
+        return expr, true
+    }
+    
+    return {}, false
+}
+
+parse_func_decl :: proc(p: ^Parser) -> ^Decl {
     decl := Function_Decl({})
     start := parser_skip(p, .FUNC).span
     logln("PEEK:",parser_peek(p))
     token := parser_expect(p, .IDENTIFER)
     decl.name = token.lexeme
 
-    decl.args = make([dynamic]Variable_Decl)
+    decl.args = make([dynamic]^Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
-        if is_type(p) {
-            if t, ok := get_type(p); ok {
-                var := Variable_Decl({type=t})
-                parser_skip(p, .STAR)
-                parser_advance(p)
-                var.name = parser_expect(p, .IDENTIFER).lexeme
-                parser_skip(p, .COMMA, depth=1)
-                append(&decl.args, var)
-            } else do panic("Could not determen type")
-        }else do parser_panic(parser_peek(p), "Could not determen type")
-        
+        var := parse_variable_decl(p)
+        parser_skip(p, .COMMA, depth=1)
+        append(&decl.args, cast(^Variable_Decl)var)
     }
 
     for arg in decl.args do logln(arg)
     parser_skip(p, .RPAR,depth=1)
 
-    if parser_peek(p).kind == .COLON {
-        logln(parser_advance(p))
-        type,ok := parse_type(p)
-        if !ok do panic("TODO")
+    if parser_is(p, .COLON) {
+        type, ok := parse_type(p);
+        if !ok do panic("EXPRESSION CANT BE TYPE")
+        logln(type)
         decl.type = type
     }
     else {
         decl.type = Basic(.VOID);
         parser_panic(start, fmt.tprintf("warning: '%s' no type set" ,decl.name), 0)
     }
-
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
-parse_func :: proc(p: ^Parser) -> Function_Decl {
-    decl := parse_func_decl(p)
+parse_func :: proc(p: ^Parser) -> ^Decl {
+    fun := parse_func_decl(p)
 
-    
-    block := parse_block(p, decl.type)
+    block := parse_block(p, (cast(^Function_Decl)fun).type)
     print_block(block^)
 
-    decl.block = block;
-
-    return decl
+    (cast(^Function_Decl)fun).block = block;
+    return fun
 }
 
-parse_struct :: proc(p: ^Parser) -> Struct_Decl {
+parse_struct :: proc(p: ^Parser) -> ^Decl {
     decl := Struct_Decl({})
     parser_expect(p, .STRUCT)
     decl.name = parser_expect(p, .IDENTIFER).lexeme
@@ -940,14 +836,14 @@ parse_struct :: proc(p: ^Parser) -> Struct_Decl {
 
     for parser_peek(p).kind != .END {
         var := parse_variable_decl(p);
-        append(&decl.members, var)
+        append(&decl.members, cast(^Variable_Decl)var)
         
-        print_decl(var)
+        print_decl(var^)
     }
     
-    print_decl(decl)
-
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
 
@@ -978,52 +874,61 @@ parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
     return {}, false
 }
 
-parse_variable_decl :: proc(p: ^Parser) -> Variable_Decl {
-    logln("parse Variable decl")
-    start := parser_peek(p).span.start
+parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
     decl := Variable_Decl({})
-    type, ok := parse_type(p);
-    if !ok do parser_panic(parser_peek(p), "No type")
-
-    logln("TYPE:",type)
-
-    decl.type = type;
+    // this makes let variable declerations usable
+    parser_skip(p, .LET, depth=1)
 
     name := parser_expect(p, .IDENTIFER)
     decl.name = name.lexeme
-    logln("NAME:", decl.name)
 
-    if parser_peek(p).kind == .EQUAL {
-        parser_advance(p) // consume equal
-        init,ok := parse_initlizer(p)
-        if !ok do panic("TOOD")
-        decl.initlizer = init
+    logln("Var name is", decl.name)
+
+    decl.span.start=name.span.start;
+    
+    parser_expect(p, .COLON)
+
+    decl.span.end = parser_peek(p).span.end
+    logln("Var looking for type", decl.name)
+
+    type, ok := parse_type(p);
+    if ok {
+        decl.type = type
+        logln("Var type is", decl.type)
     }
-    end := parser_peek(p).span.end
-    logln("INIT:", decl.initlizer)
-    parser_skip(p, .SEMICOLON)
 
-    decl.span = Source_Span{
-        start = start,
-        end = end
+
+    if parser_is(p, .EQUAL) {
+        if init, is := parse_initlizer(p); is {
+            logln(name.lexeme, "=", expr_to_string(init^))
+            decl.initlizer = init
+            logln(get_expr_type(decl.initlizer^))
+            if decl.type == nil do decl.type = get_expr_type(decl.initlizer^)
+        }
+        else {
+            panic("HERE")
+        }
     }
+    parser_skip(p, .SEMICOLON, depth=1)
 
-    return decl
+    decl_ := new(Decl)
+    decl_^ = decl
+    return decl_
 }
 
-parse_decl :: proc(p: ^Parser) -> Decl {
-    decl := Decl({})
-
-    if is_type(p) {
-        logln("====== before parse var =====")
-        logln(parser_peek(p).lexeme)
-        decl = parse_variable_decl(p)
-    } else if parser_peek(p).kind == .FUNC {
+parse_decl :: proc(p: ^Parser) -> ^Decl {
+    decl : ^Decl;
+    
+    if parser_peek(p).kind == .FUNC {
         decl = parse_func(p)
     }
     else if parser_peek(p).kind == .STRUCT {
         decl = parse_struct(p)
     }
+    else {
+        decl = parse_variable_decl(p)
+    }
+
     
     parser_skip(p, .SEMICOLON)
     return decl
@@ -1039,25 +944,35 @@ parse_while :: proc(p: ^Parser) -> While_Stmt {
     })
 }
 
+parse_import :: proc(p: ^Parser) -> Import_Stmt {
+    parser_expect(p, .IMPORT)
+    value := parse_expression(p)
+    return Import_Stmt{
+        value = value
+    }
+}
 
-parse_stmt :: proc(p: ^Parser) -> Stmt {
+parse_stmt :: proc(p: ^Parser) -> ^Stmt {
     token := parser_advance(p)
-    stmt := Stmt({})
+    stmt := new(Stmt)
     logln("stmt next is ", parser_next(p).kind)
 
     #partial switch token.kind {
         case .WHILE:
         logln("parsing for stmt")
-        stmt = parse_while(p);
+        stmt^ = parse_while(p);
+
         case .IF:
         logln("parsing if stmt")
         if_stmt := parse_if(p);
-        stmt = if_stmt^;
-        
+        stmt^ = if_stmt^;
+
         case .RETURN:
         logln("parsing return stmt")
         ret_stmt := parse_return(p)
-        stmt = ret_stmt
+        stmt^ = ret_stmt^
+
+
         case:
         p.pos -= 1
         logln("parsing other stmt")
@@ -1068,44 +983,57 @@ parse_stmt :: proc(p: ^Parser) -> Stmt {
         print_expr(expr^)
 
         parser_skip(p, .RPAR)
-        stmt = expr^
+        stmt^ = expr^
     }
 
- 
-
-
     parser_skip(p,.SEMICOLON)
+
     return stmt
 }
 
-parse_program :: proc(p: ^Parser) -> Program {
+parse_package :: proc(p: ^Parser) -> Package {
 
-    p.program = new(Program)
+    package_ := Package({})
+    p.package_ = &package_
+    parser_expect(p, .PACKAGE)
+    name := parse_expression(p)
+    package_.package_name = expr_to_string(name^)
+
+    logln("PACKGE NAME IS", package_.package_name)
+
     for parser_peek(p).kind != .EOF && parser_peek(p).kind != .INVALID  {
         bef := parser_peek(p)
         logln(bef)
         #partial switch parser_peek(p).kind {
             case .EXTERN:
             parser_advance(p)
-            func := parse_func_decl(p)
+            func := cast(^Function_Decl)parse_func_decl(p)
             func.extern = true
             parser_skip(p, .SEMICOLON)
-            append(&p.program.functions, func)            
+            append(&package_.functions, func)            
+
             case .STRUCT:
-            struc := parse_struct(p)
-            append(&p.program.structs, struc)
+            struc := cast(^Struct_Decl)parse_struct(p)
+            append(&package_.structs, struc)
+
+            
+            case .IMPORT:
+            logln("parsing import stmt")
+            import_stmt := parse_import(p)
+            append(&package_.imports, import_stmt)
+            
             case .FUNC:
-            func := parse_func(p)
+            func := cast(^Function_Decl)parse_func(p)
             logln("===FUNC===")
             logln(func.name, func.args[:])
             print_block(func.block^)
-            append(&p.program.functions, func)
+            append(&package_.functions, func)
         }
         parser_skip(p,.SEMICOLON)
         if bef == parser_peek(p) do parser_advance(p)
         logln("after prase", parser_peek(p))
     }
-    return p.program^
+    return package_
 
 }
 
@@ -1116,9 +1044,10 @@ print_indent :: proc(depth: int) {
 }
 
 type_to_string :: proc(type: Type) -> string {
+    if type == nil do return "<nil type>"
     switch v in type {
-    case Struct_Decl:
-        return fmt.tprintf("'%s'", v.name)
+    case StructType: return fmt.tprintf("'struc {}'", v.path)
+    case NamedType: return fmt.tprintf("'named {}'", v.path)
     case Basic:
         return strings.to_lower(fmt.tprintf("%s", v))
     case Pointer:
@@ -1140,9 +1069,12 @@ decl_to_string :: proc(decl_u: Decl) -> string {
         if decl.initlizer == nil {
             return fmt.tprintf("{} {}", type_to_string(decl.type), decl.name)
         }
-        return fmt.tprintf("{} {} = {}", type_to_string(decl.type), decl.name, expr_to_string(decl.initlizer^))
+        return fmt.tprintf("{}: {} = {}", decl.name, type_to_string(decl.type), expr_to_string(decl.initlizer^))
         case Struct_Decl:
         return fmt.tprintf("struct {} {}", decl.name, "{}")
+        case Package_Decl:
+        return fmt.tprintf("package")
+
     }
 
     return "<unknown expr>"
@@ -1171,34 +1103,35 @@ operator_to_string :: proc(token: Token_Kind) -> string {
 
 
 expr_to_string :: proc(expr_u: Expr) -> string {
+    
     #partial switch expr in expr_u {
-    case Expr_Binary:
+        case Expr_Binary:
         left := expr_to_string(expr.left^)
         right := expr_to_string(expr.right^)
         return fmt.tprintf("%s %v %s", left, operator_to_string(expr.op), right)
 
-    case Expr_Subscript:
+        case Expr_Subscript:
         left := expr_to_string(expr.left^)
         index := expr_to_string(expr.index^)
         return fmt.tprintf("%s[%s]", left, index)
 
-    case Expr_Number:
+        case Expr_Number:
         return fmt.tprintf("%s", expr.value)
 
-    case Expr_String:
+        case Expr_String:
         return fmt.tprintf("%s", expr.value)
 
-    case Expr_Unary:
-        return fmt.tprintf("%s%s", expr_to_string(expr.operand^), operator_to_string(expr.operator))
+        case Expr_Unary:
+        return fmt.tprintf("{}{}", expr_to_string(expr.operand^), operator_to_string(expr.operator))
 
-    case Expr_MemberAccess:
-        return fmt.tprintf("%s.%s", expr_to_string(expr.obj^), expr.member)
-    case Expr_Identifier:
+        case Expr_MemberAccess:
+        return fmt.tprintf("{}.{}", expr_to_string(expr.obj^), expr.member)
+        case Expr_Identifier:
         return expr.value
 
         case Expr_Call:
         result := strings.builder_make()
-        strings.write_string(&result, fmt.tprintf("%s(", expr.name))
+        strings.write_string(&result, fmt.tprintf("{}(", expr.name != nil ? expr_to_string(expr.name^) : ""))
 
         for i in 0..<len(expr.args) {
             arg := expr.args[i]
@@ -1206,7 +1139,7 @@ expr_to_string :: proc(expr_u: Expr) -> string {
             strings.write_string(&result, expr_to_string(arg^))
         } 
         strings.write_string(&result, ")")
-        val := strings.to_string(result)
+        val := fmt.tprintf("%s", strings.to_string(result))
 
         strings.builder_destroy(&result)
 
@@ -1224,6 +1157,7 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Array: panic("TODO")
     case Expr_MemberAccess:
         logln("MemberAccess ");
+        if expr.obj == nil do panic("asd")
         print_expr(expr.obj^,depth=depth+1)
         print_indent(depth+1)
         log(expr.member,"\n")
@@ -1249,7 +1183,8 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Unary:
         logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
     case Expr_Call:
-        logln("Call: ", expr.name)
+        logln(expr.name)
+        logln("Call: ", expr.name != nil ? expr_to_string(expr.name^) : "")
         for arg in expr.args {
             print_expr(arg^, depth + 1)
         }
@@ -1290,7 +1225,7 @@ print_decl :: proc(decl_u: Decl, depth: int = 0) {
         print_indent(depth)
         logln("Struct: ", decl.name)
         for member in decl.members {
-            print_decl(member, depth+1)
+            print_decl(member^, depth+1)
         }
         
         case Function_Decl:
@@ -1330,13 +1265,13 @@ print_block :: proc(block: Block, depth: int = 0) {
     }
 }
 
-print_program :: proc(program: Program) {
-    logln("Program")
-    for struc in program.structs {
-        print_decl(struc, 1)
+print_package :: proc(package_: Package) {
+    logln("Program", package_.package_name)
+    for struc in package_.structs {
+        print_decl(struc^, 1)
     }
-    for func in program.functions {
-        print_decl(func, 1)
+    for func in package_.functions {
+        print_decl(func^, 1)
     }
 }
 
@@ -1345,23 +1280,50 @@ print_program :: proc(program: Program) {
 
 delete_type :: proc(type_u: ^Type) {
     switch type in type_u {
+    case StructType: panic("TODO")
+    case NamedType:
+        delete(type.path)
     case Basic:
     case Pointer:
         delete_type(type.to)
         free(type.to)
     case Array:
         delete_type(type.of)
-        free(type.of)
-    case Struct_Decl:
-        panic("TODO")
-        
+        free(type.of)        
     }
+}
+
+delete_decl :: proc(decl_u: ^Decl) {
+    switch &decl in decl_u {
+    case Variable_Decl:
+        if decl.initlizer != nil {
+            delete_expression(decl.initlizer)
+        }
+        delete_type(&decl.type)
+    case Struct_Decl:
+        for m in decl.members {
+            delete_decl(cast(^Decl)m)
+        }
+        delete(decl.members)
+        
+    case Function_Decl:
+        for m in decl.args {
+            delete_decl(cast(^Decl)m)
+        }
+        delete_type(&decl.type)
+        delete_block(decl.block)
+        delete(decl.args)
+    case Package_Decl: panic("TODO")
+    }
+    free(decl_u)
+
 }
 
 delete_expression :: proc(expr_u: ^Expr) {
     switch &expr in expr_u {
     case Expr_MemberAccess:
         delete_expression(expr.obj)
+        delete_type(&expr.type)
     case Expr_Array:
         for v in expr.values {
             delete_expression(v)
@@ -1374,6 +1336,7 @@ delete_expression :: proc(expr_u: ^Expr) {
     case Expr_Number:
         delete_type(&expr.type);
     case Expr_String:
+        delete_type(&expr.type)
     case Expr_Identifier:
         delete_type(&expr.type)
     case Expr_Binary:
@@ -1383,11 +1346,13 @@ delete_expression :: proc(expr_u: ^Expr) {
         for a in expr.args {
             delete_expression(a)
         }
+        delete_expression(expr.name)
         delete(expr.args)
         delete_type(&expr.type)
 
     case Expr_Unary:
         delete_expression(expr.operand)
+        delete_type(&expr.type)
     }
     free(expr_u)
 }
@@ -1430,9 +1395,9 @@ delete_function :: proc(func: ^Function_Decl) {
     delete(func.args)
 }
 
-delete_program :: proc(program: ^Program) {
+delete_program :: proc(program: ^Package) {
     for &func in program.functions {
-        delete_function(&func)
+        delete_function(func)
     }
     delete(program.extern)
     delete(program.functions)

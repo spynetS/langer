@@ -1,7 +1,7 @@
 package tests
 
 import "core:testing"
-import main "../"
+import main "../src"
 
 init :: proc (input: string) -> ^main.Parser {
     l := main.Lexer({input=input,lines=1, col=1, file=""})
@@ -539,7 +539,7 @@ test_call_no_arguments :: proc(t: ^testing.T) {
 
     ec := expect_call(t, expr)
 
-    testing.expect(t, ec.name == "foo", "Function name was incorrect")
+    testing.expect(t, main.expr_to_string(ec.name^) == "foo", "Function name was incorrect")
     testing.expect(t, len(ec.args) == 0, "Expected zero arguments")
 
     main.delete_expression(expr)
@@ -555,7 +555,7 @@ test_call_one_argument :: proc(t: ^testing.T) {
 
     ec := expect_call(t, expr)
 
-    testing.expect(t, ec.name == "foo", "Function name was incorrect")
+    testing.expect(t, main.expr_to_string(ec.name^) == "foo", "Function name was incorrect")
     testing.expect(t, len(ec.args) == 1, "Expected one argument")
 
     arg := expect_number(t, ec.args[0])
@@ -575,7 +575,7 @@ test_call_multiple_arguments :: proc(t: ^testing.T) {
 
     ec := expect_call(t, expr)
 
-    testing.expect(t, ec.name == "foo", "Function name was incorrect")
+    testing.expect(t, main.expr_to_string(ec.name^) == "foo", "Function name was incorrect")
     testing.expect(t, len(ec.args) == 3, "Expected three arguments")
 
     main.delete_expression(expr)
@@ -614,12 +614,12 @@ test_nested_call :: proc(t: ^testing.T) {
 
     outer := expect_call(t, expr)
 
-    testing.expect(t, outer.name == "foo", "Outer function name was incorrect")
+    testing.expect(t, main.expr_to_string(outer.name^) == "foo", "Outer function name was incorrect")
     testing.expect(t, len(outer.args) == 1, "Expected one outer argument")
 
     inner := expect_call(t, outer.args[0])
 
-    testing.expect(t, inner.name == "bar", "Inner function name was incorrect")
+    testing.expect(t, main.expr_to_string(inner.name^) == "bar", "Inner function name was incorrect")
 
     main.delete_expression(expr)
 }
@@ -878,7 +878,7 @@ test_call_then_member :: proc(t: ^testing.T) {
     em := expect_member(t, expr)
     call := expect_call(t, em.obj)
 
-    testing.expect(t, call.name == "foo", "Call name was incorrect")
+    testing.expect(t, main.expr_to_string(call.name^) == "foo", "Call name was incorrect")
     testing.expect(t, em.member == "bar", "Member name was incorrect")
 
     main.delete_expression(expr)
@@ -895,7 +895,7 @@ test_call_then_subscript :: proc(t: ^testing.T) {
     sub := expect_subscript(t, expr)
     call := expect_call(t, sub.left)
 
-    testing.expect(t, call.name == "foo", "Call name was incorrect")
+    testing.expect(t, main.expr_to_string(call.name^) == "foo", "Call name was incorrect")
 
     main.delete_expression(expr)
 }
@@ -973,7 +973,7 @@ test_complex_expression :: proc(t: ^testing.T) {
     testing.expect(t, right.op == .STAR, "Expected STAR on right")
 
     call := expect_call(t, right.left)
-    testing.expect(t, call.name == "bar", "Expected bar call")
+    testing.expect(t, main.expr_to_string(call.name^) == "bar", "Expected bar call")
 
     main.delete_expression(expr)
 }
@@ -1039,8 +1039,8 @@ test_binary_call_operands :: proc(t: ^testing.T) {
     left := expect_call(t, eb.left)
     right := expect_call(t, eb.right)
 
-    testing.expect(t, left.name == "foo", "Left call was incorrect")
-    testing.expect(t, right.name == "bar", "Right call was incorrect")
+    testing.expect(t, main.expr_to_string(left.name^) == "foo", "Left call was incorrect")
+    testing.expect(t, main.expr_to_string(right.name^) == "bar", "Right call was incorrect")
 
     main.delete_expression(expr)
 }
@@ -1284,6 +1284,33 @@ test_complex_pointer_style_expression1 :: proc(t: ^testing.T) {
     main.delete_expression(expr)
 }
 
+@(test)
+test_variable_type :: proc(t: ^testing.T) {
+    p := init("foo: bar;")
+    defer delete(p.tokens)
+    defer free(p)
+
+    decl := main.parse_decl(p)
+
+   _decl, is := decl.(main.Variable_Decl);
+    testing.expect(t, is, "Expected variable decl")
+
+    main.delete_decl(decl)
+}
+
+
+// @(test)
+// test_func1 :: proc(t: ^testing.T) {
+//     p := init("func main(): int { return 0; }")
+//     defer delete(p.tokens)
+//     defer free(p)
+
+//     expr := main.parse_expression(p)
+
+// //x    testing.expect(t, subscript.index != nil, "Expected array index")
+
+//     main.delete_expression(expr)
+// }
 /*
 @(test)
 test_complex_pointer_style_expression :: proc(t: ^testing.T) {

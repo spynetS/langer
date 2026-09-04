@@ -32,6 +32,8 @@ Lexer :: struct {
 
 
 Token_Kind :: enum {
+    PACKAGE,
+    IMPORT,
     INVALID,
     EXTERN,
     FOR,
@@ -139,7 +141,7 @@ advance :: proc(lexer: ^Lexer) -> bool {
 skip_whitespace :: proc(lexer: ^Lexer) {
     c := peek(lexer,0)
     count := 0
-    for c == ' ' || c == '\n' {
+    for c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
         if !advance(lexer) do break
         c = peek(lexer)
         count += 1
@@ -194,6 +196,8 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     kind : Token_Kind = .IDENTIFER
     // KEYWORDS
     switch val {
+    case "package": kind = .PACKAGE
+    case "import": kind = .IMPORT
     case "for": kind = .FOR
     case "let": kind = .LET
     case "void": kind = .VOID
@@ -320,6 +324,11 @@ read_token :: proc (lexer: ^Lexer) -> Token {
         }
         advance(lexer)
     }
+    if token.kind == .INVALID {
+        logln(fmt.tprintf("Could not find good token found '%c'=={}", c, c))
+    }
+
+
     token.span.start = start
     token.span.end = Source_Pos{
         col=lexer.col,
