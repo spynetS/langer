@@ -80,7 +80,7 @@ If_Stmt :: struct {
 While_Stmt :: struct {
     span: Source_Span,
     condition: ^Expr,
-    block: ^Block,   
+    block: ^Block,
 }
 
 BlockItem :: union {

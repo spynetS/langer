@@ -634,7 +634,7 @@ get_expr_type :: proc(expr: Expr) -> Type {
 
 is_struct ::  proc(p: ^Parser, id: Token) -> bool {
     for struc in p.package_.structs {
-        fmt.println("is", struc.name, id.lexeme)
+        logln("is", struc.name, id.lexeme)
         if struc.name == id.lexeme do return true
     }
     return false
@@ -1181,7 +1181,7 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     case Expr_Unary:
         logln("Unary: ", expr_to_string(expr.operand^), " ", expr.operator)
     case Expr_Call:
-        fmt.println(expr.name)
+        logln(expr.name)
         logln("Call: ", expr.name != nil ? expr_to_string(expr.name^) : "")
         for arg in expr.args {
             print_expr(arg^, depth + 1)

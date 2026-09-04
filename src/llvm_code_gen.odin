@@ -58,10 +58,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
         
         type, exists := g.structs[v.path[len(v.path)-1]]
         if !exists {
-            fmt.println("Couln't find struct in this file create it", v.path[:])
-            for m in v.members {
-                fmt.println(m.type)
-            }
+            logln("Couln't find struct in this file create it", v.path[:])
             type = create_struct(g, Struct_Decl{
                 name = v.path[len(v.path)-1],
                 members = v.members
@@ -85,13 +82,13 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
     func_type := llvm.FunctionType(type, raw_data(param_types), u32(arg_length), 0)
     if package_name != "" {
         name := fmt.ctprintf("{}_{}", package_name, func.name)
-        fmt.println("CREATE", name)
+        logln("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
         g.refs[func.name] = fun
         return fun
     } else {
         name := fmt.ctprintf("{}", func.name)
-        fmt.println("CREATE", name)
+        logln("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
         g.refs[func.name] = fun
         return fun
@@ -188,7 +185,7 @@ get_package_name :: proc(name_: string) -> string {
 create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     if expr.name == nil do panic("AJ AJ AJ")
     name := get_package_name(expr_to_string(expr.name^))
-    fmt.println("create call", name)
+    logln("create call", name)
     //fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
     fn_ref, exists := g.refs[name]
     if !exists {
@@ -334,7 +331,6 @@ create_assign :: proc (g: ^LLVM_Generator, left, right: Expr) -> llvm.ValueRef {
     #partial switch v in left {
         case Expr_MemberAccess:
         left_val = create_member_access(g, v)
-        fmt.println("HERE")
 
         case Expr_Identifier:
         ref := g.refs[v.value]
@@ -505,7 +501,7 @@ get_member_index :: proc(type: Type, member: string) -> (int, bool) {
     
     for i in 0..<len(struc_t.members) {
         m := struc_t.members[i]
-        fmt.println(member, "==", m.name)
+        logln(member, "==", m.name)
         if m.name == member do return i, true
     }
 
@@ -514,14 +510,14 @@ get_member_index :: proc(type: Type, member: string) -> (int, bool) {
 
 
 create_member_access :: proc(g: ^LLVM_Generator, expr: Expr_MemberAccess) -> llvm.ValueRef {
-    fmt.println("Creating member access")
-    fmt.println(expr_to_string(expr))
+    logln("Creating member access")
+    logln(expr_to_string(expr))
 
     obj_ptr := create_expression(g, expr.obj^, gen_address=true)
     obj_type := get_expr_type(expr.obj^)
     obj_type = checker_dereferance(obj_type)
     
-    fmt.println("obj type is ", obj_type)
+    logln("obj type is ", obj_type)
 
 
     member_index, found := get_member_index(obj_type, expr.member);
@@ -749,12 +745,12 @@ create_stmt :: proc(g: ^LLVM_Generator, stmt: Stmt) -> llvm.ValueRef {
 }
 
 create_struct :: proc(g: ^LLVM_Generator, struc: Struct_Decl) -> llvm.TypeRef {
-    fmt.println("creasting struct", struc.name)
+    logln("creasting struct", struc.name)
     struct_type := llvm.StructCreateNamed(g.context_ref, strings.clone_to_cstring(struc.name))
 
     field_types := make([dynamic]llvm.TypeRef)
 
-    fmt.println("membners", struc.members)
+    logln("membners", struc.members)
 
     for field in struc.members {
         dptr := checker_dereferance(field.type)

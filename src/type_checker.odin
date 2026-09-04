@@ -151,7 +151,8 @@ checker_replace_named_type :: proc(t: ^SymbolTable, type: Type) -> Type {
     type := type
     if ptr, is := type.(Pointer); is {
         if ptr.to == nil do panic("AHH")
-        type = checker_replace_named_type(t, ptr.to^)
+        ptr.to^ = checker_replace_named_type(t, ptr.to^)
+        type = ptr
     }
 
     nt, is := type.(NamedType);
@@ -244,49 +245,7 @@ checker_dereferance :: proc(t: Type) -> Type {
     }
     else do return t
 }
-/*
-checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Type, ^SymbolTable) {
-    scope := t
-    parent_type : Type
-    fmt.println("checking parent", expr_to_string(expr.obj^))
-    parent_type, scope = checker_get_type(t, expr.obj)
-    fmt.println("done checking parent")
-    fmt.println("now checking for member", expr.member)
-    
-    fmt.println("=====")
-    fmt.println(expr_to_string(expr^), parent_type)
-    fmt.println("=====")
 
-    d_ptr := checker_dereferance(parent_type)
-
-    struc : Struct_Decl
-
-    if nt, is := d_ptr.(NamedType); is {
-        symbol, found := symbol_table_lookup_path(scope, nt.value);
-        scope = symbol.scope
-        ok: bool
-        struc, ok = symbol.node.(Struct_Decl)
-        if !ok {
-            fmt.println(symbol.node)
-            panic("TODO")
-        }
-        fmt.println("FOUND struc", struc.name)
-    }
-    else do panic("TODO")
-
-    fmt.println("looking for ", expr.member, "in ", struc.members[:])
-    for m in struc.members {
-        if m.name == expr.member {
-            expr.type = m.type
-            fmt.println("found member of type", m.type)
-            return m.type, scope
-        }
-    }
-    
-    fmt.println("no member found, returning", parent_type)
-    return parent_type, scope
-}
-*/
 checker_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> (Type, ^SymbolTable) {
     lt,scope := checker_get_type(t, expr.left)
     rt,_ := checker_get_type(t, expr.index)
@@ -300,10 +259,12 @@ checker_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> (Type, ^Sym
 
     if ptr, is := lt.(Pointer); is {
         if ptr.to == nil do panic("HERE")
+        expr.type = ptr.to^
         return ptr.to^, scope
     }
     if arr, is := lt.(Array); is {
         if arr.of == nil do panic("HERE")
+        expr.type = arr.of^
         return arr.of^, scope
     }
 
@@ -344,7 +305,8 @@ checker_get_number :: proc(t: ^SymbolTable, v: ^Expr_Number) -> (Type, ^SymbolTa
 checker_get_string :: proc(t: ^SymbolTable, v: ^Expr_String) -> (Type, ^SymbolTable) {
     to := new(Type)
     to^ = Basic(.BYTE)
-    return Pointer({to=to}), t
+    v.type = Pointer({to=to})
+    return v.type, t
 }
 
 
@@ -399,7 +361,7 @@ checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> (Type, ^SymbolTable) {
     case Expr_Array:        panic("TODO")
     case Expr_Subscript:    return checker_subscript(t, &v);
     case Expr_Number:       return checker_get_number(t, &v)
-    case Expr_String:       panic("TODO") // return checker_get_string(t, &v)
+    case Expr_String:       return checker_get_string(t, &v)
     case Expr_Identifier:   return checker_get_identifier_type(t, &v)
     case Expr_Binary:       return checker_get_binary_type(t, &v);
     case Expr_Call:         return checker_get_call_type(t, &v);
@@ -462,7 +424,7 @@ checker_variable_decl :: proc(t: ^SymbolTable, decl: ^Variable_Decl) -> Type {
 
         expr_set_type(decl.initlizer, checker_replace_named_type(t, it))
         
-        fmt.println("IT", it)
+        logln("IT", it)
         if type, can := can_cast(decl.type, it); can {
             expr_set_type(decl.initlizer, type)
             decl.type = type
@@ -484,9 +446,6 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
             case Variable_Decl:
                 decl.type = checker_variable_decl(t, &decl)
                 ok := symbol_table_set_type(t, decl.name, decl.type)
-                fmt.println("=========CHECKED VARIABLE =========", decl.type)
-                print_symbol_table(t^)
-                fmt.println("===================================")
                 if !ok do panic("PANIC, couldnt update type")
 
             case Function_Decl:
@@ -513,9 +472,8 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
                 // if stmt.else_block != nil do check_block(program, func, stmt.else_block, t);
 
             case While_Stmt:
-                panic("TODO")
-                // checker_get_type(t, stmt.condition)
-                // check_block(program, func, stmt.block, t);
+                checker_get_type(t, stmt.condition)
+                check_block(package_, func,stmt.block,t)
                 
             case Block:
                 check_block(package_, func, &stmt, t)
@@ -543,7 +501,7 @@ check :: proc(program: Program, t: ^SymbolTable) {
             if func.type == nil do func.type = Basic(.VOID)
 
             func.type = checker_replace_named_type(t, func.type);
-
+            
             func_t,found := symbol_table_lookup(package_t.scope, func.name)
             if !found do panic("FUNC NOT FOUND!??!?!")
 
