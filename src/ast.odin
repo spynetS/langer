@@ -39,7 +39,7 @@ Type :: union {
 
 
 Package :: struct {
-    package_name: string,
+    package_name: []string,
     file: string,
     extern    : [dynamic]string,
     functions : [dynamic]^Function_Decl,

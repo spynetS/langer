@@ -103,9 +103,11 @@ main :: proc() {
         print_package(package_)
         append(&program.packages, package_)
 
-        create_symbol_table_program(&symbol_table, package_);
+        create_symbol_table_program(&symbol_table, package_, package_.package_name[:]);
     }
     print_symbol_table(symbol_table);
+
+    //if true do panic("AFTER PARSING")
 
     check(program, &symbol_table)
     for p in program.packages {

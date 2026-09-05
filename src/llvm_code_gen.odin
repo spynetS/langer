@@ -132,7 +132,16 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
     panic("HERE")
 }
 
-create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: string) -> llvm.ValueRef {
+create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name_: []string) -> llvm.ValueRef {
+    sb := strings.builder_make()
+    strings.write_string(&sb, fmt.tprintf("{}", package_name_[0]))
+    for i in 1..<len(package_name_) {
+        name := package_name_[i]
+        strings.write_string(&sb, "_")
+        strings.write_string(&sb, fmt.tprintf("{}", name))
+    }
+
+    package_name := fmt.tprintf("%s", strings.to_string(sb))
     // if we are main we dont change 
     func_ref := create_function_decl(g, func, func.name != "main" ? package_name : "");
     g.current_function = func_ref
