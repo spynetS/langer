@@ -74,7 +74,9 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
     }
 
     switch x in a {
-    case StructType: panic("TODO")
+    case StructType:
+        parser_panic(Source_Span{}, "FIX THIS LOGIC TODO 78 typechecker", level=0)
+        return a, true
     case NamedType:
         // if ptr, ok := b.(Pointer); ok &&
         //     ptr.to != nil &&
@@ -86,6 +88,12 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
 
         y, ok := b.(Basic)
         if !ok {
+
+            //check if we are string and they are byte pointer
+            if ptr, is := b.(Pointer); is && x == .STRING {
+                return .STRING, true
+            }
+
             return {}, false
         }
         // Numeric conversions
@@ -505,6 +513,10 @@ check :: proc(program: Program, t: ^SymbolTable) {
             
             func_t,found := symbol_table_lookup(package_t.scope, func.name)
             if !found do panic("FUNC NOT FOUND!??!?!")
+
+            for a in func.args {
+                a.type = checker_replace_named_type(t, a.type)
+            }
 
             
             // go trough function block and check all types

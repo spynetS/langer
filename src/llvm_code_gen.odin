@@ -53,6 +53,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
         return llvm.ArrayType2(of, v.length), true
 
         case NamedType:
+        fmt.println(type)
         panic("SHOULDNT BE THIS RIGHT")
         case StructType:
         
@@ -763,7 +764,7 @@ create_struct :: proc(g: ^LLVM_Generator, struc: Struct_Decl) -> llvm.TypeRef {
 
     for field in struc.members {
         dptr := checker_dereferance(field.type)
-        fmt.println(decl_to_string(field^))
+        //fmt.println(decl_to_string(field^))
         if nt, is := dptr.(StructType); is {
             llvm_type:= get_llvm_type(g, dptr)
             append(&field_types, llvm_type)

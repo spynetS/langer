@@ -13,7 +13,7 @@ out_file := "a.out"
 clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
-clang_stderr := true
+clang_stderr := false
 
 // TODO add forloop
 // TODO seprate arrays and pointers
