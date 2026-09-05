@@ -43,7 +43,7 @@ parser_panic :: proc {
 parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
     str := fmt.tprintf("{}:{}:{}: {} {}",span.start.file, span.start.line, span.start.col, level==1 ? "error:" : "warning:", error)
     log_error(str)
-    if level == 1 do panic("asd")
+    //if level == 1 do panic("asd")
 }
 
 get_expr_span :: proc(expr: Expr) -> Source_Span {
@@ -996,8 +996,9 @@ parse_package :: proc(p: ^Parser) -> Package {
     package_ := Package({})
     p.package_ = &package_
     parser_expect(p, .PACKAGE)
+    // not parse expression
     name := parse_expression(p)
-    package_.package_name = expr_to_string(name^)
+    package_.package_name = strings.split(expr_to_string(name^), ".")
 
     logln("PACKGE NAME IS", package_.package_name)
 

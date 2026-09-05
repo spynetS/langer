@@ -161,18 +161,44 @@ create_symbol_table_struc :: proc(t: ^SymbolTable, struc: ^Struct_Decl) -> ^Symb
 }
 
 
-create_symbol_table_program :: proc(symbol_table: ^SymbolTable, package_: Package) -> ^SymbolTable {
+create_symbol_table_program :: proc(symbol_table: ^SymbolTable, package_: Package, path: []string) -> ^SymbolTable {
+    for i in 0..<len(path)-1 {
+        name := path[i]
+        found := false
+        // check if name exists as package
+        for key, sym in symbol_table.symbols {
+            _, is := sym.node.(Package_Decl);
+            if key == name && is {
+                return create_symbol_table_program(sym.scope, package_, path[1:])
+            }
+        }
+        if !found {
+            parent := create_symbol_table_program(symbol_table,
+                                                  Package{
+                                                      package_name = path[:1]
+                                                  },
+                                                  path[:1])
+            return create_symbol_table_program(parent, package_, path[1:])
+            
+        }
+    }
+    return create_symbol_table_package(symbol_table, package_)
+}
 
+
+create_symbol_table_package :: proc(symbol_table: ^SymbolTable, package_: Package) -> ^SymbolTable {
+    name := package_.package_name[len(package_.package_name)-1]
+    
     package_t := new(SymbolTable)
     package_t.parent = symbol_table;
     pd := new(Decl)
     pd^ = Package_Decl{
-        name = package_.package_name
+        name = name
     }
 
     package_t.parent_symbol = new_symbol(pd, nil, .PUBLIC, scope = package_t)
     symbol_table_add_item(symbol_table,
-                          package_.package_name,
+                          name,
                           package_t.parent_symbol)
 
     // fmt.println("PACKGE DONE", package_.package_name)
@@ -195,9 +221,9 @@ symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) 
 
     #partial switch v in type {
         case NamedType:
-        return symbol_table_lookup_path(t, v.path); 
+        return symbol_table_lookup_path(t, v.path[:]); 
         case StructType:
-        return symbol_table_lookup_path(t, v.path);
+        return symbol_table_lookup_path(t, v.path[:]);
         case Pointer: if v.to != nil do return symbol_table_lookup_type(t, v.to^)
         case Basic: return {}, true // the type exists but no symbol
         case Array: panic("TODO")
@@ -221,7 +247,7 @@ symbol_table_lookup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool)
     return {}, false
 }
 
-symbol_table_lookup_path :: proc(t: ^SymbolTable, path: [dynamic]string) -> (Symbol, bool) {
+symbol_table_lookup_path :: proc(t: ^SymbolTable, path: []string) -> (Symbol, bool) {
     if len(path) == 0 {
         return {}, false
     }

@@ -158,7 +158,7 @@ checker_replace_named_type :: proc(t: ^SymbolTable, type: Type) -> Type {
     nt, is := type.(NamedType);
     if !is do return type
 
-    if t_symb, found := symbol_table_lookup_path(t, nt.path); found {
+    if t_symb, found := symbol_table_lookup_path(t, nt.path[:]); found {
         struc, is := t_symb.node.(Struct_Decl)
         if !is do panic("ADD PARSER PANIC")
 
@@ -334,7 +334,7 @@ checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Typ
 
     // find the definition of the type
     // and get the type of the member 
-    if symbol, found := symbol_table_lookup_path(t, path); found {
+    if symbol, found := symbol_table_lookup_path(t, path[:]); found {
         #partial switch v in symbol.node {
             case Struct_Decl:
             for m in v.members{
@@ -485,7 +485,8 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
 
 check :: proc(program: Program, t: ^SymbolTable) {
     for package_ in program.packages {
-        package_t,found_package := symbol_table_lookup(t, package_.package_name)
+        print_symbol_table(t^)
+        package_t,found_package := symbol_table_lookup_path(t, package_.package_name)
         if !found_package do panic("PACKAGE NOT FOUND!??!?!")
 
         for &struc in package_.structs {
