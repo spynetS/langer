@@ -75,8 +75,27 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
 
     switch x in a {
     case StructType:
+        // if b is *byte
+        if ptr, is := b.(Pointer); is &&
+            ptr.to != nil &&
+            check_type(ptr.to^, Basic(.INT)) {
+                return a, true
+        }
+
+        if nt, is := b.(NamedType); is {
+            match := len(nt.path) == len(x.path)
+            if !match do return {}, false
+            for i in 0..<len(nt.path) {
+                if nt.path[i] != x.path[i] {
+                    match = false;
+                }
+            }
+            if match do return a, true
+        }
+            
+
         parser_panic(Source_Span{}, "FIX THIS LOGIC TODO 78 typechecker", level=0)
-        return a, true
+        return a, false
     case NamedType:
         // if ptr, ok := b.(Pointer); ok &&
         //     ptr.to != nil &&
@@ -513,11 +532,11 @@ check :: proc(program: Program, t: ^SymbolTable) {
             
             func_t,found := symbol_table_lookup(package_t.scope, func.name)
             if !found do panic("FUNC NOT FOUND!??!?!")
-
+            
             for a in func.args {
                 a.type = checker_replace_named_type(t, a.type)
             }
-
+            
             
             // go trough function block and check all types
             check_block(package_, func^, func.block, func_t.scope);
