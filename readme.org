@@ -30,6 +30,6 @@ odin build src --out=langer
 
 ** Using compiler
 #+begin_src bash
-./langer ./main.l ./testing/std/fmt.l -o ./main
+./langer ./main.l ./std/fmt.l -o ./main
 ./main
 #+end_src
