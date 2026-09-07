@@ -13,7 +13,7 @@ out_file := "a.out"
 clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
-clang_stderr := false
+clang_stderr := true
 
 // TODO add forloop
 // TODO seprate arrays and pointers
@@ -130,9 +130,10 @@ main :: proc() {
     }
     logln("=========== symbol table ===========")
     print_symbol_table(symbol_table)
+    exit_code := 0
 
     if len(o_files) > 0 {
-        compile_llvm(o_files)
+        exit_code = compile_llvm(o_files)
 
         if clean_llvm {
             // cleanup
@@ -143,10 +144,11 @@ main :: proc() {
     }
     
     delete(files)
+    if exit_code != 0 do os.exit(exit_code)
 }
 
 
-compile_llvm :: proc (o_files: [dynamic]string) {
+compile_llvm :: proc (o_files: [dynamic]string) -> int {
 
     // linker
     command := make([]string, len(o_files)+4)
@@ -171,6 +173,8 @@ compile_llvm :: proc (o_files: [dynamic]string) {
         stderr= clang_stderr ? os.stderr : nil
     })
 
-    _,_ = os.process_wait(link_process)
+    state,_ := os.process_wait(link_process)
+    return state.exit_code
+    
 
 }
