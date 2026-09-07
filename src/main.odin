@@ -1,4 +1,5 @@
 package main;
+import "core:path/filepath"
 import "core:fmt"
 import "core:strings"
 import "core:os"
@@ -14,6 +15,7 @@ clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
 clang_stderr := true
+execute_out := false
 amnt_errors := 0
 
 logln :: proc (strs: ..any) {
@@ -33,6 +35,10 @@ parse_args :: proc () {
         if read_out_file {
             out_file = arg
             read_out_file = false
+            continue
+        }
+         if arg == "run" {
+            execute_out = true
             continue
         }
         if arg == "-o" {
@@ -110,9 +116,15 @@ main :: proc() {
     }
     print_symbol_table(symbol_table);
 
-    //if true do panic("AFTER PARSING")
+    for package_ in program.packages {
+        name := package_.package_name[len(package_.package_name)-1]
+        package_t := symbol_table.symbols[name].scope
+        symbol_table_import(package_t, package_)
+    }
 
     check(program, &symbol_table)
+    //if true do panic("AFTER PARSING")
+
     should_continue();
         
     for p in program.packages {
@@ -149,8 +161,10 @@ main :: proc() {
             }
         }
     }
-    
     delete(files)
+
+    if execute_out do run_exec()
+
     if exit_code != 0 do os.exit(exit_code)
 }
 
@@ -182,6 +196,19 @@ compile_llvm :: proc (o_files: [dynamic]string) -> int {
 
     state,_ := os.process_wait(link_process)
     return state.exit_code
-    
+}
 
+run_exec :: proc() -> int {
+    command := make([]string,1)
+    command[0],_ = filepath.abs(out_file)
+    fmt.println(command)
+    link_process,_ := os.process_start({
+        working_dir="./",
+        command=command,
+        stdout= os.stdout,
+        stderr= os.stderr
+    })
+    
+    state,_ := os.process_wait(link_process)
+    return state.exit_code
 }

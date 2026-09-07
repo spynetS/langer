@@ -952,9 +952,19 @@ parse_while :: proc(p: ^Parser) -> While_Stmt {
 
 parse_import :: proc(p: ^Parser) -> Import_Stmt {
     parser_expect(p, .IMPORT)
-    value := parse_expression(p)
+    path := make([dynamic]string)
+    start := parser_expect(p, .IDENTIFER)
+    
+    append(&path, start.lexeme)
+    for parser_advance(p).kind == .PUNCT{
+        append(&path, parser_expect(p, .IDENTIFER).lexeme)
+    }
     return Import_Stmt{
-        value = value
+        span = Source_Span{
+            start = start.span.start,
+            end = parser_peek(p).span.end
+        },
+        path = path
     }
 }
 
@@ -1408,4 +1418,16 @@ delete_program :: proc(program: ^Package) {
     }
     delete(program.extern)
     delete(program.functions)
+}
+
+
+path_to_string :: proc(path: []string) -> string{
+    sb := strings.builder_make()
+    defer strings.builder_destroy(&sb)
+    strings.write_string(&sb, path[0])
+    for i in 1..<len(path) {
+        strings.write_string(&sb, "_")
+        strings.write_string(&sb, path[i])
+    }
+    return fmt.tprintf("{}", strings.to_string(sb))
 }

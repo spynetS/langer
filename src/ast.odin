@@ -98,7 +98,7 @@ Return_Stmt :: struct {
 }
 
 Import_Stmt :: struct {
-    value: ^Expr,
+    path: [dynamic]string,
     span: Source_Span,
 }
 
