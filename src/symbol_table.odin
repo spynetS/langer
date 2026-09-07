@@ -95,15 +95,17 @@ symbol_table_set_type :: proc(t: ^SymbolTable, key: string, type: Type) -> bool 
     return false
 }
 
-symbol_table_add_item :: proc(t: ^SymbolTable, key: string, value: Symbol) {
+symbol_table_add_item :: proc(t: ^SymbolTable, key: string, value: Symbol, merge: bool = false) {
+
     if v, exists := t.symbols[key]; exists {
         parser_panic(value.node, fmt.tprintf("Redefinition of '{}'", key))
     }
 
     t.symbols[key] = value;
 }
-
+/* treverses the symboltable upwards until finding a package symbol */
 get_symbol_package :: proc(t: ^SymbolTable) -> string {
+    sb := strings.builder_make()
     if decl, is := t.parent_symbol.node.(Package_Decl); is {
         return decl.name
     }
@@ -111,12 +113,30 @@ get_symbol_package :: proc(t: ^SymbolTable) -> string {
     return get_symbol_package(t.parent)
 }
 
+get_full_symbol_package :: proc(t: ^SymbolTable) -> string {
+    sb := strings.builder_make()
+    if decl, is := t.parent_symbol.node.(Package_Decl); is {
+        if t.parent.parent != nil {
+            strings.write_string(&sb, get_full_symbol_package(t.parent))
+            strings.write_string(&sb, "_")
+        }
+
+        strings.write_string(&sb, decl.name)
+
+        return strings.to_string(sb)
+    }
+    return get_full_symbol_package(t.parent)
+}
+
+
 create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^SymbolTable {
     table := new(SymbolTable)
     table.parent = t
 
     decl := Decl(func^)
-    symbol_table_add_item(t, func.name, new_symbol(&decl, func.type, .PUBLIC, table))
+    symbol_table_add_item(t,
+                          func.name,
+                          new_symbol(&decl, func.type, func.public ? .PUBLIC : .PRIVATE, table))
     func^ = decl.(Function_Decl)
     for &a in func.args {
         a_table := new(SymbolTable)
@@ -149,7 +169,7 @@ create_symbol_table_struc :: proc(t: ^SymbolTable, struc: ^Struct_Decl) -> ^Symb
     type := new_named_type({struc.name})
 
     decl := Decl(struc^)
-    symbol_table_add_item(t, struc.name, new_symbol(&decl, type, .PUBLIC, table))
+    symbol_table_add_item(t, struc.name, new_symbol(&decl, type, struc.public ? .PUBLIC : .PRIVATE , table))
     struc^ = decl.(Struct_Decl)
 
     
@@ -202,20 +222,25 @@ symbol_table_import :: proc(package_t: ^SymbolTable, package_: Package) {
 }
 create_symbol_table_package :: proc(symbol_table: ^SymbolTable, package_: Package) -> ^SymbolTable {
     name := package_.package_name[len(package_.package_name)-1]
+    package_t : ^SymbolTable
     
-    package_t := new(SymbolTable)
-    package_t.parent = symbol_table;
-    pd := new(Decl)
-    pd^ = Package_Decl{
-        name = name
+    if pt, exists := symbol_table.symbols[name]; exists {
+        package_t = pt.scope
+    } else {
+        
+        package_t = new(SymbolTable)
+        package_t.parent = symbol_table;
+        pd := new(Decl)
+        pd^ = Package_Decl{
+            name = name
+        }
+
+        package_t.parent_symbol = new_symbol(pd, nil, .PUBLIC, scope = package_t)
+        symbol_table_add_item(symbol_table,
+                              name,
+                              package_t.parent_symbol)
     }
 
-    package_t.parent_symbol = new_symbol(pd, nil, .PUBLIC, scope = package_t)
-    symbol_table_add_item(symbol_table,
-                          name,
-                          package_t.parent_symbol)
-
-    // fmt.println("PACKGE DONE", package_.package_name)
     for &struc in package_.structs {
         create_symbol_table_struc(package_t, struc)
     }
@@ -247,25 +272,36 @@ symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) 
 
 
 symbol_table_lookup_expr :: proc(t: ^SymbolTable, expr: ^Expr) -> (Symbol, bool) {
+
     if name, is := expr.(Expr_Identifier); is {
-        // fmt.println("id searching for", name.value)
         return symbol_table_lookup_str(t, name.value)
     }
 
     if member, is := expr.(Expr_MemberAccess); is {
-        // fmt.println("mem searching for", expr_to_string(member.obj^))
         if obj_t,found := symbol_table_lookup_expr(t, member.obj); found {
-            return symbol_table_lookup(obj_t.scope, member.member)
+            return symbol_table_lookup_str(obj_t.scope, member.member)
         }
     }
     return {}, false
 }
 
+symbol_table_lookup_str :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
+    current := t
+    for current != nil {
+        if symbol, found := current.symbols[name]; found {
+            return symbol, true
+        }
+        current = current.parent
+    }
+    return {}, false
+}
+
+
 symbol_table_lookup_path :: proc(t: ^SymbolTable, path: []string) -> (Symbol, bool) {
     if len(path) == 0 {
         return {}, false
     }
-
+    in_different_package := false
     // First name is resolved normally through lexical scopes.
     symbol, found := symbol_table_lookup_str(t, path[0])
     if !found {
@@ -276,6 +312,9 @@ symbol_table_lookup_path :: proc(t: ^SymbolTable, path: []string) -> (Symbol, bo
     for part in path[1:] {
         // Whatever mechanism you use to get the symbol table
         // belonging to the type/definition of `symbol`.
+        if _, is_package := symbol.node.(Package_Decl); is_package {
+            in_different_package = true
+        }
         scope := symbol.scope
 
         if scope == nil {
@@ -288,26 +327,15 @@ symbol_table_lookup_path :: proc(t: ^SymbolTable, path: []string) -> (Symbol, bo
         }
     }
 
-    return symbol, true
-}
-
-symbol_table_lookup_str :: proc(t: ^SymbolTable, name: string) -> (Symbol, bool) {
-    current := t
-    
-    for current != nil {
-        if symbol, found := current.symbols[name]; found {
-            // fmt.println("FOUND",name)
-            return symbol, true
-        }
-        // fmt.println("SEARCHING IN PARENT FOR",name)
-        current = current.parent
-//        print_symbol_table(current^)
+    if in_different_package && symbol.visibilty == .PRIVATE {
+        // FIXME should be panic here?
+        parser_panic(decl_get_span(symbol.node), "Can't access this delceration because its private")
+        return {}, false
     }
-
-    // fmt.println("")
-
-    return {}, false
+    else do return symbol, true
+    
 }
+
 
 print_symbol_table :: proc(t: SymbolTable, depth:int = 0) {
 

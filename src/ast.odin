@@ -53,6 +53,7 @@ Variable_Decl :: struct {
     name: string,
     initlizer: ^Expr,
     type: Type,
+    public: bool
 }
 
 Function_Decl :: struct {
@@ -61,13 +62,15 @@ Function_Decl :: struct {
     type: Type,
     args: [dynamic]^Variable_Decl,
     block: ^Block,
-    extern: bool
+    extern: bool,
+    public: bool
 }
 
 Struct_Decl :: struct {
     span: Source_Span,
     name: string,
     members: [dynamic]^Variable_Decl,
+    public: bool
 }
 
 

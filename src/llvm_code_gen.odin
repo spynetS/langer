@@ -53,7 +53,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
         return llvm.ArrayType2(of, v.length), true
 
         case NamedType:
-        fmt.println(type)
+        fmt.println("\n",type)
         panic("SHOULDNT BE THIS RIGHT")
         case StructType:
         
@@ -195,12 +195,13 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     //fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
     fn_ref, exists := g.refs[name]
     if !exists {
+        //if true do panic("HERE")
         fn_ref = create_function_decl(g, Function_Decl{
             name = name,
             type = expr.type,
-            args = nil,
+            args = nil, // FIXME
             
-        },nil)
+        },nil) // we dont need package here because its included in the name
         //panic("HAVE TO CREATE THE FUNCTION")
     }
 
@@ -798,6 +799,7 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
 
     for import_ in p.imports {
         if symbol, found := symbol_table_lookup_path(t, import_.path[:]); found {
+            fmt.println(symbol)
             #partial switch v in symbol.node {
                 case Function_Decl:
                 //name := strings.split(expr_to_string(import_.value^),".")[0]

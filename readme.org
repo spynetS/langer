@@ -8,54 +8,28 @@ It generates asm files which then is compiled with nasm and linked
 with gcc to get c runtime
 
 ** Hello World
-#+begin_src c
-extern puts(string fmt): void;
+#+begin_src go
+package main;
+
+import std.fmt.print;
  
 func main() : int {
-  puts("Hello World!")
+  print("Hello World!")
+  std.fmt.print("Hello World again!")
   return 0;
 }
 
-#+end_src
-
-** Ptr example
-
-#+begin_src c
-extern printf(string fmt, int size): *int;
-extern malloc(int size): *int;
-
-// Sets the ptr
-func set(*int ptr, int size) {
-  int i = 0;
-  while i < size {
-      ptr[i] = i*2;
-      i = i + 1;
-  }
-}
-  
-
-func main() : int {
-  *int age = malloc(10*8);
-  set(age, 10);
-  int i = 0;
-  while i < 10 {
-      printf("%d\n", age[i])
-      i = i + 1;
-  }
-
-  return 0;
-}
 #+end_src
 
 
 ** Building compiler
 
 #+begin_src bash
-odin build .
+odin build src --out=langer
 #+end_src
 
 ** Using compiler
 #+begin_src bash
-./langer ./main.l -o ./main
+./langer ./main.l ./std/fmt.l -o ./main
 ./main
 #+end_src

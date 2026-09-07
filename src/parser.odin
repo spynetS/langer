@@ -188,6 +188,12 @@ parser_peek :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
     return p.tokens[p.pos], true
 }
 
+parser_previus :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
+    if p.pos-1 < 0 do return Token({}), false
+    return p.tokens[p.pos-1], true
+}
+
+
 parser_advance :: proc(p: ^Parser) -> (Token, bool) #optional_ok {
     token, ok := parser_peek(p)
     if !ok do return token, false
@@ -656,13 +662,13 @@ is_struct ::  proc(p: ^Parser, id: Token) -> bool {
 
 is_decl :: proc(p: ^Parser) -> bool {
 //    if is_type(parser_peek(p).kind) do return true
-    if parser_next(p).kind         == .COLON do return true
-    if parser_next(p, amnt=2).kind == .COLON do return true
-    if parser_next(p).kind         == .COLON do return true
-    if parser_peek(p).kind         == .FUNC do return true
-    if parser_peek(p).kind         == .STAR do return true
+    if parser_next(p).kind         == .COLON  do return true
+    if parser_next(p, amnt=2).kind == .COLON  do return true
+    if parser_next(p).kind         == .COLON  do return true
+    if parser_peek(p).kind         == .FUNC   do return true
+    if parser_peek(p).kind         == .STAR   do return true
     if parser_peek(p).kind         == .STRUCT do return true
-    if parser_peek(p).kind         == .LB   do return true
+    if parser_peek(p).kind         == .LB     do return true
     return false
 }
 
@@ -680,9 +686,12 @@ parse_block :: proc(p: ^Parser, return_type: Type = .VOID) -> ^Block {
 
         if is_decl(p) {
             logln("IT IS DECL")
+            is_public := false
+            if parser_previus(p).kind == .PUBLIC do is_public = true
+
             // memort leak?
             val := new(BlockItem)
-            val^ = parse_decl(p)^
+            val^ = parse_decl(p, is_public)^
             append(&block.items, val)
         }
         else {
@@ -790,8 +799,9 @@ parse_type :: proc(p: ^Parser) -> (Type, bool) {
     return {}, false
 }
 
-parse_func_decl :: proc(p: ^Parser) -> ^Decl {
+parse_func_decl :: proc(p: ^Parser, is_public: bool) -> ^Decl {
     decl := Function_Decl({})
+    decl.public = is_public
     start := parser_skip(p, .FUNC).span
     logln("PEEK:",parser_peek(p))
     token := parser_expect(p, .IDENTIFER)
@@ -800,7 +810,7 @@ parse_func_decl :: proc(p: ^Parser) -> ^Decl {
     decl.args = make([dynamic]^Variable_Decl)
     parser_skip(p, .LPAR,depth=1)
     for parser_peek(p).kind != .RPAR {
-        var := parse_variable_decl(p)
+        var := parse_variable_decl(p, false)
         parser_skip(p, .COMMA, depth=1)
         append(&decl.args, cast(^Variable_Decl)var)
     }
@@ -823,8 +833,9 @@ parse_func_decl :: proc(p: ^Parser) -> ^Decl {
     return decl_
 }
 
-parse_func :: proc(p: ^Parser) -> ^Decl {
-    fun := parse_func_decl(p)
+parse_func :: proc(p: ^Parser, is_public: bool) -> ^Decl {
+    fun := parse_func_decl(p, is_public)
+    
 
     block := parse_block(p, (cast(^Function_Decl)fun).type)
     print_block(block^)
@@ -833,20 +844,22 @@ parse_func :: proc(p: ^Parser) -> ^Decl {
     return fun
 }
 
-parse_struct :: proc(p: ^Parser) -> ^Decl {
+parse_struct :: proc(p: ^Parser, public: bool) -> ^Decl {
     decl := Struct_Decl({})
+    decl.public = public
+    decl.span.start = parser_peek(p).span.start
     parser_expect(p, .STRUCT)
     decl.name = parser_expect(p, .IDENTIFER).lexeme
 
     parser_expect(p, .START)
 
     for parser_peek(p).kind != .END {
-        var := parse_variable_decl(p);
+        var := parse_variable_decl(p, false);
         append(&decl.members, cast(^Variable_Decl)var)
         
         print_decl(var^)
     }
-    
+    decl.span.end = parser_peek(p).span.end
     decl_ := new(Decl)
     decl_^ = decl
     return decl_
@@ -880,8 +893,19 @@ parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
     return {}, false
 }
 
-parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
+parse_variable_decl :: proc(p: ^Parser, public: bool) -> ^Decl {
     decl := Variable_Decl({})
+    decl.public = public
+
+    if parser_peek(p).kind == .PRIVATE {
+        decl.public = false
+        parser_advance(p)
+    }
+    if parser_peek(p).kind == .PUBLIC {
+        decl.public = true
+        parser_advance(p)
+    }
+
     // this makes let variable declerations usable
     parser_skip(p, .LET, depth=1)
 
@@ -922,17 +946,17 @@ parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
     return decl_
 }
 
-parse_decl :: proc(p: ^Parser) -> ^Decl {
+parse_decl :: proc(p: ^Parser, is_public: bool) -> ^Decl {
     decl : ^Decl;
     
     if parser_peek(p).kind == .FUNC {
-        decl = parse_func(p)
+        decl = parse_func(p, is_public)
     }
     else if parser_peek(p).kind == .STRUCT {
-        decl = parse_struct(p)
+        decl = parse_struct(p, is_public)
     }
     else {
-        decl = parse_variable_decl(p)
+        decl = parse_variable_decl(p, is_public)
     }
 
     
@@ -1024,13 +1048,13 @@ parse_package :: proc(p: ^Parser) -> Package {
         #partial switch parser_peek(p).kind {
             case .EXTERN:
             parser_advance(p)
-            func := cast(^Function_Decl)parse_func_decl(p)
+            func := cast(^Function_Decl)parse_func_decl(p, parser_previus(p).kind == .PUBLIC)
             func.extern = true
             parser_skip(p, .SEMICOLON)
             append(&package_.functions, func)            
 
             case .STRUCT:
-            struc := cast(^Struct_Decl)parse_struct(p)
+            struc := cast(^Struct_Decl)parse_struct(p, parser_previus(p).kind == .PUBLIC)
             append(&package_.structs, struc)
 
             
@@ -1040,7 +1064,7 @@ parse_package :: proc(p: ^Parser) -> Package {
             append(&package_.imports, import_stmt)
             
             case .FUNC:
-            func := cast(^Function_Decl)parse_func(p)
+            func := cast(^Function_Decl)parse_func(p, parser_previus(p).kind == .PUBLIC)
             logln("===FUNC===")
             logln(func.name, func.args[:])
             print_block(func.block^)
