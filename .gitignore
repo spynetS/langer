@@ -1,4 +1,5 @@
 *
-!src/*
-!tests/*
+!src/
+!tests/
 !.gitignore
+!src/messages.odin
