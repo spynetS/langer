@@ -14,7 +14,7 @@ out_file := "a.out"
 clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
-clang_stderr := true
+clang_stderr := false
 execute_out := false
 amnt_errors := 0
 
@@ -54,7 +54,8 @@ parse_args :: proc () {
             continue
         }
         if arg == "--clang-v" {
-            clang_stdout = false
+            clang_stdout = true
+            clang_stderr = true
             continue
         }
         if arg == "-h" || arg == "--help" {
@@ -115,13 +116,15 @@ main :: proc() {
         
     }
     print_symbol_table(symbol_table);
+    
 
     for package_ in program.packages {
         name := package_.package_name[len(package_.package_name)-1]
         package_t := symbol_table.symbols[name].scope
         symbol_table_import(package_t, package_)
     }
-
+    
+    //if true do panic("AFTER PARSING")
     check(program, &symbol_table)
     //if true do panic("AFTER PARSING")
 

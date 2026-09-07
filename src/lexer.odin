@@ -33,6 +33,8 @@ Lexer :: struct {
 
 Token_Kind :: enum {
     PACKAGE,
+    PRIVATE,
+    PUBLIC,
     IMPORT,
     INVALID,
     EXTERN,
@@ -199,6 +201,8 @@ read_identifier :: proc(lexer: ^Lexer) -> Token {
     case "package": kind = .PACKAGE
     case "import": kind = .IMPORT
     case "for": kind = .FOR
+    case "private": kind = .PRIVATE
+    case "public": kind = .PUBLIC
     case "let": kind = .LET
     case "void": kind = .VOID
     case "bool": kind = .BOOL

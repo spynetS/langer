@@ -187,7 +187,8 @@ checker_replace_named_type :: proc(t: ^SymbolTable, type: Type) -> Type {
 
     if t_symb, found := symbol_table_lookup_path(t, nt.path[:]); found {
         struc, is := t_symb.node.(Struct_Decl)
-        if !is do panic("ADD PARSER PANIC")
+        // FIXME add so types have span so we can print it here
+        if !is do parser_panic(Source_Span{},fmt.tprintf("{} not found", nt.path[:]))
 
         return StructType {
             path=nt.path,
@@ -236,6 +237,24 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
     // we want to return the function decl type
     // and also check the argument types
     if symbol, found := symbol_table_lookup(t, expr.name); found {
+        package_path := get_full_symbol_package(symbol.scope)
+        // we check if the package where the defition is the same as the call is
+        // if it is the same we should add the package name to the call 
+        if package_path == get_full_symbol_package(t) {
+            // check if its extern
+            if bla, is := symbol.node.(Function_Decl); is && !bla.extern {
+                id := new(Expr_Identifier)
+                id.value = fmt.tprintf("{}_{}", package_path, expr_to_string(expr.name^))
+                expr.name^ = id^;
+                logln("changing call identifer to" ,id.value)
+            }
+        }
+        else { // if the call is in a different package we check visibility
+            if symbol.visibilty == .PRIVATE do parser_panic(expr^, "Definitions is private dude")
+        }
+
+        // if the caller is import
+        // we replace the name with the full path name
         if symbol.is_import {
             // TODO check memory leaks here
             id := new(Expr_Identifier)

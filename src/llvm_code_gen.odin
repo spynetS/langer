@@ -195,12 +195,13 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     //fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
     fn_ref, exists := g.refs[name]
     if !exists {
+        //if true do panic("HERE")
         fn_ref = create_function_decl(g, Function_Decl{
             name = name,
             type = expr.type,
-            args = nil,
+            args = nil, // FIXME
             
-        },nil)
+        },nil) // we dont need package here because its included in the name
         //panic("HAVE TO CREATE THE FUNCTION")
     }
 
