@@ -189,7 +189,17 @@ create_symbol_table_program :: proc(symbol_table: ^SymbolTable, package_: Packag
     return create_symbol_table_package(symbol_table, package_)
 }
 
-
+symbol_table_import :: proc(package_t: ^SymbolTable, package_: Package) {
+    for &imp in package_.imports {
+        path := imp.path[len(imp.path)-1]
+        symb, found := symbol_table_lookup_path(package_t, imp.path[:])
+        // TODO use imp instead of span so we can see the code in the error
+        if !found do parser_panic(imp.span, "Did not found import, did you include the package in compilatio?")
+        symb.is_import = true
+        symb.import_name = imp.path[:]
+        symbol_table_add_item(package_t, path, symb)
+    }
+}
 create_symbol_table_package :: proc(symbol_table: ^SymbolTable, package_: Package) -> ^SymbolTable {
     name := package_.package_name[len(package_.package_name)-1]
     
@@ -206,16 +216,6 @@ create_symbol_table_package :: proc(symbol_table: ^SymbolTable, package_: Packag
                           package_t.parent_symbol)
 
     // fmt.println("PACKGE DONE", package_.package_name)
-    // do this after all packages has been done
-    for &imp in package_.imports {
-        path := imp.path[len(imp.path)-1]
-        symb, found := symbol_table_lookup_path(package_t, imp.path[:])
-        // TODO use imp instead of span so we can see the code in the error
-        if !found do parser_panic(imp.span, "Did not found import, did you include the package in compilatio?")
-        symb.is_import = true
-        symb.import_name = imp.path[:]
-        symbol_table_add_item(package_t, path, symb)
-    }
     for &struc in package_.structs {
         create_symbol_table_struc(package_t, struc)
     }

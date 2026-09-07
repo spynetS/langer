@@ -116,6 +116,11 @@ main :: proc() {
     }
     print_symbol_table(symbol_table);
 
+    for package_ in program.packages {
+        name := package_.package_name[len(package_.package_name)-1]
+        package_t := symbol_table.symbols[name].scope
+        symbol_table_import(package_t, package_)
+    }
 
     check(program, &symbol_table)
     //if true do panic("AFTER PARSING")
