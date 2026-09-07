@@ -71,7 +71,7 @@ get_llvm_type :: proc(g: ^LLVM_Generator ,type: Type) -> (llvm.TypeRef, bool) #o
     panic("TODO")
 }
 
-create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: string) -> llvm.ValueRef {
+create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name: []string) -> llvm.ValueRef {
     type,_ := get_llvm_type(g, func.type)
     arg_length := len(func.args)
     param_types := make([]llvm.TypeRef, arg_length)
@@ -81,8 +81,10 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
     }
 
     func_type := llvm.FunctionType(type, raw_data(param_types), u32(arg_length), 0)
-    if package_name != "" {
-        name := fmt.ctprintf("{}_{}", package_name, func.name)
+    
+    if package_name != nil {
+        name := fmt.ctprintf("{}_{}", path_to_string(package_name), func.name)
+        
         logln("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
         g.refs[func.name] = fun
@@ -93,9 +95,9 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
         g.refs[func.name] = fun
         return fun
-
     }
 
+return nil
 }
 
 create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
@@ -134,17 +136,11 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
 }
 
 create_function :: proc (g: ^LLVM_Generator, func: Function_Decl, package_name_: []string) -> llvm.ValueRef {
-    sb := strings.builder_make()
-    strings.write_string(&sb, fmt.tprintf("{}", package_name_[0]))
-    for i in 1..<len(package_name_) {
-        name := package_name_[i]
-        strings.write_string(&sb, "_")
-        strings.write_string(&sb, fmt.tprintf("{}", name))
-    }
-
-    package_name := fmt.tprintf("%s", strings.to_string(sb))
+    empty := make([]string,0)
+    defer delete(empty)
+    
     // if we are main we dont change 
-    func_ref := create_function_decl(g, func, func.name != "main" ? package_name : "");
+    func_ref := create_function_decl(g, func, func.name != "main" ? package_name_ : empty);
     g.current_function = func_ref
     bb_name := cstring("entry\x00")
     entry_bb := llvm.AppendBasicBlockInContext(g.context_ref, func_ref, bb_name)
@@ -204,7 +200,7 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
             type = expr.type,
             args = nil,
             
-        },"")
+        },nil)
         //panic("HAVE TO CREATE THE FUNCTION")
     }
 
@@ -596,7 +592,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
             fmt.ctprintf("str")
         )
     case Expr_Identifier:
-        logln("generating identifer")
+        logln("generating identifer", expr_to_string(v))
         // type is not set
         ref,ok := g.refs[v.value]
         if !ok do panic("TODO Could not find the variable")
@@ -801,18 +797,16 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     g.builder_ref = builder_ref
 
     for import_ in p.imports {
-        logln("handeling import", expr_to_string(import_.value^))
-        if symbol, found := symbol_table_lookup(t, import_.value); found {
-            fmt.println("found", expr_to_string(import_.value^))
+        if symbol, found := symbol_table_lookup_path(t, import_.path[:]); found {
             #partial switch v in symbol.node {
                 case Function_Decl:
-                name := strings.split(expr_to_string(import_.value^),".")[0]
-                create_function_decl(g, v, name)
+                //name := strings.split(expr_to_string(import_.value^),".")[0]
+                // TODO make the calls use the import name
+                create_function_decl(g, v, nil)
                 case Variable_Decl: panic("TODO")
                 case Struct_Decl:  create_struct(g, v)
             }
         }
-
     }
 
     for struc in p.structs {
@@ -820,7 +814,7 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     }
 
     for func in p.functions {
-        if func.extern do create_function_decl(g, func^, "")
+        if func.extern do create_function_decl(g, func^, nil)
         else do create_function(g, func^, p.package_name)
     }
     // write the irl to a file

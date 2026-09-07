@@ -236,6 +236,14 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
     // we want to return the function decl type
     // and also check the argument types
     if symbol, found := symbol_table_lookup(t, expr.name); found {
+        if symbol.is_import {
+            // TODO check memory leaks here
+            id := new(Expr_Identifier)
+            id.value = path_to_string(symbol.import_name)
+            expr.name^ = id^;
+            logln("changing call identifer to" ,id.value)
+        }
+
         func, ok := symbol.node.(Function_Decl)
         if !ok do panic("ITS NOT A FUNC")
         
@@ -536,7 +544,6 @@ check :: proc(program: Program, t: ^SymbolTable) {
             for a in func.args {
                 a.type = checker_replace_named_type(t, a.type)
             }
-            
             
             // go trough function block and check all types
             check_block(package_, func^, func.block, func_t.scope);
