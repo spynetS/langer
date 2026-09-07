@@ -896,6 +896,16 @@ parse_initlizer :: proc(p: ^Parser) -> (^Expr, bool) {
 parse_variable_decl :: proc(p: ^Parser, public: bool) -> ^Decl {
     decl := Variable_Decl({})
     decl.public = public
+
+    if parser_peek(p).kind == .PRIVATE {
+        decl.public = false
+        parser_advance(p)
+    }
+    if parser_peek(p).kind == .PUBLIC {
+        decl.public = true
+        parser_advance(p)
+    }
+
     // this makes let variable declerations usable
     parser_skip(p, .LET, depth=1)
 

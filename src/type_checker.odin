@@ -92,6 +92,17 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
             }
             if match do return a, true
         }
+
+        if struc, is := b.(StructType); is {
+            match := len(struc.path) == len(x.path)
+            if !match do return {}, false
+            for i in 0..<len(struc.path) {
+                if struc.path[i] != x.path[i] {
+                    match = false;
+                }
+            }
+            if match do return a, true
+        }
             
 
         parser_panic(Source_Span{}, "FIX THIS LOGIC TODO 78 typechecker", level=0)
@@ -393,6 +404,16 @@ checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Typ
             case Struct_Decl:
             for m in v.members{
                 if m.name == expr.member {
+                    if m.public == false {
+                        my_package_name := get_full_symbol_package(t)
+                        their_package_name := get_full_symbol_package(symbol.scope)
+                        fmt.println(my_package_name, their_package_name)
+                        if my_package_name != their_package_name {
+                            parser_panic(expr^, "Member is private cant access it")
+                        }
+                    }
+
+
                     if nt, is := m.type.(NamedType); is {
                         type = checker_replace_named_type(t, nt)
                     }
@@ -559,7 +580,9 @@ check :: proc(program: Program, t: ^SymbolTable) {
             
             func_t,found := symbol_table_lookup(package_t.scope, func.name)
             if !found do panic("FUNC NOT FOUND!??!?!")
-            
+
+            symbol_table_set_type(package_t.scope, func.name, func.type)
+
             for a in func.args {
                 a.type = checker_replace_named_type(t, a.type)
             }
