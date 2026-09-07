@@ -14,11 +14,7 @@ clean_llvm := true
 files : [dynamic]string
 clang_stdout := false
 clang_stderr := true
-
-// TODO add forloop
-// TODO seprate arrays and pointers
-// TODO chars
-// TODO 32 bit integers
+amnt_errors := 0
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
@@ -69,6 +65,9 @@ parse_args :: proc () {
     }
 }
 
+should_continue :: proc() {
+    if amnt_errors > 0 do os.exit(1)
+}
 
 main :: proc() {
 
@@ -93,23 +92,29 @@ main :: proc() {
         logln(input)
         l := Lexer({input=input,lines=1, col=1, file=path})
         tokens := tokenize(&l)
-
-        print_tokens(tokens)
+        should_continue();
         
+        print_tokens(tokens)
+
         parser := Parser({tokens=tokens})
 
         package_ := parse_package(&parser)
         package_.file = file
         print_package(package_)
         append(&program.packages, package_)
-
+        should_continue();
+        
         create_symbol_table_program(&symbol_table, package_, package_.package_name[:]);
+        should_continue();
+        
     }
     print_symbol_table(symbol_table);
 
     //if true do panic("AFTER PARSING")
 
     check(program, &symbol_table)
+    should_continue();
+        
     for p in program.packages {
         print_package(p)
     }
@@ -125,6 +130,8 @@ main :: proc() {
 
         g := LLVM_Generator({})
         gen_program(&g, package_, &symbol_table, package_.file, strings.to_string(llvm_path))
+        should_continue();
+        
         append(&o_files, strings.to_string(llvm_path))
 
     }

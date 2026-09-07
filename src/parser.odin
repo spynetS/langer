@@ -28,7 +28,6 @@ Program :: struct {
 /// ====== LOGGING ======
 log_error :: proc (str : string) {
     fmt.println(str)
-
 }
 parser_panic :: proc {
     parser_panic_pos,    
@@ -41,8 +40,15 @@ parser_panic :: proc {
 }
 
 parser_panic_pos :: proc(span: Source_Span, error: string, level: int = 1) {
-    str := fmt.tprintf("{}:{}:{}: {} {}",span.start.file, span.start.line, span.start.col, level==1 ? "error:" : "warning:", error)
+    str := fmt.tprintf(
+        "{}:{}:{}: {} {}",
+        span.start.file,
+        span.start.line,
+        span.start.col,
+        level==1 ? "error:" : "warning:", error)
+    
     log_error(str)
+    if level > 0 do amnt_errors += 1
     //if level == 1 do panic("asd")
 }
 
@@ -879,7 +885,7 @@ parse_variable_decl :: proc(p: ^Parser) -> ^Decl {
     // this makes let variable declerations usable
     parser_skip(p, .LET, depth=1)
 
-    name := parser_expect(p, .IDENTIFER)
+    name := parser_expect(p, .IDENTIFER, custom_msg=variable_decl_string)
     decl.name = name.lexeme
 
     logln("Var name is", decl.name)

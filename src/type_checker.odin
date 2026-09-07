@@ -208,7 +208,7 @@ checker_get_identifier_type :: proc(t: ^SymbolTable, expr: ^Expr_Identifier) -> 
         return symb.type, t
     }
     else {
-        parser_panic(expr^, "not found")
+        parser_panic(expr^, fmt.tprintf("identifer '{}' not found, is it declared? {}", expr.value, variable_decl_string))
     }
     panic("SHOULNT BE HERE")
 }
