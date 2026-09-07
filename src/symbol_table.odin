@@ -129,6 +129,40 @@ get_full_symbol_package :: proc(t: ^SymbolTable) -> string {
 }
 
 
+create_symbol_table_block :: proc(table: ^SymbolTable, block: ^Block) {
+    for &item in block.items {
+
+        if stmt, is := item.(Stmt); is {
+            #partial switch v in stmt {
+                case If_Stmt: panic("TODO")
+                case While_Stmt:
+                wt := new(SymbolTable)
+                wt.parent = table
+
+                decl := new(Decl)
+
+                w_sym := new_symbol(decl, nil, .PRIVATE, wt)
+
+                create_symbol_table_block(wt, v.block)
+
+                symbol_table_add_item(table, "while", w_sym)
+                
+                case Block: panic("TODO")
+            }
+        }
+
+        if decl, is := item.(Decl); is {
+            a_table := new(SymbolTable)
+            a_table.parent = table
+            
+            val := new_symbol(&decl, decl_get_type(decl), .PUBLIC, a_table);
+            // we have to update the item body
+            item^ = decl
+            symbol_table_add_item(table, decl_get_name(decl), val)
+        }
+    }
+}
+
 create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^SymbolTable {
     table := new(SymbolTable)
     table.parent = t
@@ -148,17 +182,8 @@ create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^Symb
 
     if func.block == nil do return table
 
-    for &item in func.block.items {
-        if decl, is := item.(Decl); is {
-            a_table := new(SymbolTable)
-            a_table.parent = table
+    create_symbol_table_block(table, func.block)
 
-            val := new_symbol(&decl, decl_get_type(decl), .PUBLIC, a_table);
-            // we have to update the item body
-            item^ = decl
-            symbol_table_add_item(table, decl_get_name(decl), val)
-        }
-    }
     return table;
 }
 

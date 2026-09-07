@@ -547,8 +547,13 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
                 // if stmt.else_block != nil do check_block(program, func, stmt.else_block, t);
 
             case While_Stmt:
-                checker_get_type(t, stmt.condition)
-                check_block(package_, func,stmt.block,t)
+
+                ws, ok := symbol_table_lookup(t, "while")
+                fmt.println(ws.scope)
+                if !ok do panic("AJJ")
+
+                checker_get_type(ws.scope, stmt.condition)
+                check_block(package_, func,stmt.block,ws.scope)
                 
             case Block:
                 check_block(package_, func, &stmt, t)

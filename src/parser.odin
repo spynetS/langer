@@ -94,7 +94,9 @@ decl_get_span :: proc(decl: Decl) -> Source_Span {
     case Struct_Decl:   return v.span
     case Package_Decl:  return Source_Span({})
     }
-    panic("Not an decl")
+    
+    log_error("Not an decl")
+    return {}
 }
 
 parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string, level: int = 1) {
