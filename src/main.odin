@@ -17,6 +17,7 @@ clang_stdout := false
 clang_stderr := false
 execute_out := false
 amnt_errors := 0
+std_path := "/usr/lib/langer/std/"
 
 logln :: proc (strs: ..any) {
     if verbose == 0 do return
@@ -39,6 +40,10 @@ parse_args :: proc () {
         }
         if arg == "run" {
             execute_out = true
+            continue
+        }
+        if arg == "--no-std" {
+            std_path = ""
             continue
         }
         if arg == "-o" {
@@ -78,6 +83,8 @@ should_continue :: proc() {
 
 parse :: proc(files: [dynamic]string, program: ^Program, symbol_table: ^SymbolTable) {
     for file in files {
+        if file == "" do continue
+
         if os.is_dir(file) {
             d_files := make([dynamic]string)
             defer delete(d_files)
@@ -87,8 +94,14 @@ parse :: proc(files: [dynamic]string, program: ^Program, symbol_table: ^SymbolTa
                 append(&d_files, fi.fullpath)
             }
             parse(d_files, program, symbol_table)
-        } else {
+        } else if os.is_file(file) {
             parse_file(file, program, symbol_table)
+        } else {
+            log_error(fmt.tprintf("error: '{}' File doesnt exist", file))
+            if file == std_path {
+                log_error("error: Standard library missing. To disable standard lib add flag --no-std")
+            }
+            os.exit(1)
         }
     }
 
@@ -106,8 +119,12 @@ main :: proc() {
     symbol_table := SymbolTable({})
     
     default_allocator := context.allocator
-    
+
+    // add standard library to compilation
+    append(&files, std_path)
+    // parse the files
     parse(files, &program, &symbol_table)
+
     print_symbol_table(symbol_table);
     
 
