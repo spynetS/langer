@@ -25,7 +25,7 @@ logln :: proc (strs: ..any) {
 log :: proc (strs: ..any) {
     if verbose == 0 do return
     fmt.print(..
-strs)
+              strs)
 }
 
 
@@ -37,7 +37,7 @@ parse_args :: proc () {
             read_out_file = false
             continue
         }
-         if arg == "run" {
+        if arg == "run" {
             execute_out = true
             continue
         }
@@ -76,6 +76,24 @@ should_continue :: proc() {
     if amnt_errors > 0 do os.exit(1)
 }
 
+parse :: proc(files: [dynamic]string, program: ^Program, symbol_table: ^SymbolTable) {
+    for file in files {
+        if os.is_dir(file) {
+            d_files := make([dynamic]string)
+            defer delete(d_files)
+            file_infos, ok := os.read_directory_by_path(file, -1, allocator=context.allocator)
+            for fi in file_infos {
+                if !strings.contains(fi.fullpath, ".l") do continue
+                append(&d_files, fi.fullpath)
+            }
+            parse(d_files, program, symbol_table)
+        } else {
+            parse_file(file, program, symbol_table)
+        }
+    }
+
+}
+
 main :: proc() {
 
 
@@ -89,32 +107,7 @@ main :: proc() {
     
     default_allocator := context.allocator
     
-
-    for file in files {
-        path := file
-
-        bytes, error := os.read_entire_file_from_path(path, allocator=context.allocator)
-        input := strings.clone_from_bytes(bytes)
-        delete(bytes)
-        logln(input)
-        l := Lexer({input=input,lines=1, col=1, file=path})
-        tokens := tokenize(&l)
-        should_continue();
-        
-        print_tokens(tokens)
-
-        parser := Parser({tokens=tokens})
-
-        package_ := parse_package(&parser)
-        package_.file = file
-        print_package(package_)
-        append(&program.packages, package_)
-        should_continue();
-        
-        create_symbol_table_program(&symbol_table, package_, package_.package_name[:]);
-        should_continue();
-        
-    }
+    parse(files, &program, &symbol_table)
     print_symbol_table(symbol_table);
     
 
@@ -129,7 +122,7 @@ main :: proc() {
     //if true do panic("AFTER PARSING")
 
     should_continue();
-        
+    
     for p in program.packages {
         print_package(p)
     }
@@ -172,6 +165,31 @@ main :: proc() {
 }
 
 
+parse_file :: proc(file: string, program: ^Program, symbol_table: ^SymbolTable) {
+    bytes, error := os.read_entire_file_from_path(file, allocator=context.allocator)
+    input := strings.clone_from_bytes(bytes)
+    delete(bytes)
+    logln(input)
+    l := Lexer({input=input,lines=1, col=1, file=file})
+    tokens := tokenize(&l)
+    should_continue();
+    
+    print_tokens(tokens)
+
+    parser := Parser({tokens=tokens})
+
+    package_ := parse_package(&parser)
+    package_.file = file
+    print_package(package_)
+    append(&program.packages, package_)
+    should_continue();
+    
+    create_symbol_table_program(symbol_table, package_, package_.package_name[:]);
+    should_continue();
+
+}
+
+
 compile_llvm :: proc (o_files: [dynamic]string) -> int {
 
     // linker
@@ -188,7 +206,7 @@ compile_llvm :: proc (o_files: [dynamic]string) -> int {
     index+=1
     command[index] = out_file
 
-    fmt.println(command)
+    fmt.println("running", command)
 
     link_process,_ := os.process_start({
         working_dir="./",
@@ -204,7 +222,8 @@ compile_llvm :: proc (o_files: [dynamic]string) -> int {
 run_exec :: proc() -> int {
     command := make([]string,1)
     command[0],_ = filepath.abs(out_file)
-    fmt.println(command)
+    fmt.println("running", command)
+    fmt.println("\n===================== EXECUTEABLE =====================")
     link_process,_ := os.process_start({
         working_dir="./",
         command=command,
