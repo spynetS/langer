@@ -2,6 +2,7 @@ package main;
 
 import "core:fmt"
 import "core:strings"
+import "core:math/rand"
 
 Visibilty :: enum {
     PRIVATE,
@@ -18,12 +19,29 @@ Symbol :: struct {
     import_name: []string
 }
 
-
+/*
+SymbolTable is used to store all the delcarations in the programs. This is
+used for lookup later in type checking. It is built as a tree structure where
+each delcaration is a new node and a new scope is a new node where other nodes
+can attach. The nodes are kept in a map where the name of the delceartion is maped
+to the symbol (symbol can be either a decleartion or a scope (functions, while, if)).
+If, while, doesnt have a unique name so a random string is maped to it and that 
+string is kept in its block. (This is a bit of a hack FIXME)
+*/
 SymbolTable :: struct {
     symbols: map[string]Symbol,
     parent: ^SymbolTable,
     parent_symbol: Symbol,
-    import_name: map[string]string 
+    import_name: map[string]string,
+}
+// utility to create random string
+random_string :: proc(l: int) -> string {
+    sb := strings.builder_make()
+    defer strings.builder_destroy(&sb)
+    for i in 0..<l {
+        strings.write_byte(&sb, cast(byte)rand.int32_range(96,122))
+    }
+    return fmt.tprintf("%s", strings.to_string(sb))
 }
 
 // This is used to add package name infront of types that are defined inside the package
@@ -129,6 +147,65 @@ get_full_symbol_package :: proc(t: ^SymbolTable) -> string {
 }
 
 
+create_symbol_table_block :: proc(table: ^SymbolTable, block: ^Block) {
+    for &item in block.items {
+
+        if stmt, is := item.(Stmt); is {
+            #partial switch v in stmt {
+                case If_Stmt:
+                // we create a new symbol table because new scope
+                ift := new(SymbolTable)
+                ift.parent = table
+
+                if_sym := new_symbol(new(Decl), nil, .PRIVATE, ift)
+
+                create_symbol_table_block(ift, v.block)
+
+                v.block.id = random_string(8)
+                symbol_table_add_item(table, v.block.id, if_sym)
+
+                // else block
+                else_t := new(SymbolTable)
+                else_t.parent = table
+
+                else_sym := new_symbol(new(Decl), nil, .PRIVATE, else_t)
+
+                create_symbol_table_block(else_t, v.block)
+
+                v.else_block.id = random_string(8)
+                symbol_table_add_item(table, v.else_block.id, else_sym)
+
+
+
+                case While_Stmt:
+                // we create a new symbol table because new scope
+                wt := new(SymbolTable)
+                wt.parent = table
+
+                decl := new(Decl)
+                w_sym := new_symbol(decl, nil, .PRIVATE, wt)
+
+                create_symbol_table_block(wt, v.block)
+
+                v.block.id = random_string(8)
+                symbol_table_add_item(table, v.block.id, w_sym)
+                
+                case Block: panic("TODO")
+            }
+        }
+
+        if decl, is := item.(Decl); is {
+            a_table := new(SymbolTable)
+            a_table.parent = table
+            
+            val := new_symbol(&decl, decl_get_type(decl), .PUBLIC, a_table);
+            // we have to update the item body
+            item^ = decl
+            symbol_table_add_item(table, decl_get_name(decl), val)
+        }
+    }
+}
+
 create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^SymbolTable {
     table := new(SymbolTable)
     table.parent = t
@@ -148,17 +225,8 @@ create_symbol_table_func :: proc(t: ^SymbolTable, func: ^Function_Decl) -> ^Symb
 
     if func.block == nil do return table
 
-    for &item in func.block.items {
-        if decl, is := item.(Decl); is {
-            a_table := new(SymbolTable)
-            a_table.parent = table
+    create_symbol_table_block(table, func.block)
 
-            val := new_symbol(&decl, decl_get_type(decl), .PUBLIC, a_table);
-            // we have to update the item body
-            item^ = decl
-            symbol_table_add_item(table, decl_get_name(decl), val)
-        }
-    }
     return table;
 }
 

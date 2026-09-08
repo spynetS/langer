@@ -94,7 +94,9 @@ decl_get_span :: proc(decl: Decl) -> Source_Span {
     case Struct_Decl:   return v.span
     case Package_Decl:  return Source_Span({})
     }
-    panic("Not an decl")
+    
+    log_error("Not an decl")
+    return {}
 }
 
 parser_panic_expr_token :: proc(parent: Expr, token: Token, error: string, level: int = 1) {
@@ -615,7 +617,7 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 get_expr_type :: proc(expr: Expr) -> Type {
     #partial switch v in expr {
-        case Expr_Array: panic("TODO")
+        case Expr_Array: panic("TODO array type isnt implemented")
         case Expr_Subscript:
         return v.type
         case Expr_Binary:
