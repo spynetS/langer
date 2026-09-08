@@ -93,6 +93,7 @@ BlockItem :: union {
 
 Block :: struct {
     items: [dynamic]^BlockItem,
+    id: string // used for typechecker and symboltable
 }
 Return_Stmt :: struct {
     value: ^Expr,

@@ -541,14 +541,23 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
                 type,_ := checker_get_type(t, stmt.value)
                 stmt.type = type
             case If_Stmt:
-                panic("TODO")
 
-                // check_block(program, func, stmt.block, t);
-                // if stmt.else_block != nil do check_block(program, func, stmt.else_block, t);
+                ifs, ok := symbol_table_lookup(t, stmt.block.id)
+                fmt.println(ifs.scope)
+                if !ok do panic("AJJ")
 
+                checker_get_type(ifs.scope, stmt.condition)
+                check_block(package_, func,stmt.block, ifs.scope)
+
+                els, ok1 := symbol_table_lookup(t, stmt.else_block.id)
+                if !ok1 do panic("AJJ")
+
+                check_block(package_, func, stmt.else_block, els.scope)
+
+                
             case While_Stmt:
 
-                ws, ok := symbol_table_lookup(t, "while")
+                ws, ok := symbol_table_lookup(t, stmt.block.id)
                 fmt.println(ws.scope)
                 if !ok do panic("AJJ")
 
