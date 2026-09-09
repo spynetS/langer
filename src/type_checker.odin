@@ -179,7 +179,10 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
         
         
     case Array:
-        return {}, false
+        if arr, is := b.(Array); is && x.of != nil && arr.of != nil {
+            if check_type(x.of^, arr.of^) do return a, true
+        }
+
     }
 
     return {}, false
