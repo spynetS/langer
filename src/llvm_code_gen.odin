@@ -100,6 +100,49 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
 return nil
 }
 
+/* This function is used to initlize an array when declarting a array variable with an
+array initlizer. It will store each value in the initlizer for they array type */
+init_array :: proc (g: ^LLVM_Generator, v: Expr_Array, array_ptr: llvm.ValueRef, array_type: llvm.TypeRef) {
+                                        
+
+    for i in 0..<len(v.values) {
+        elem := v.values[i]
+        value := create_expression(g, elem^)
+
+        index := llvm.ConstInt(llvm.Int32TypeInContext(g.context_ref),
+                               u64(i),
+                               0)
+        zero := llvm.ConstInt(
+            llvm.Int32TypeInContext(g.context_ref),
+            0,
+            0,
+        )
+        indices := [2]llvm.ValueRef{
+            zero,
+            index,
+        }
+
+
+        element_ptr := llvm.BuildGEP2(
+            g.builder_ref,
+            array_type,
+            array_ptr,
+                &indices[0],
+            2,
+            cstring("element_ptr"),
+        )
+
+        llvm.BuildStore(
+            g.builder_ref,
+            value,
+            element_ptr,
+        )
+    }
+
+    log_error("warning, FIXME typechecker create expression array (557)")
+}
+
+
 create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
     logln("create declerations")
     switch decl in decl_u {
@@ -117,13 +160,19 @@ create_decl :: proc (g: ^LLVM_Generator, decl_u: Decl) -> llvm.ValueRef {
         g.refs[decl.name] = var
 
         if decl.initlizer != nil {
-            logln("init", expr_to_string(decl.initlizer^), ":", get_expr_type(decl.initlizer^))
-            val := create_expression(g, decl.initlizer^)
-            return llvm.BuildStore(
-                g.builder_ref,
-                val,
-                var,
-            )
+            if arr, is := decl.initlizer.(Expr_Array); is {
+                init_array(g, arr, var, type)
+            }
+            else {
+                logln("init", expr_to_string(decl.initlizer^), ":", get_expr_type(decl.initlizer^))
+                val := create_expression(g, decl.initlizer^)
+                return llvm.BuildStore(
+                    g.builder_ref,
+                    val,
+                    var,
+                )                
+            }
+
         }
         logln("done with variable", decl_to_string(decl))
         return var
@@ -554,7 +603,8 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
         if gen_address do return ptr
         t,_ := get_llvm_type(g, get_expr_type(v))
         return load_pointer(g, ptr, t)
-    case Expr_Array: panic("TODO, array initlization not implemented yet")
+    case Expr_Array:
+        panic("HERE")
     case Expr_Subscript:
         logln("generating subscript")
         type,_a := get_llvm_type(g, get_expr_type(v))

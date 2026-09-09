@@ -430,7 +430,6 @@ checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Typ
     return type, scope
 }
 
-
 checker_check_array_expression :: proc(t: ^SymbolTable, expr: ^Expr_Array) -> (Type, ^SymbolTable) {
     of,_ := checker_get_type(t, expr.values[0])
     of_ := new(Type)
@@ -502,6 +501,7 @@ checker_variable_decl :: proc(t: ^SymbolTable, decl: ^Variable_Decl) -> Type {
         decl.type = checker_replace_named_type(t, decl.type)
         if !f do parser_panic(decl^, "Type not found when checking type")
     }
+    // FIXME add so they array_expretion (for a variable) sets the array size to the initlzier size
     if decl.initlizer != nil {
         it,_ := checker_get_type(t, decl.initlizer)
 
