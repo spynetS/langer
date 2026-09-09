@@ -617,7 +617,7 @@ find_var :: proc(p: ^Parser, ident: Expr_Identifier) {
 
 get_expr_type :: proc(expr: Expr) -> Type {
     #partial switch v in expr {
-        case Expr_Array: panic("TODO array type isnt implemented")
+        case Expr_Array: return get_expr_type(v.values[0]^)
         case Expr_Subscript:
         return v.type
         case Expr_Binary:
@@ -1207,6 +1207,18 @@ expr_to_string :: proc(expr_u: Expr) -> string {
         case Expr_Identifier:
         return expr.value
 
+        case Expr_Array:
+        sb := strings.builder_make()
+        defer strings.builder_destroy(&sb)
+        strings.write_string(&sb, "{")
+        for v in expr.values {
+            strings.write_string(&sb, expr_to_string(v^))
+            strings.write_string(&sb, ", ")
+
+        }
+        strings.write_string(&sb, "}")
+        return fmt.tprintf("{}", strings.to_string(sb))
+
         case Expr_Call:
         result := strings.builder_make()
         strings.write_string(&result, fmt.tprintf("{}(", expr.name != nil ? expr_to_string(expr.name^) : ""))
@@ -1232,7 +1244,12 @@ print_expr :: proc(expr_u: Expr, depth: int = 0) {
     logln("<", type_to_string(get_expr_type(expr_u)), ">")
     print_indent(depth)
     switch expr in expr_u {
-    case Expr_Array: panic("TODO")
+    case Expr_Array:
+        logln("Array expression")
+        for v in expr.values {
+            print_expr(v^)
+        }
+
     case Expr_MemberAccess:
         logln("MemberAccess ");
         if expr.obj == nil do panic("asd")

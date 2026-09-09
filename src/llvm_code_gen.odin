@@ -554,7 +554,7 @@ create_expression :: proc(g: ^LLVM_Generator, expr: Expr, gen_address: bool = fa
         if gen_address do return ptr
         t,_ := get_llvm_type(g, get_expr_type(v))
         return load_pointer(g, ptr, t)
-    case Expr_Array: panic("TODO")
+    case Expr_Array: panic("TODO, array initlization not implemented yet")
     case Expr_Subscript:
         logln("generating subscript")
         type,_a := get_llvm_type(g, get_expr_type(v))

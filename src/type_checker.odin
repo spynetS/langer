@@ -431,11 +431,19 @@ checker_memberaccess :: proc (t: ^SymbolTable, expr: ^Expr_MemberAccess) -> (Typ
 }
 
 
+checker_check_array_expression :: proc(t: ^SymbolTable, expr: ^Expr_Array) -> (Type, ^SymbolTable) {
+    of,_ := checker_get_type(t, expr.values[0])
+    of_ := new(Type)
+    of_^ = of
+    
+    return Array({of = of_}), t
+}
+
 checker_get_type :: proc(t: ^SymbolTable, expr: ^Expr) -> (Type, ^SymbolTable) {
     if expr == nil do panic("Checker_get type expr is nil")
     switch &v in expr {
     case Expr_MemberAccess: return checker_memberaccess(t, &v);
-    case Expr_Array:        panic("TODO")
+    case Expr_Array:        return checker_check_array_expression(t, &v)
     case Expr_Subscript:    return checker_subscript(t, &v);
     case Expr_Number:       return checker_get_number(t, &v)
     case Expr_String:       return checker_get_string(t, &v)
