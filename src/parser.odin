@@ -776,16 +776,51 @@ parse_type_name :: proc(p: ^Parser) -> (Type, bool) {
 
 parse_type :: proc(p: ^Parser) -> (Type, bool) {
     if parser_is(p, .STAR) {
-
         to_, ok := parse_type(p)
         if !ok {
             return {}, false
         }
         to := new(Type)
         to^ = to_
-
         return Pointer{to=to}, true
     }
+    if parser_is(p, .LB) {
+
+        start := parser_previus(p).span.start
+
+        arr := Array({})
+
+        // check if there is a size specifed
+        // if there isnt and this token isnt rb
+        // there is an error
+        if parser_peek(p).kind == .NUMBER {
+            // add legnth
+            parsed_value,ok := strconv.parse_int(parser_peek(p).lexeme)
+            if !ok do panic("TODO Must be an integer")
+            arr.length = u64(parsed_value)
+            parser_advance(p)
+            parser_expect(p, .RB)
+        }
+        else if !parser_is(p, .RB) {
+            parser_panic(
+                Source_Span{
+                    start=start,
+                    end= parser_peek(p).span.end
+                },
+                fmt.tprintf("Can't use '{}' as array size initlizer. Only integer", parser_peek(p).kind))
+            parser_advance(p)
+        }
+        
+        of_, ok := parse_type(p)
+        if !ok {
+            return {}, false
+        }
+        of := new(Type)
+        of^ = of_
+        arr.of = of
+        return arr, true
+    }
+
 
     if t, ok := parse_type_token(parser_peek(p)); ok {
         parser_advance(p)

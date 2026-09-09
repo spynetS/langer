@@ -55,7 +55,8 @@ create_type :: proc(t: ^SymbolTable, type: ^Type) -> Type {
         if v.to != nil do v.to^ = create_type(t, v.to)
         return v
     case Array:
-        if v.of != nil do return create_type(t, v.of)
+        if v.of != nil do v.of^ = create_type(t, v.of)
+        return v
     case NamedType:
         if t == nil do panic("NIL")
         // we we have package return it
@@ -333,7 +334,7 @@ symbol_table_lookup_type :: proc(t: ^SymbolTable, type: Type) -> (Symbol, bool) 
         return symbol_table_lookup_path(t, v.path[:]);
         case Pointer: if v.to != nil do return symbol_table_lookup_type(t, v.to^)
         case Basic: return {}, true // the type exists but no symbol
-        case Array: panic("TODO")
+        case Array: if v.of != nil do return symbol_table_lookup_type(t, v.of^)
     }
     return {}, false
 }

@@ -334,7 +334,7 @@ checker_subscript :: proc(t: ^SymbolTable, expr: ^Expr_Subscript) -> (Type, ^Sym
     }
 
 
-
+    logln(lt)
     parser_panic(expr^, fmt.tprintf("Cant preform subscript for type '{}'", type_to_string(lt)))
 
     panic("TODO")
