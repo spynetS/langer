@@ -75,8 +75,8 @@ create_type :: proc(t: ^SymbolTable, type: ^Type) -> Type {
 }
 
 new_symbol :: proc(node: ^Decl, type: Type, visibilty: Visibilty, scope: ^SymbolTable) -> Symbol {
-    // fmt.println("new symbol", node)
-    // fmt.println("t", type)
+    logln("new symbol", node)
+    logln("t", type)
     type := type // to make it adressable
     s := Symbol({})
     
@@ -157,7 +157,7 @@ create_symbol_table_block :: proc(table: ^SymbolTable, block: ^Block) {
                 // we create a new symbol table because new scope
                 ift := new(SymbolTable)
                 ift.parent = table
-
+                logln("CREATING IF SCOPE")
                 if_sym := new_symbol(new(Decl), nil, .PRIVATE, ift)
 
                 create_symbol_table_block(ift, v.block)
@@ -166,6 +166,9 @@ create_symbol_table_block :: proc(table: ^SymbolTable, block: ^Block) {
                 symbol_table_add_item(table, v.block.id, if_sym)
 
                 // else block
+
+                if v.else_block == nil do break
+                logln("CREATING IF SCOPE")
                 else_t := new(SymbolTable)
                 else_t.parent = table
 

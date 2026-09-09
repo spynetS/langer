@@ -94,14 +94,7 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
         }
 
         if struc, is := b.(StructType); is {
-            match := len(struc.path) == len(x.path)
-            if !match do return {}, false
-            for i in 0..<len(struc.path) {
-                if struc.path[i] != x.path[i] {
-                    match = false;
-                }
-            }
-            if match do return a, true
+            return a, check_type(a,b)
         }
             
 
@@ -155,6 +148,9 @@ can_cast :: proc(a, b: Type) -> (Type, bool) {
         case NamedType: panic("TODO")
         case Pointer:
             if pointed_to, ok1 := y.to^.(Basic); ok1 && pointed_to == .BYTE {
+                return a, true
+            }
+            if x.to != nil && y.to != nil && check_type(x.to^, y.to^) {
                 return a, true
             }
         case Basic:
@@ -286,7 +282,10 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
                 logln("casting args")
                 expr_set_type(expr.args[i], t)
             }
-            else do parser_panic(expr^, fmt.tprintf("TODO"))
+            else {
+                fmt.println(at, "\n", func.args[i].type)
+                parser_panic(expr^, fmt.tprintf("TODO can't cast args"))
+            }
 
         }
         if symbol.type == nil do panic("SHOULD HAVE TYPE")
@@ -355,7 +354,12 @@ checker_get_unary :: proc(t: ^SymbolTable, expr: ^Expr_Unary) -> (Type, ^SymbolT
               fmt.println(t)
               panic("TODO")
         }
-        case .AMPER: panic("TODO")
+        case .AMPER:
+        type, here := checker_get_type(t, expr.operand)
+        to := new(Type)
+        to^=type
+
+        return Pointer({to=to}), t
     }
 
     panic("TODO")
@@ -459,7 +463,18 @@ check_type :: proc(a,b: Type) -> bool {
     if a == nil || b == nil do return false
 
     switch x in a {
-    case StructType: return false
+    case StructType:
+        if struc, is := b.(StructType); is {
+            match := len(struc.path) == len(x.path)
+            if !match do return false
+            for i in 0..<len(struc.path) {
+                if struc.path[i] != x.path[i] {
+                    match = false;
+                }
+            }
+            if match do return true
+        }
+        
     case NamedType: return false
         
     case Basic:
@@ -558,6 +573,8 @@ check_block :: proc(package_: Package, func: Function_Decl, block: ^Block, t: ^S
 
                 checker_get_type(ifs.scope, stmt.condition)
                 check_block(package_, func,stmt.block, ifs.scope)
+
+                if stmt.else_block == nil do break;
 
                 els, ok1 := symbol_table_lookup(t, stmt.else_block.id)
                 if !ok1 do panic("AJJ")

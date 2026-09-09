@@ -4,10 +4,10 @@ extern malloc(size: int): *byte;
 extern free(ptr: *void);
 
 
-func alloc(size: int): *byte {
+public func alloc(size: int): *byte {
 	return malloc(size);
 }
 
-func fre(ptr: *byte) {
+public func fre(ptr: *byte) {
 	free(ptr)
 }

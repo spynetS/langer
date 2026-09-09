@@ -96,8 +96,8 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
         g.refs[func.name] = fun
         return fun
     }
-
-return nil
+    
+    
 }
 
 /* This function is used to initlize an array when declarting a array variable with an
@@ -244,6 +244,7 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     //fn_ref := llvm.GetNamedFunction(g.module_ref, fmt.ctprintf(name))
     fn_ref, exists := g.refs[name]
     if !exists {
+        logln("the definition didnt exists so we declare it")
         //if true do panic("HERE")
         fn_ref = create_function_decl(g, Function_Decl{
             name = name,
@@ -866,6 +867,8 @@ gen_program :: proc (g: ^LLVM_Generator, p: Package, t: ^SymbolTable, i_file, o_
     }
 
     for func in p.functions {
+        logln("creating function declartion", func.name)
+        
         if func.extern do create_function_decl(g, func^, nil)
         else do create_function(g, func^, p.package_name)
     }
