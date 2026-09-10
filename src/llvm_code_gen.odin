@@ -84,7 +84,7 @@ create_function_decl :: proc (g: ^LLVM_Generator, func: Function_Decl, package_n
     
     if package_name != nil {
         name := fmt.ctprintf("{}_{}", path_to_string(package_name), func.name)
-        
+
         logln("CREATE", name)
         fun :=  llvm.AddFunction(g.module_ref, name, func_type)
         g.refs[func.name] = fun
@@ -246,6 +246,7 @@ create_call :: proc(g: ^LLVM_Generator, expr: Expr_Call) -> llvm.ValueRef {
     if !exists {
         logln("the definition didnt exists so we declare it")
         //if true do panic("HERE")
+        fmt.println("call is generating ", name)
         fn_ref = create_function_decl(g, Function_Decl{
             name = name,
             type = expr.type,

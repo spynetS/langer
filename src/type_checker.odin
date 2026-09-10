@@ -241,7 +241,7 @@ checker_get_binary_type :: proc(t: ^SymbolTable, expr: ^Expr_Binary) -> (Type, ^
 
 
 checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^SymbolTable) {
-    logln("CHECKING caller", expr_to_string(expr.name^))
+    fmt.println("CHECKING caller", expr_to_string(expr.name^))
 
     // we want to return the function decl type
     // and also check the argument types
@@ -256,6 +256,10 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
                 id.value = fmt.tprintf("{}_{}", package_path, expr_to_string(expr.name^))
                 expr.name^ = id^;
                 logln("changing call identifer to" ,id.value)
+            } else if is && bla.extern {
+                // FIXME remove the package prefix so we only have the name
+                fmt.println("=====================")
+                fmt.println(bla.name)
             }
         }
         else { // if the call is in a different package we check visibility
@@ -292,6 +296,9 @@ checker_get_call_type :: proc(t: ^SymbolTable, expr: ^Expr_Call) -> (Type, ^Symb
         logln("casting function call to")
         symbol.type = checker_replace_named_type(t, symbol.type)
         expr_set_type(cast(^Expr)expr, symbol.type)
+        fmt.println("=====================")
+        fmt.println(expr.name)
+
         return symbol.type, symbol.scope
     }
     else if !found {

@@ -1,6 +1,6 @@
 package std.mem;
 
-extern malloc(size: int): *byte;
+public extern malloc(size: int): *byte;
 extern free(ptr: *void);
 
 

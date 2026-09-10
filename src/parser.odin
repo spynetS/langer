@@ -1084,8 +1084,9 @@ parse_package :: proc(p: ^Parser) -> Package {
         logln(bef)
         #partial switch parser_peek(p).kind {
             case .EXTERN:
+            is_public := parser_previus(p).kind == .PUBLIC
             parser_advance(p)
-            func := cast(^Function_Decl)parse_func_decl(p, parser_previus(p).kind == .PUBLIC)
+            func := cast(^Function_Decl)parse_func_decl(p, is_public)
             func.extern = true
             parser_skip(p, .SEMICOLON)
             append(&package_.functions, func)            

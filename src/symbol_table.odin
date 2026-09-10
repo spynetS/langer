@@ -413,7 +413,7 @@ print_symbol_table :: proc(t: SymbolTable, depth:int = 0) {
 
     for key, symbol in t.symbols {
         for i in 0..<depth do log(" ")
-        logln(key, "->", decl_to_string(symbol.node))
+        logln(key, "->", decl_to_string(symbol.node), symbol.visibilty)
         if symbol.scope != nil do print_symbol_table(symbol.scope^, depth+1)
     }
 }
