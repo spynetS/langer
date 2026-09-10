@@ -7,7 +7,7 @@ langer: ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c
 	$(CC) ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c -o langer
 
 test:
-	$(CC) -lrt -lm ./tests/lexer.c ./src/lexer.c ./src/utils.c ./src/sb.c -o test &&./test
+	$(CC) -DSILENT -lrt -lm ./tests/lexer.c ./src/lexer.c ./src/utils.c ./src/sb.c -o test &&./test
 
 
 # install: langer

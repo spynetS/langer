@@ -230,7 +230,7 @@ Token lex(Lexer *lexer) {
   Token token = {0};
   token.kind = TOKEN_EOF;
 
-  debug_log("%c\n", c);
+  //debug_log("%c\n", c);
   if (c == '\0')
     return token;
 
@@ -282,7 +282,7 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
       if (token.kind == TOKEN_EOF || token.kind == TOKEN_INVALID)
         break;
 
-      print_token(token);
+      //      print_token(token);
       arrput(*result, token);
   }
   return 0;

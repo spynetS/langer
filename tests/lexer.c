@@ -7,6 +7,7 @@
 
 
 
+
 MU_TEST(test_a) {
   Lexer lexer = {0};
   lexer.bytes = "asd asd_ asd1 asd_1";
@@ -120,6 +121,28 @@ MU_TEST(test_operators) {
   mu_check(tokens[9].kind == TOKEN_MOD);
 }
 
+MU_TEST(test_types) {
+
+  Lexer lexer = {0};
+  lexer.bytes = "char byte i16 int i32 i64 float f32 f64 double void bool";
+  lexer.bytes_length = strlen(lexer.bytes);
+
+  Token *tokens = NULL;
+  lexer_tokenize(&lexer, &tokens);
+  mu_check(tokens[0].kind == TOKEN_BYTE);
+  mu_check(tokens[1].kind == TOKEN_BYTE);
+  mu_check(tokens[2].kind == TOKEN_I16);
+  mu_check(tokens[3].kind == TOKEN_I32);
+  mu_check(tokens[4].kind == TOKEN_I32);
+  mu_check(tokens[5].kind == TOKEN_I64);
+  mu_check(tokens[6].kind == TOKEN_F32);
+  mu_check(tokens[7].kind == TOKEN_F32);
+  mu_check(tokens[8].kind == TOKEN_F64);
+  mu_check(tokens[9].kind == TOKEN_F64);
+  mu_check(tokens[10].kind == TOKEN_VOID);
+  mu_check(tokens[11].kind == TOKEN_BOOL);
+}
+
 
 
 MU_TEST_SUITE(test_suite) {
@@ -130,6 +153,7 @@ MU_TEST_SUITE(test_suite) {
   MU_RUN_TEST(test_numbers);
   MU_RUN_TEST(test_chars);
   MU_RUN_TEST(test_operators);
+  MU_RUN_TEST(test_types);
 }
 
 int main(int argc, char *argv[]) {

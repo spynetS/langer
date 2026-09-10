@@ -30,7 +30,6 @@ const char *token_kind_to_string(TokenKind kind)
     case TOKEN_VOID:    return "TOKEN_VOID";
     case TOKEN_BOOL:    return "TOKEN_BOOL";
     case TOKEN_BYTE:    return "TOKEN_BYTE";
-    case TOKEN_INT:     return "TOKEN_INT";
     case TOKEN_I16:     return "TOKEN_I16";
     case TOKEN_I32:     return "TOKEN_I32";
     case TOKEN_I64:     return "TOKEN_I64";
@@ -79,12 +78,14 @@ const char *token_kind_to_string(TokenKind kind)
 }
 
 void log_span(SourceSpan span, const char* fmt, ...) {
+  #ifndef SILENT
   va_list args;
   va_start(args, fmt);
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
 
   va_end(args);
+  #endif
 }
 
 int panic(const char *err) {
