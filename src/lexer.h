@@ -1,6 +1,8 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <stdio.h>
+
 typedef enum TokenKind {
   // keywords
   TOKEN_PACKAGE,
@@ -135,7 +137,7 @@ typedef struct lexer {
   int pos;
   
   char* bytes;
-  int bytes_length;
+  size_t bytes_length;
 } Lexer;
 
 
@@ -145,7 +147,7 @@ char lexer_peek(Lexer *l);
 char lexer_advance(Lexer *l);
 
 // Returns 0 for success
-int tokenize(Lexer*, Token** result);
+int lexer_tokenize(Lexer*, Token** result);
 Token lex(Lexer *l);
 
 // will allocate for lexeme

@@ -19,6 +19,7 @@ int main() {
   size_t size = 0;
   char *input = read_file("./main.l", &size);
 
+
   Lexer lexer = {
     0,
     0,
@@ -29,7 +30,7 @@ int main() {
   };
 
   Token* token = NULL;
-  tokenize(&lexer, &token);
+  lexer_tokenize(&lexer, &token);
 
   for (size_t i = 0; i < arrlen(token); i++) {
     printf("%s\n", token[i].lexeme);

@@ -24,28 +24,36 @@ char lexer_peek(Lexer *l) {
   return l->bytes[l->pos];
 }
 
+char lexer_next(Lexer *l) {
+  return l->bytes[l->pos+1];
+}
+
 char lexer_advance(Lexer *l) {
-  if ( l->bytes_length >= l->pos + 1 ) {
+  if (l->pos >= l->bytes_length)
+    return '\0';
 
-    if (lexer_peek(l) == '\n') {
-      l->line += 1;
-      l->column = 1;
-    } else {
-      l->column += 1;
-    }
-    
-
-    return l->bytes[l->pos++];
+  if (lexer_peek(l) == '\n') {
+    l->line += 1;
+    l->column = 1;
+  } else {
+    l->column += 1;
   }
-  return l->bytes[l->pos];
+  int p = l->pos;
+  l->pos += 1;
+  return l->bytes[p];
+}
+
+Token token_create(TokenKind kind) {
+  Token token = {0};
+  token.kind = kind;
+  return token;
 }
 
 char lexer_skip_whitespace(Lexer *l) {
   while (lexer_peek(l) == ' ' ||
          lexer_peek(l) == '\n' ||
          lexer_peek(l) == '\t' ||
-         lexer_peek(l) == '\r' ||
-         lexer_peek(l) == 0) {
+         lexer_peek(l) == '\r') {
     lexer_advance(l);
   }
   return lexer_peek(l);
@@ -112,7 +120,18 @@ Token lex_string_literal(Lexer *l) {
   SourcePos start = lexer_create_pos(l);
   sb_appendf(sb, "%c", lexer_advance(l));
   // if it is a char or _ or a digit we continue
+  size_t counter = 0;
   while (lexer_peek(l) != '"') {
+    // we encoutner error while lexing string
+    if (lexer_peek(l) == '\0' || counter++ > MAX_TOKENS) {
+      log_span((SourceSpan){start, {0}} ,"error: unterminated string literal\n");
+      Token token = {0};
+      token.lexeme = sb_concat(sb);
+      token.kind = TOKEN_INVALID;
+
+      sb_free(sb);
+      return token;
+    }
     sb_appendf(sb, "%c", lexer_advance(l));
   }
   SourcePos end = lexer_create_pos(l);
@@ -165,8 +184,7 @@ Token lex_number_literal(Lexer *l) {
 }
 
 Token char_token(Lexer *lexer, TokenKind kind) {
-  Token t;
-  t.kind = kind;
+  Token t = token_create(kind);
   t.lexeme = malloc(sizeof(char)*2);
   t.lexeme[0] = lexer_peek(lexer);
   t.lexeme[1] = 0;
@@ -177,18 +195,39 @@ Token char_token(Lexer *lexer, TokenKind kind) {
   return t;
 }
 
+Token lex_char(Lexer *l) {
+  lexer_advance(l);
+  SourcePos start = lexer_create_pos(l);
+  Token token = {0};
+  token.kind = TOKEN_CHAR_LITERAL;
+  char c = lexer_advance(l);
+  token.lexeme = malloc(sizeof(char)*4);
+  sprintf(token.lexeme, "'%c'", c);
+  token.span = (SourceSpan){start, lexer_create_pos(l)};
+
+  if (lexer_advance(l) != '\'') {
+    log_span((SourceSpan){lexer_create_pos(l), lexer_create_pos(l)},"error: untermineted char\n");
+    return token_create(TOKEN_INVALID);
+  }
+
+  return token;
+}
+
 Token lex(Lexer *lexer) {
 
   char c = lexer_skip_whitespace(lexer);
 
-  Token token;
+  Token token = {0};
   token.kind = TOKEN_EOF;
 
   debug_log("%c\n", c);
-
-  if (is_char(c))       token = lex_identifer(lexer);
+  if (c == '\0')
+    return token;
+  
+  if (c == '\'')       token = lex_char(lexer);
+  else if (is_char(c)) token = lex_identifer(lexer);
   else if (is_digit(c)) token = lex_number_literal(lexer);
-  else if (c == '"')       token = lex_string_literal(lexer);
+  else if (c == '"')    token = lex_string_literal(lexer);
   else {
     switch (c) {
     case '=': token = char_token(lexer, TOKEN_ASSIGN);    break;
@@ -209,7 +248,8 @@ Token lex(Lexer *lexer) {
     case ',': token = char_token(lexer, TOKEN_COMMA);     break;
     case '.': token = char_token(lexer, TOKEN_DOT);       break;
     case ';': token = char_token(lexer, TOKEN_SEMICOLON); break;
-    case ':': token = char_token(lexer, TOKEN_COLON);         break;
+    case ':': token = char_token(lexer, TOKEN_COLON);          break;
+    case '\0':token = char_token(lexer, TOKEN_EOF);       break;
 
     default:
       token = char_token(lexer, TOKEN_INVALID);
@@ -220,13 +260,16 @@ Token lex(Lexer *lexer) {
   return token;
 }
 
-int tokenize(Lexer *lexer, Token **result) {
-  while (lexer->pos < lexer->bytes_length-1) {
+int lexer_tokenize(Lexer *lexer, Token **result) {
+  lexer->line = 1;
+  lexer->column = 1;
+  while (true) {
       Token token = lex(lexer);
-      print_token(token);
       
       if (token.kind == TOKEN_EOF || token.kind == TOKEN_INVALID)
         break;
+
+      print_token(token);
       arrput(*result, token);
   }
   return 0;

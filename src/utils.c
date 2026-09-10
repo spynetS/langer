@@ -76,11 +76,21 @@ const char *token_kind_to_string(TokenKind kind)
   return "UNKNOWN_TOKEN";
 }
 
+void log_span(SourceSpan span, const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
+  vprintf(fmt, args);
+
+  va_end(args);
+}
 
 int panic(const char *err) {
   printf("error: %s\n", err);
   exit(1);
 }
+
+
 
 void print_token(Token token) {
   printf("%s { '%s', { %s, %d:%d,} }\n", token_kind_to_string(token.kind), token.lexeme, token.span.start.file,  token.span.start.column,token.span.end.column);
