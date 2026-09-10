@@ -52,8 +52,10 @@ typedef enum TokenKind {
   TOKEN_SLASH,
   TOKEN_EQUAL, // ==
   TOKEN_ASSIGN, // =
+  TOKEN_AMPER,
   TOKEN_AND,
   TOKEN_OR,
+  TOKEN_MOD,
 
   //Punctuation / delimiters
   TOKEN_LPAR, // (

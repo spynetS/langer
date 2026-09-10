@@ -43,8 +43,9 @@ char lexer_advance(Lexer *l) {
   return l->bytes[p];
 }
 
-Token token_create(TokenKind kind) {
+Token token_create(Lexer* l, TokenKind kind) {
   Token token = {0};
+  token.span.start = lexer_create_pos(l);
   token.kind = kind;
   return token;
 }
@@ -184,7 +185,7 @@ Token lex_number_literal(Lexer *l) {
 }
 
 Token char_token(Lexer *lexer, TokenKind kind) {
-  Token t = token_create(kind);
+  Token t = token_create(lexer, kind);
   t.lexeme = malloc(sizeof(char)*2);
   t.lexeme[0] = lexer_peek(lexer);
   t.lexeme[1] = 0;
@@ -207,10 +208,19 @@ Token lex_char(Lexer *l) {
 
   if (lexer_advance(l) != '\'') {
     log_span((SourceSpan){lexer_create_pos(l), lexer_create_pos(l)},"error: untermineted char\n");
-    return token_create(TOKEN_INVALID);
+    return token_create(l, TOKEN_INVALID);
   }
 
   return token;
+}
+
+Token lex_two(Lexer *lexer, char a, TokenKind kind) {
+  if (lexer_peek(lexer) == a && lexer_next(lexer) == a) {
+      lexer_advance(lexer);
+      lexer_advance(lexer);
+      return token_create(lexer, kind);
+  }
+  return token_create(lexer,TOKEN_INVALID);
 }
 
 Token lex(Lexer *lexer) {
@@ -223,8 +233,11 @@ Token lex(Lexer *lexer) {
   debug_log("%c\n", c);
   if (c == '\0')
     return token;
-  
-  if (c == '\'')       token = lex_char(lexer);
+
+  if ( (token = lex_two(lexer, '&', TOKEN_AND)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '|', TOKEN_OR)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '=', TOKEN_EQUAL)).kind != TOKEN_INVALID){}
+  else if (c == '\'')       token = lex_char(lexer);
   else if (is_char(c)) token = lex_identifer(lexer);
   else if (is_digit(c)) token = lex_number_literal(lexer);
   else if (c == '"')    token = lex_string_literal(lexer);
@@ -235,8 +248,8 @@ Token lex(Lexer *lexer) {
     case '-': token = char_token(lexer, TOKEN_MINUS);     break;
     case '*': token = char_token(lexer, TOKEN_STAR);      break;
     case '/': token = char_token(lexer, TOKEN_SLASH);     break;
-    case '&': token = char_token(lexer, TOKEN_AND);       break;
-    case '|': token = char_token(lexer, TOKEN_OR);        break;
+    case '&': token = char_token(lexer, TOKEN_AMPER);     break;
+    case '%': token = char_token(lexer, TOKEN_MOD);     break;
 
     case '(': token = char_token(lexer, TOKEN_LPAR);      break;
     case ')': token = char_token(lexer, TOKEN_RPAR);      break;

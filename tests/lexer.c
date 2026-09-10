@@ -100,6 +100,26 @@ MU_TEST(test_chars) {
   mu_check(tokens[4].kind == TOKEN_CHAR_LITERAL);
 }
 
+MU_TEST(test_operators) {
+
+  Lexer lexer = {0};
+  lexer.bytes = "+ - * / & && || = == %";
+  lexer.bytes_length = strlen(lexer.bytes);
+
+  Token *tokens = NULL;
+  lexer_tokenize(&lexer, &tokens);
+  mu_check(tokens[0].kind == TOKEN_PLUS);
+  mu_check(tokens[1].kind == TOKEN_MINUS);
+  mu_check(tokens[2].kind == TOKEN_STAR);
+  mu_check(tokens[3].kind == TOKEN_SLASH);
+  mu_check(tokens[4].kind == TOKEN_AMPER);
+  mu_check(tokens[5].kind == TOKEN_AND);
+  mu_check(tokens[6].kind == TOKEN_OR);
+  mu_check(tokens[7].kind == TOKEN_ASSIGN);
+  mu_check(tokens[8].kind == TOKEN_EQUAL);
+  mu_check(tokens[9].kind == TOKEN_MOD);
+}
+
 
 
 MU_TEST_SUITE(test_suite) {
@@ -109,6 +129,7 @@ MU_TEST_SUITE(test_suite) {
   MU_RUN_TEST(test_keywords);
   MU_RUN_TEST(test_numbers);
   MU_RUN_TEST(test_chars);
+  MU_RUN_TEST(test_operators);
 }
 
 int main(int argc, char *argv[]) {

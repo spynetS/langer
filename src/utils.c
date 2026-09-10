@@ -55,6 +55,8 @@ const char *token_kind_to_string(TokenKind kind)
     case TOKEN_ASSIGN: return "TOKEN_ASSIGN";
     case TOKEN_AND:    return "TOKEN_AND";
     case TOKEN_OR:     return "TOKEN_OR";
+    case TOKEN_AMPER:  return "TOKEN_AMPER";
+    case TOKEN_MOD:    return "TOKEN_MOD";
 
     // Punctuation / delimiters
     case TOKEN_LPAR:      return "TOKEN_LPAR";
