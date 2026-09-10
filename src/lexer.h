@@ -151,5 +151,7 @@ Token lex(Lexer *l);
 // will allocate for lexeme
 Token lex_word(Lexer*);
 
+void free_token(Token *token);
+
 
 #endif

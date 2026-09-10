@@ -231,3 +231,9 @@ int tokenize(Lexer *lexer, Token **result) {
   }
   return 0;
 }
+
+void free_token(Token *token) {
+  if (token == NULL) return;
+  if (token->lexeme != NULL)
+    free(token->lexeme);
+}

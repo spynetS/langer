@@ -27,14 +27,17 @@ int main() {
     input,
     size
   };
+
   Token* token = NULL;
   tokenize(&lexer, &token);
 
   for (size_t i = 0; i < arrlen(token); i++) {
-    printf("%s ",token[i].lexeme);
+    printf("%s\n", token[i].lexeme);
+    free_token(&token[i]);
   }
 
-  
+  arrfree(token);
+  free(input);
 
   return 0;
 }

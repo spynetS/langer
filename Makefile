@@ -1,15 +1,17 @@
-CC = odin
+CC = gcc -Wall -pedantic
 
+run: langer
+	./langer
 
-langer: ./src/ast.odin ./src/llvm_code_gen.odin	./src/messages.odin ./src/symbol_table.odin ./src/lexer.odin ./src/main.odin ./src/parser.odin ./src/type_checker.odin
-	$(CC) build src -out=langer
+langer: ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c
+	$(CC) ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c -o langer
 
-install: langer
-	ln -s $$PWD/langer /usr/local/bin/langer
-	mkdir /usr/lib/langer
-	ln -s $$PWD/std /usr/lib/langer/std
+# install: langer
+# 	ln -s $$PWD/langer /usr/local/bin/langer
+# 	mkdir /usr/lib/langer
+# 	ln -s $$PWD/std /usr/lib/langer/std
 
-uninstall:
-	rm -rf /usr/local/bin/langer
-	rm -rf /usr/lib/langer
+# uninstall:
+# 	rm -rf /usr/local/bin/langer
+# 	rm -rf /usr/lib/langer
 
