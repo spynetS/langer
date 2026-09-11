@@ -54,11 +54,68 @@ typedef enum {
 
 } AstKind;
 
+typedef enum {
+  EXPR_INTEGER_LITERAL,
+  EXPR_FLOAT_LITERAL,
+  EXPR_STRING_LITERAL,
+  EXPR_CHAR_LITERAL,
+  EXPR_IDENTIFER,
+  EXPR_BOOL_LITERAL,
+
+  EXPR_BINARY,
+  EXPR_UNARY,
+  EXPR_ASSIGN,
+  EXPR_CALL,
+  EXPR_MEMBER,
+  EXPR_INDEX,
+  EXPR_CAST,
+  EXPR_COMPOUND_LITERAL,
+} ExprKind;
+
+typedef struct {
+  int value;
+} IntExpr;
+
+typedef struct {
+  float value;
+} FloatExpr;
+
+typedef struct {
+  double value;
+} DoubleExpr;
+
+typedef struct {
+  bool value;
+} BoolExpr;
+
+typedef struct {
+  char value;
+} ByteExpr;
+
+
+typedef struct {
+  ExprKind kind;
+  union {
+    BoolExpr;
+    ByteExpr;
+    IntExpr;
+    FloatExpr;
+    DoubleExpr;      
+  } value;
+} Expr;
 
 typedef struct {
   AstKind kind;
+  union {
+    Expr,
+    
 
+  } value;
 } Ast;
+
+
+
+
 
 
 #endif
