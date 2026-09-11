@@ -46,16 +46,22 @@ const char *token_kind_to_string(TokenKind kind)
     case TOKEN_CHAR_LITERAL:    return "TOKEN_CHAR_LITERAL";
 
     // Operators
-    case TOKEN_PLUS:   return "TOKEN_PLUS";
-    case TOKEN_MINUS:  return "TOKEN_MINUS";
-    case TOKEN_STAR:   return "TOKEN_STAR";
-    case TOKEN_SLASH:  return "TOKEN_SLASH";
-    case TOKEN_EQUAL:  return "TOKEN_EQUAL";
-    case TOKEN_ASSIGN: return "TOKEN_ASSIGN";
-    case TOKEN_AND:    return "TOKEN_AND";
-    case TOKEN_OR:     return "TOKEN_OR";
-    case TOKEN_AMPER:  return "TOKEN_AMPER";
-    case TOKEN_MOD:    return "TOKEN_MOD";
+    case TOKEN_PLUS:     return "TOKEN_PLUS";
+    case TOKEN_MINUS:    return "TOKEN_MINUS";
+    case TOKEN_STAR:     return "TOKEN_STAR";
+    case TOKEN_SLASH:    return "TOKEN_SLASH";
+    case TOKEN_EQUAL:    return "TOKEN_EQUAL";
+    case TOKEN_ASSIGN:   return "TOKEN_ASSIGN";
+    case TOKEN_AND:      return "TOKEN_AND";
+    case TOKEN_OR:       return "TOKEN_OR";
+    case TOKEN_AMPER:    return "TOKEN_AMPER";
+    case TOKEN_MOD:      return "TOKEN_MOD";
+    case TOKEN_LESS:     return "TOKEN_LESS";
+    case TOKEN_GREATER:  return "TOKEN_GREATER";
+    case TOKEN_LE:       return "TOKEN_LE";
+    case TOKEN_GE:       return "TOKEN_GE";
+    case TOKEN_NOTEQUAL: return "TOKEN_NOTEQUAL";
+
 
     // Punctuation / delimiters
     case TOKEN_LPAR:      return "TOKEN_LPAR";

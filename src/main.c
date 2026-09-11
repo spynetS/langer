@@ -33,7 +33,7 @@ int main() {
   lexer_tokenize(&lexer, &token);
 
   for (size_t i = 0; i < arrlen(token); i++) {
-    printf("%s", token[i].lexeme);
+    printf("%s ", token[i].lexeme);
     free_token(&token[i]);
   }
 

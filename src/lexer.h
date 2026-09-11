@@ -56,6 +56,13 @@ typedef enum TokenKind {
   TOKEN_OR,
   TOKEN_MOD,
 
+  TOKEN_LESS,
+  TOKEN_GREATER,
+  TOKEN_LE,
+  TOKEN_GE,
+  TOKEN_NOTEQUAL,
+  
+
   //Punctuation / delimiters
   TOKEN_LPAR, // (
   TOKEN_RPAR, // )

@@ -104,7 +104,7 @@ MU_TEST(test_chars) {
 MU_TEST(test_operators) {
 
   Lexer lexer = {0};
-  lexer.bytes = "+ - * / & && || = == %";
+  lexer.bytes = "+ - * / & && || = == % < > <= >= !=";
   lexer.bytes_length = strlen(lexer.bytes);
 
   Token *tokens = NULL;
@@ -119,7 +119,24 @@ MU_TEST(test_operators) {
   mu_check(tokens[7].kind == TOKEN_ASSIGN);
   mu_check(tokens[8].kind == TOKEN_EQUAL);
   mu_check(tokens[9].kind == TOKEN_MOD);
+  mu_check(tokens[10].kind == TOKEN_LESS);
+  mu_check(tokens[11].kind == TOKEN_GREATER);
+  mu_check(tokens[12].kind == TOKEN_LE);
+  mu_check(tokens[13].kind == TOKEN_GE);
+  mu_check(tokens[14].kind == TOKEN_NOTEQUAL);
 }
+
+MU_TEST(test_comments) {
+
+  Lexer lexer = {0};
+  lexer.bytes = "// asdjh !a kjhowa int bla 123123 / asdw\n /* adlkalskjd */";
+  lexer.bytes_length = strlen(lexer.bytes);
+
+  Token *tokens = NULL;
+  lexer_tokenize(&lexer, &tokens);
+  mu_check(arrlen(tokens) == 0);
+}
+
 
 MU_TEST(test_types) {
 
@@ -153,6 +170,7 @@ MU_TEST_SUITE(test_suite) {
   MU_RUN_TEST(test_numbers);
   MU_RUN_TEST(test_chars);
   MU_RUN_TEST(test_operators);
+  MU_RUN_TEST(test_comments);
   MU_RUN_TEST(test_types);
 }
 

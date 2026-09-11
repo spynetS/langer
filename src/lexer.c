@@ -25,6 +25,9 @@ char lexer_peek(Lexer *l) {
 }
 
 char lexer_next(Lexer *l) {
+  if (l->pos >= l->bytes_length)
+    return '\0';
+
   return l->bytes[l->pos+1];
 }
 
@@ -214,13 +217,29 @@ Token lex_char(Lexer *l) {
   return token;
 }
 
-Token lex_two(Lexer *lexer, char a, TokenKind kind) {
-  if (lexer_peek(lexer) == a && lexer_next(lexer) == a) {
+Token lex_two(Lexer *lexer, char a, char b, TokenKind kind) {
+  if (lexer_peek(lexer) == a && lexer_next(lexer) == b) {
       lexer_advance(lexer);
       lexer_advance(lexer);
       return token_create(lexer, kind);
   }
   return token_create(lexer,TOKEN_INVALID);
+}
+
+void lex_inline_comment(Lexer *lexer) {
+  while (lexer_peek(lexer) != '\n') {
+    lexer_advance(lexer);
+  }
+}
+void lex_comment(Lexer *lexer) {
+  lexer_advance(lexer);
+  lexer_advance(lexer);
+
+  while (lexer_peek(lexer) != '*' && lexer_next(lexer) != '/') {
+    lexer_advance(lexer);
+  }
+  lexer_advance(lexer);
+  lexer_advance(lexer);
 }
 
 Token lex(Lexer *lexer) {
@@ -234,9 +253,20 @@ Token lex(Lexer *lexer) {
   if (c == '\0')
     return token;
 
-  if ( (token = lex_two(lexer, '&', TOKEN_AND)).kind != TOKEN_INVALID){}
-  else if ( (token = lex_two(lexer, '|', TOKEN_OR)).kind != TOKEN_INVALID){}
-  else if ( (token = lex_two(lexer, '=', TOKEN_EQUAL)).kind != TOKEN_INVALID){}
+  if      ( (token = lex_two(lexer, '&', '&', TOKEN_AND)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '|', '|', TOKEN_OR)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '=', '=', TOKEN_EQUAL)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '<','=', TOKEN_LE)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '>','=', TOKEN_GE)).kind != TOKEN_INVALID){}
+  else if ( (token = lex_two(lexer, '!','=', TOKEN_NOTEQUAL)).kind != TOKEN_INVALID){}
+  else if ( c == '/' && lexer_next(lexer) == '/' ) {
+    lex_inline_comment(lexer);
+    return lex(lexer);
+  }
+  else if ( c == '/' && lexer_next(lexer) == '*' ) {
+    lex_comment(lexer);
+    return lex(lexer);
+  }
   else if (c == '\'')       token = lex_char(lexer);
   else if (is_char(c)) token = lex_identifer(lexer);
   else if (is_digit(c)) token = lex_number_literal(lexer);
@@ -249,7 +279,9 @@ Token lex(Lexer *lexer) {
     case '*': token = char_token(lexer, TOKEN_STAR);      break;
     case '/': token = char_token(lexer, TOKEN_SLASH);     break;
     case '&': token = char_token(lexer, TOKEN_AMPER);     break;
-    case '%': token = char_token(lexer, TOKEN_MOD);     break;
+    case '%': token = char_token(lexer, TOKEN_MOD);       break;
+    case '<': token = char_token(lexer, TOKEN_LESS);      break;
+    case '>': token = char_token(lexer, TOKEN_GREATER);   break;
 
     case '(': token = char_token(lexer, TOKEN_LPAR);      break;
     case ')': token = char_token(lexer, TOKEN_RPAR);      break;
@@ -281,8 +313,9 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
       
       if (token.kind == TOKEN_EOF || token.kind == TOKEN_INVALID)
         break;
-
-      //      print_token(token);
+      #ifndef SILENT
+      print_token(token);
+      #endif
       arrput(*result, token);
   }
   return 0;
