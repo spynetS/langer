@@ -161,6 +161,206 @@ MU_TEST(test_types) {
 }
 
 
+MU_TEST(test_person_program) {
+
+  Lexer lexer = {0};
+  lexer.bytes =
+    "package main;\n"
+    "\n"
+    "import std.fmt.println;\n"
+    "import std.mem.*;\n"
+    "\n"
+    "public struct Person {\n"
+    "\tpublic age: int;\n"
+    "\tprivate name: string;\n"
+    "}\n"
+    "\n"
+    "public func new(): *Person {\n"
+    "\tperson : *Person = malloc(sizeof(Person));\n"
+    "\tperson.age = 22;\n"
+    "\tperson.name = \"Alfred\";\n"
+    "\treturn person;\n"
+    "}\n"
+    "\n"
+    "func main(): int {\n"
+    "\t// this is init\n"
+    "\talfred := new();\n"
+    "\t//printing\n"
+    "\tprintln(\"Hello World!, Im {}\", alfred.name);\n"
+    "\t/* Then we change the body of it */\n"
+    "\talfred* = (Person){67, \"billy\"}\n"
+    "\tprintln(\"Hello World!, Im {}\", alfred.name);\n"
+    "\n"
+    "\treturn 0;\n"
+    "}\n";
+
+  lexer.bytes_length = strlen(lexer.bytes);
+
+  Token *tokens = NULL;
+  lexer_tokenize(&lexer, &tokens);
+
+  int i = 0;
+
+  /* package main; */
+  mu_check(tokens[i++].kind == TOKEN_PACKAGE);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* import std.fmt.println; */
+  mu_check(tokens[i++].kind == TOKEN_IMPORT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);   // std
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);   // fmt
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);   // println
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* import std.mem.*; */
+  mu_check(tokens[i++].kind == TOKEN_IMPORT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);   // std
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);   // mem
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_STAR);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* public struct Person { */
+  mu_check(tokens[i++].kind == TOKEN_PUBLIC);
+  mu_check(tokens[i++].kind == TOKEN_STRUCT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_LCBRACK);
+
+  /* public age: int; */
+  mu_check(tokens[i++].kind == TOKEN_PUBLIC);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_I32);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* private name: string; */
+  mu_check(tokens[i++].kind == TOKEN_PRIVATE);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // string
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* } */
+  mu_check(tokens[i++].kind == TOKEN_RCBRACK);
+
+  /* public func new(): *Person { */
+  mu_check(tokens[i++].kind == TOKEN_PUBLIC);
+  mu_check(tokens[i++].kind == TOKEN_FUNC);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // new
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_STAR);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // Person
+  mu_check(tokens[i++].kind == TOKEN_LCBRACK);
+
+  /* person : *Person = malloc(sizeof(Person)); */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // person
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_STAR);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // Person
+  mu_check(tokens[i++].kind == TOKEN_ASSIGN);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // malloc
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // sizeof
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);  // Person
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* person.age = 22; */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_ASSIGN);
+  mu_check(tokens[i++].kind == TOKEN_INTEGER_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* person.name = "Alfred"; */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_ASSIGN);
+  mu_check(tokens[i++].kind == TOKEN_STRING_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* return person; */
+  mu_check(tokens[i++].kind == TOKEN_RETURN);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* } */
+  mu_check(tokens[i++].kind == TOKEN_RCBRACK);
+
+  /* func main(): int { */
+  mu_check(tokens[i++].kind == TOKEN_FUNC);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_I32);
+  mu_check(tokens[i++].kind == TOKEN_LCBRACK);
+
+  /* alfred := new(); */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_COLON);
+  mu_check(tokens[i++].kind == TOKEN_ASSIGN);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* println("Hello World!, Im {}", alfred.name); */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_STRING_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_COMMA);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* alfred* = (Person){67, "billy"} */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_STAR);
+  mu_check(tokens[i++].kind == TOKEN_ASSIGN);
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_LCBRACK);
+  mu_check(tokens[i++].kind == TOKEN_INTEGER_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_COMMA);
+  mu_check(tokens[i++].kind == TOKEN_STRING_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_RCBRACK);
+
+  /* println("Hello World!, Im {}", alfred.name); */
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_LPAR);
+  mu_check(tokens[i++].kind == TOKEN_STRING_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_COMMA);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_DOT);
+  mu_check(tokens[i++].kind == TOKEN_IDENTIFER);
+  mu_check(tokens[i++].kind == TOKEN_RPAR);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* return 0; */
+  mu_check(tokens[i++].kind == TOKEN_RETURN);
+  mu_check(tokens[i++].kind == TOKEN_INTEGER_LITERAL);
+  mu_check(tokens[i++].kind == TOKEN_SEMICOLON);
+
+  /* } */
+  mu_check(tokens[i++].kind == TOKEN_RCBRACK);
+
+  /* EOF */
+  //mu_check(tokens[i].kind == TOKEN_EOF);
+}
 
 MU_TEST_SUITE(test_suite) {
 	MU_RUN_TEST(test_a);
@@ -172,7 +372,10 @@ MU_TEST_SUITE(test_suite) {
   MU_RUN_TEST(test_operators);
   MU_RUN_TEST(test_comments);
   MU_RUN_TEST(test_types);
+  MU_RUN_TEST(test_person_program);
 }
+
+
 
 int main(int argc, char *argv[]) {
 	MU_RUN_SUITE(test_suite);
