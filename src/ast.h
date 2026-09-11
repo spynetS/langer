@@ -1,4 +1,4 @@
-#ifndef
+#ifndef AST_H
 #define AST_H
 
 typedef enum {
@@ -92,24 +92,27 @@ typedef struct {
   char value;
 } ByteExpr;
 
+typedef struct {
+  const char* value;
+} IdentiferExpr;
+
 
 typedef struct {
   ExprKind kind;
   union {
-    BoolExpr;
-    ByteExpr;
-    IntExpr;
-    FloatExpr;
-    DoubleExpr;      
+    BoolExpr bool_expr;
+    ByteExpr byte_expr;
+    IntExpr int_expr;
+    FloatExpr float_expr;
+    DoubleExpr double_expr;
+    IdentiferExpr identifer_expr;
   } value;
 } Expr;
 
 typedef struct {
   AstKind kind;
   union {
-    Expr,
-    
-
+    Expr expr;
   } value;
 } Ast;
 

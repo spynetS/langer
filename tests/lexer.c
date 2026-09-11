@@ -2,7 +2,6 @@
 #include "../src/lexer.h"
 #include <string.h>
 #include <stdio.h>
-#define STB_DS_IMPLEMENTATION
 #include "../src/stb_ds.h"
 
 
@@ -362,7 +361,7 @@ MU_TEST(test_person_program) {
   //mu_check(tokens[i].kind == TOKEN_EOF);
 }
 
-MU_TEST_SUITE(test_suite) {
+MU_TEST_SUITE(test_suite_lexer) {
 	MU_RUN_TEST(test_a);
 	MU_RUN_TEST(test_string_literal);
   MU_RUN_TEST(test_wrong_string_literal);
@@ -373,12 +372,4 @@ MU_TEST_SUITE(test_suite) {
   MU_RUN_TEST(test_comments);
   MU_RUN_TEST(test_types);
   MU_RUN_TEST(test_person_program);
-}
-
-
-
-int main(int argc, char *argv[]) {
-	MU_RUN_SUITE(test_suite);
-	MU_REPORT();
-	return MU_EXIT_CODE;
 }

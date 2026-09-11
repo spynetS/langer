@@ -1,6 +1,10 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "./ast.h"
+#include "./lexer.h"
+#include <stdio.h>
+
 /*
 
 
@@ -41,6 +45,22 @@ func main(): int {
 
  */
 
+typedef struct {
+  size_t pos;
+  Token *tokens; // stb_arr
+} Parser;
+
+Token parser_skip(Parser*, TokenKind);
+
+Expr *parse_primary(Parser*);
+Expr *parse_postfix(Parser*);
+Expr *parse_term(Parser*);
+Expr *parse_additive(Parser*);
+Expr *parse_condition(Parser*);
+Expr *parse_and(Parser*);
+Expr *parse_or(Parser*);
+Expr *parse_assignment(Parser*);
+Expr *parse_expression(Parser*);
 
 
 
