@@ -1,0 +1,64 @@
+#ifndef
+#define AST_H
+
+typedef enum {
+  // Declarations
+  PACKAGE,
+  IMPORT,
+
+  FUNC_DECL,
+  STRUCT_DECL,
+  ENUM_DECL,
+  UNION_DECL,
+
+  VAR_DECL,
+
+  //Statments
+  BLOCK,
+  RETURN,
+  IF,
+  WHILE,
+  FOR,
+  EXPR_STMT,
+
+  //Expressions
+  AST_INTEGER_LITERAL,
+  AST_FLOAT_LITERAL,
+  AST_STRING_LITERAL,
+  AST_CHAR_LITERAL,
+  AST_IDENTIFER,
+  AST_BOOL_LITERAL,
+
+  AST_BINARY,
+  AST_UNARY,
+  AST_ASSIGN,
+  AST_CALL,
+  AST_MEMBER,
+  AST_INDEX,
+  AST_CAST,
+  AST_COMPOUND_LITERAL,
+  
+  // Types
+  AST_TYPE_VOID,
+  AST_TYPE_BOOL,
+  AST_TYPE_BYTE,
+  AST_TYPE_I16,
+  AST_TYPE_I32,
+  AST_TYPE_I64,
+  AST_TYPE_F32,
+  AST_TYPE_F64,
+
+  AST_TYPE_NAME,
+  AST_TYPE_POINTER,
+  AST_TYPE_ARRAY,
+
+} AstKind;
+
+
+typedef struct {
+  AstKind kind;
+
+} Ast;
+
+
+#endif
