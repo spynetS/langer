@@ -1,6 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
+#include "lexer.h"
+
 typedef struct Ast Ast;
 
 typedef enum {
@@ -34,6 +36,7 @@ typedef enum {
   AST_BINARY,
   AST_UNARY,
   AST_ASSIGN,
+  AST_DECL,
   AST_CALL,
   AST_MEMBER,
   AST_INDEX,
@@ -104,8 +107,20 @@ typedef struct {
 
 typedef struct {
   Ast *left;
+  Ast *right;
+  Token operator;
+} BinaryExpr;
+
+
+typedef struct {
+  Ast *left;
   Ast *initlizer;
   Ast *type;
+} DeclExpr;
+
+typedef struct {
+  Ast *left;
+  Ast *value;
 } AssignExpr;
 
 
@@ -121,7 +136,10 @@ typedef struct Ast {
     DoubleExpr double_expr;
     StringExpr string_expr;
     IdentiferExpr identifer_expr;
+
+    DeclExpr decl_expr;
     AssignExpr assign_expr;
+    BinaryExpr binary_expr;
 
   } value;
 } Ast;

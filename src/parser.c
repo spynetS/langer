@@ -25,11 +25,16 @@ void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   for (int i = 0; i < depth; i ++) debug_log(" ");
   switch (ast->kind) {
+  case AST_DECL:
+    debug_log("Variable Decl\n");
+    print_ast(ast->value.decl_expr.left, depth+1);
+    //print_ast(ast->value.decl_expr.type, depth+1);
+    print_ast(ast->value.decl_expr.initlizer, depth+1);
+    break;
   case AST_ASSIGN:
-    debug_log("Assign\n");
+    debug_log("Variable Assign\n");
     print_ast(ast->value.assign_expr.left, depth+1);
-    //print_ast(ast->value.assign_expr.type, depth+1);
-    print_ast(ast->value.assign_expr.initlizer, depth+1);
+    print_ast(ast->value.assign_expr.value, depth+1);
     break;
   case AST_IDENTIFER:
     debug_log("Identifer (%s)\n", ast->value.identifer_expr.value);
@@ -40,6 +45,12 @@ void print_ast(Ast *ast, int depth) {
   case AST_FLOAT_LITERAL:
     debug_log("Float (%f)\n", ast->value.float_expr.value);
     break;
+  case AST_BINARY:
+    debug_log("Binary\n");
+    print_ast(ast->value.binary_expr.left, depth+1);
+    for (int i = 0; i < depth+1; i ++) debug_log(" ");
+    print_token(ast->value.binary_expr.operator);
+    print_ast(ast->value.binary_expr.right, depth+1);
   default:
     debug_log("\n");
     break;
@@ -86,7 +97,6 @@ Ast *parse_type(Parser *p) {
   return ast;
 }
 
-
 Token parser_skip(Parser* p, TokenKind kind) {
   return parser_peek(p);
 }
@@ -131,6 +141,7 @@ Ast *parse_primary(Parser *p) {
 
   default:
     debug_log("Primary error\n");
+    log_span(token.span, "Primary error\n");
     return NULL;
   }
 
@@ -145,16 +156,69 @@ Ast *parse_postfix(Parser *p) {
 }
 
 Ast *parse_term(Parser *p) {
-  debug_log("TODO IMPLEMENT term\n");
-  Ast *left = parse_postfix(p);
-  return left;
+    debug_log("TODO IMPLEMENT term\n");
+
+    Ast *left = parse_postfix(p);
+
+    while (1) {
+        Token token = parser_peek(p);
+
+        if (token.kind != TOKEN_STAR &&
+            token.kind != TOKEN_SLASH) {
+            break;
+        }
+
+        debug_log("Found operators star slash\n");
+        parser_advance(p);
+
+        Ast *right = parse_postfix(p);
+
+        Ast *binary = malloc(sizeof(Ast));
+        binary->kind = AST_BINARY;
+        binary->value.binary_expr = (BinaryExpr) {
+            left,
+            right,
+            token
+        };
+
+        left = binary;
+    }
+
+    return left;
 }
 
 Ast *parse_additive(Parser *p) {
-  debug_log("TODO IMPLEMENT additive\n");
-  Ast *left = parse_term(p);
-  return left;
+    debug_log("TODO IMPLEMENT additive\n");
+
+    Ast *left = parse_term(p);
+
+    while (1) {
+        Token token = parser_peek(p);
+
+        if (token.kind != TOKEN_PLUS &&
+            token.kind != TOKEN_MINUS) {
+            break;
+        }
+
+        debug_log("Found operators plus minus\n");
+        parser_advance(p);
+
+        Ast *right = parse_term(p);
+
+        Ast *binary = malloc(sizeof(Ast));
+        binary->kind = AST_BINARY;
+        binary->value.binary_expr = (BinaryExpr) {
+            left,
+            right,
+            token
+        };
+
+        left = binary;
+    }
+
+    return left;
 }
+
 
 Ast *parse_condition(Parser *p) {
   debug_log("TODO IMPLEMENT condition\n");
@@ -180,8 +244,8 @@ Ast *parse_assignment(Parser* p) {
   if (parser_is(p, TOKEN_COLON) == true) {
     Ast *left_ = left;
     left = malloc(sizeof(Ast));
-    left->kind = AST_ASSIGN;
-    left->value.assign_expr = (AssignExpr) {
+    left->kind = AST_DECL;
+    left->value.decl_expr = (DeclExpr) {
       left_,
     };
     free_ast(left_);
@@ -191,14 +255,26 @@ Ast *parse_assignment(Parser* p) {
 
       Ast *initlizer = parse_expression(p);
       debug_log("after0\n");
-      left->value.assign_expr.initlizer = initlizer;
+      left->value.decl_expr.initlizer = initlizer;
       //panic("SHOULD PARSE INITLIZER");
     }
     else {
       Ast *type = parse_type(p);
-      left->value.assign_expr.type = type;
+      left->value.decl_expr.type = type;
     }
+  } else if (parser_is(p, TOKEN_ASSIGN)) {
+    Ast *left_ = left;
+    left = malloc(sizeof(Ast));
+    left->kind = AST_ASSIGN;
+    left->value.assign_expr = (AssignExpr) {
+      left_,
+      parse_or(p)
+    };
+    free_ast(left_);
+
+
   }
+  
   return left;
 }
 

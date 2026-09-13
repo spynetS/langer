@@ -24,9 +24,9 @@ MU_TEST(test_assign1) {
   p.tokens = get_tokens("alfred := 67");
 
   Ast* e = parse_expression(&p);
-  mu_check(e->kind == AST_ASSIGN);
-  mu_check(e->value.assign_expr.initlizer->kind == AST_INTEGER_LITERAL);
-  mu_check(e->value.assign_expr.initlizer->value.int_expr.value == 67);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
 
 MU_TEST(test_assign2) {
@@ -34,9 +34,9 @@ MU_TEST(test_assign2) {
   p.tokens = get_tokens("alfred := 67.69");
 
   Ast* e = parse_expression(&p);
-  mu_check(e->kind == AST_ASSIGN);
-  mu_check(e->value.assign_expr.initlizer->kind == AST_FLOAT_LITERAL);
-  mu_check((int)e->value.assign_expr.initlizer->value.float_expr.value*100 == (int)67.69*100);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_FLOAT_LITERAL);
+  mu_check((int)e->value.decl_expr.initlizer->value.float_expr.value*100 == (int)67.69*100);
 }
 
 
@@ -45,9 +45,9 @@ MU_TEST(test_assignidentifer) {
   p.tokens = get_tokens("alfred := alfred2");
 
   Ast* e = parse_expression(&p);
-  mu_check(e->kind == AST_ASSIGN);
-  mu_check(e->value.assign_expr.initlizer->kind == AST_IDENTIFER);
-  mu_check(strcmp(e->value.assign_expr.initlizer->value.identifer_expr.value, "alfred2") == 0);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.decl_expr.initlizer->value.identifer_expr.value, "alfred2") == 0);
 }
 
 MU_TEST(test_assignstring) {
@@ -55,14 +55,78 @@ MU_TEST(test_assignstring) {
   p.tokens = get_tokens("alfred := \"Alfred\"");
 
   Ast* e = parse_expression(&p);
-  mu_check(e->kind == AST_ASSIGN);
-  mu_check(e->value.assign_expr.initlizer->kind == AST_STRING_LITERAL);
-  mu_check(strcmp(e->value.assign_expr.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_STRING_LITERAL);
+  mu_check(strcmp(e->value.decl_expr.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
 }
+
+MU_TEST(test_plus) {
+  Parser p = {0};
+  p.tokens = get_tokens("1+1");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.operator.kind == TOKEN_PLUS);
+}
+
+MU_TEST(test_minus) {
+  Parser p = {0};
+  p.tokens = get_tokens("1-1");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.operator.kind == TOKEN_MINUS);
+}
+
+MU_TEST(test_multiply) {
+  Parser p = {0};
+  p.tokens = get_tokens("1+2*3/4");
+
+  Ast* e = parse_expression(&p);
+  // 1 + ((2 * 3) / 4)
+  mu_check(e != NULL);
+  mu_check(e->kind == AST_BINARY);
+
+  // Root: +
+  mu_check(e->value.binary_expr.operator.kind == TOKEN_PLUS);
+
+  Ast *right = e->value.binary_expr.right;
+  mu_check(right != NULL);
+  mu_check(right->kind == AST_BINARY);
+
+  // Right side: (2 * 3) / 4
+  mu_check(right->value.binary_expr.operator.kind == TOKEN_SLASH);
+
+  Ast *multiply = right->value.binary_expr.left;
+  mu_check(multiply != NULL);
+  mu_check(multiply->kind == AST_BINARY);
+
+  // (2 * 3)
+  mu_check(multiply->value.binary_expr.operator.kind == TOKEN_STAR);
+
+  mu_check(multiply->value.binary_expr.left->kind == AST_INTEGER_LITERAL);
+  mu_check(multiply->value.binary_expr.left->value.int_expr.value == 2);
+
+  mu_check(multiply->value.binary_expr.right->kind == AST_INTEGER_LITERAL);
+  mu_check(multiply->value.binary_expr.right->value.int_expr.value == 3);
+
+  // / 4
+  mu_check(right->value.binary_expr.right->kind == AST_INTEGER_LITERAL);
+  mu_check(right->value.binary_expr.right->value.int_expr.value == 4);
+
+  // + 1
+  mu_check(e->value.binary_expr.left->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.binary_expr.left->value.int_expr.value == 1);
+}
+
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_assign1);
   MU_RUN_TEST(test_assign2);
   MU_RUN_TEST(test_assignidentifer);
   MU_RUN_TEST(test_assignstring);
+
+  MU_RUN_TEST(test_plus);
+  MU_RUN_TEST(test_minus);
+  MU_RUN_TEST(test_multiply);
 }
