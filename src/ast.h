@@ -1,6 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
+typedef struct Ast Ast;
+
 typedef enum {
   // Declarations
   PACKAGE,
@@ -54,23 +56,23 @@ typedef enum {
 
 } AstKind;
 
-typedef enum {
-  EXPR_INTEGER_LITERAL,
-  EXPR_FLOAT_LITERAL,
-  EXPR_STRING_LITERAL,
-  EXPR_CHAR_LITERAL,
-  EXPR_IDENTIFER,
-  EXPR_BOOL_LITERAL,
+/* typedef enum { */
+/*   EXPR_INTEGER_LITERAL, */
+/*   EXPR_FLOAT_LITERAL, */
+/*   EXPR_STRING_LITERAL, */
+/*   EXPR_CHAR_LITERAL, */
+/*   EXPR_IDENTIFER, */
+/*   EXPR_BOOL_LITERAL, */
 
-  EXPR_BINARY,
-  EXPR_UNARY,
-  EXPR_ASSIGN,
-  EXPR_CALL,
-  EXPR_MEMBER,
-  EXPR_INDEX,
-  EXPR_CAST,
-  EXPR_COMPOUND_LITERAL,
-} ExprKind;
+/*   EXPR_BINARY, */
+/*   EXPR_UNARY, */
+/*   EXPR_ASSIGN, */
+/*   EXPR_CALL, */
+/*   EXPR_MEMBER, */
+/*   EXPR_INDEX, */
+/*   EXPR_CAST, */
+/*   EXPR_COMPOUND_LITERAL, */
+/* } ExprKind; */
 
 typedef struct {
   int value;
@@ -94,31 +96,39 @@ typedef struct {
 
 typedef struct {
   const char* value;
-} IdentiferExpr;
-
+} StringExpr;
 
 typedef struct {
-  ExprKind kind;
+  const char* value;
+} IdentiferExpr;
+
+typedef struct {
+  Ast *left;
+  Ast *initlizer;
+  Ast *type;
+} AssignExpr;
+
+
+
+
+typedef struct Ast {
+  AstKind kind;
   union {
     BoolExpr bool_expr;
     ByteExpr byte_expr;
     IntExpr int_expr;
     FloatExpr float_expr;
     DoubleExpr double_expr;
+    StringExpr string_expr;
     IdentiferExpr identifer_expr;
-  } value;
-} Expr;
+    AssignExpr assign_expr;
 
-typedef struct {
-  AstKind kind;
-  union {
-    Expr expr;
   } value;
 } Ast;
 
 
 
-
+void free_ast(Ast *ast);
 
 
 #endif

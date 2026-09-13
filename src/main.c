@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "lexer.h"
+#include "parser.h"
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 #include "utils.h"
@@ -31,6 +32,12 @@ int main() {
 
   Token* token = NULL;
   lexer_tokenize(&lexer, &token);
+
+
+  Parser p = {0};
+  p.tokens = token;
+  parse_expression(&p);
+
 
   for (size_t i = 0; i < arrlen(token); i++) {
     printf("%s ", token[i].lexeme);

@@ -40,7 +40,7 @@ MU_TEST(test_wrong_string_literal) {
 
   Token *tokens = NULL;
   lexer_tokenize(&lexer, &tokens);
-  mu_check(arrlen(tokens) == 0);
+  mu_check(arrlen(tokens) == 1);
 }
 
 
@@ -52,8 +52,8 @@ MU_TEST(test_keywords)
 
     Token *tokens = NULL;
     lexer_tokenize(&lexer, &tokens);
-
-    mu_check(arrlen(tokens) == 10);
+    
+    mu_check(arrlen(tokens) == 11);
 
     mu_check(tokens[0].kind == TOKEN_IF);
     mu_check(tokens[1].kind == TOKEN_ELSE);
@@ -133,7 +133,7 @@ MU_TEST(test_comments) {
 
   Token *tokens = NULL;
   lexer_tokenize(&lexer, &tokens);
-  mu_check(arrlen(tokens) == 0);
+  mu_check(arrlen(tokens) == 1); // because of EOF
 }
 
 

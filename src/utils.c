@@ -102,17 +102,22 @@ int panic(const char *err) {
 
 
 void print_token(Token token) {
-  printf("%s { '%s', { %s, %d:%d,} }\n", token_kind_to_string(token.kind), token.lexeme, token.span.start.file,  token.span.start.column,token.span.end.column);
+#ifndef SILENT
+  printf("%s { '%s', { %s, %d:%d,} }\n", token_kind_to_string(token.kind),
+         token.lexeme, token.span.start.file, token.span.start.column,
+         token.span.end.column);
+  #endif
 }
 
-void debug_log(const char *fmt, ...)
-{
+void debug_log(const char *fmt, ...) {
+    #ifndef SILENT
     va_list args;
     va_start(args, fmt);
 
     vprintf(fmt, args);
 
     va_end(args);
+    #endif
 }
 
 char *read_file(const char *path, size_t *size)

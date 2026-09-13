@@ -4,6 +4,7 @@
 #include "./ast.h"
 #include "./lexer.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 /*
 
@@ -50,17 +51,20 @@ typedef struct {
   Token *tokens; // stb_arr
 } Parser;
 
-Token parser_skip(Parser*, TokenKind);
+Token parser_skip(Parser *, TokenKind);
+// Returns true if next is tokenkind
+// if it is it will advance the parser
+bool parser_is(Parser*, TokenKind);
 
-Expr *parse_primary(Parser*);
-Expr *parse_postfix(Parser*);
-Expr *parse_term(Parser*);
-Expr *parse_additive(Parser*);
-Expr *parse_condition(Parser*);
-Expr *parse_and(Parser*);
-Expr *parse_or(Parser*);
-Expr *parse_assignment(Parser*);
-Expr *parse_expression(Parser*);
+Ast *parse_primary(Parser*);
+Ast *parse_postfix(Parser*);
+Ast *parse_term(Parser*);
+Ast *parse_additive(Parser*);
+Ast *parse_condition(Parser*);
+Ast *parse_and(Parser*);
+Ast *parse_or(Parser*);
+Ast *parse_assignment(Parser*);
+Ast *parse_expression(Parser*);
 
 
 

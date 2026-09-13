@@ -318,6 +318,9 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
       #endif
       arrput(*result, token);
   }
+  Token eof = {0};
+  eof.kind = TOKEN_EOF;
+  arrput(*result, eof);
   return 0;
 }
 
