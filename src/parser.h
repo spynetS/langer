@@ -66,6 +66,9 @@ Ast *parse_or(Parser*);
 Ast *parse_assignment(Parser*);
 Ast *parse_expression(Parser*);
 
+Ast *parse_stmt(Parser*);
+Ast *parse_block(Parser*);
+Ast *parse_function(Parser*);
 
 
 

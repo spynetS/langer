@@ -17,13 +17,31 @@ Token *get_tokens(const char *val) {
   return tokens;
 }
 
+MU_TEST(test_decl) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred : int");
 
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
+}
+
+MU_TEST(test_assign0) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred : int = 67");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
+}
 
 MU_TEST(test_assign1) {
   Parser p = {0};
   p.tokens = get_tokens("alfred := 67");
 
-  Ast* e = parse_expression(&p);
+  Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
   mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
@@ -33,7 +51,7 @@ MU_TEST(test_assign2) {
   Parser p = {0};
   p.tokens = get_tokens("alfred := 67.69");
 
-  Ast* e = parse_expression(&p);
+  Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_FLOAT_LITERAL);
   mu_check((int)e->value.decl_expr.initlizer->value.float_expr.value*100 == (int)67.69*100);
@@ -44,7 +62,7 @@ MU_TEST(test_assignidentifer) {
   Parser p = {0};
   p.tokens = get_tokens("alfred := alfred2");
 
-  Ast* e = parse_expression(&p);
+  Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_IDENTIFER);
   mu_check(strcmp(e->value.decl_expr.initlizer->value.identifer_expr.value, "alfred2") == 0);
@@ -54,7 +72,7 @@ MU_TEST(test_assignstring) {
   Parser p = {0};
   p.tokens = get_tokens("alfred := \"Alfred\"");
 
-  Ast* e = parse_expression(&p);
+  Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_STRING_LITERAL);
   mu_check(strcmp(e->value.decl_expr.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
@@ -119,8 +137,36 @@ MU_TEST(test_multiply) {
   mu_check(e->value.binary_expr.left->value.int_expr.value == 1);
 }
 
+MU_TEST(test_var_assign) {
+  Parser p = {0};
+  p.tokens = get_tokens("asd = asd2");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_ASSIGN);
+}
+
+MU_TEST(test_or) {
+  Parser p = {0};
+  p.tokens = get_tokens("foo || bar");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.operator.kind == TOKEN_OR);
+}
+
+MU_TEST(test_and) {
+  Parser p = {0};
+  p.tokens = get_tokens("foo && bar");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.operator.kind == TOKEN_AND);
+}
+
 
 MU_TEST_SUITE(test_suite_parser) {
+  //MU_RUN_TEST(test_decl);
+  //MU_RUN_TEST(test_assign0);
   MU_RUN_TEST(test_assign1);
   MU_RUN_TEST(test_assign2);
   MU_RUN_TEST(test_assignidentifer);
@@ -129,4 +175,11 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_plus);
   MU_RUN_TEST(test_minus);
   MU_RUN_TEST(test_multiply);
+
+  MU_RUN_TEST(test_var_assign);
+
+  MU_RUN_TEST(test_or);
+  MU_RUN_TEST(test_and);
+
+  
 }

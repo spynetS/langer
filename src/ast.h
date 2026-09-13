@@ -147,6 +147,6 @@ typedef struct Ast {
 
 
 void free_ast(Ast *ast);
-
+void print_ast(Ast *ast, int depth);
 
 #endif

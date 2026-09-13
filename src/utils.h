@@ -12,5 +12,6 @@ void log_span(SourceSpan span, const char* fmt, ...);
 void debug_log(const char* fmt, ...);
 
 char *read_file(const char *path, size_t *size);
-
+const char *token_kind_to_string(TokenKind kind);
+  
 #endif

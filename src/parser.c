@@ -20,13 +20,18 @@ Token parser_peek(Parser *p) {
   Token t = p->tokens[p->pos];
   return t;
 }
+Token parser_next(Parser *p) {
+  assert(p->pos+1 < arrlen(p->tokens));
+  Token t = p->tokens[p->pos+1];
+  return t;
+}
 
 void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   for (int i = 0; i < depth; i ++) debug_log(" ");
   switch (ast->kind) {
   case AST_DECL:
-    debug_log("Variable Decl\n");
+    debug_log("Variable Decl (%s)\n", token_kind_to_string(ast->value.decl_expr.type->kind));
     print_ast(ast->value.decl_expr.left, depth+1);
     //print_ast(ast->value.decl_expr.type, depth+1);
     print_ast(ast->value.decl_expr.initlizer, depth+1);
@@ -97,8 +102,19 @@ Ast *parse_type(Parser *p) {
   return ast;
 }
 
-Token parser_skip(Parser* p, TokenKind kind) {
+Token parser_skip(Parser *p, TokenKind kind) {
+  while (parser_peek(p).kind == kind) {
+    parser_advance(p);
+  }
   return parser_peek(p);
+}
+
+
+Ast *new_binary_expr(Ast* left, Ast* right, Token operator) {
+  Ast *binary = malloc(sizeof(Ast));
+  binary->kind = AST_BINARY;
+  binary->value.binary_expr = (BinaryExpr){left, right, operator};
+  return binary;
 }
 
 Ast *parse_primary(Parser *p) {
@@ -156,8 +172,6 @@ Ast *parse_postfix(Parser *p) {
 }
 
 Ast *parse_term(Parser *p) {
-    debug_log("TODO IMPLEMENT term\n");
-
     Ast *left = parse_postfix(p);
 
     while (1) {
@@ -172,24 +186,13 @@ Ast *parse_term(Parser *p) {
         parser_advance(p);
 
         Ast *right = parse_postfix(p);
-
-        Ast *binary = malloc(sizeof(Ast));
-        binary->kind = AST_BINARY;
-        binary->value.binary_expr = (BinaryExpr) {
-            left,
-            right,
-            token
-        };
-
-        left = binary;
+        left = new_binary_expr(left, right, token);
     }
 
     return left;
 }
 
 Ast *parse_additive(Parser *p) {
-    debug_log("TODO IMPLEMENT additive\n");
-
     Ast *left = parse_term(p);
 
     while (1) {
@@ -204,16 +207,8 @@ Ast *parse_additive(Parser *p) {
         parser_advance(p);
 
         Ast *right = parse_term(p);
+        left = new_binary_expr(left, right, token);
 
-        Ast *binary = malloc(sizeof(Ast));
-        binary->kind = AST_BINARY;
-        binary->value.binary_expr = (BinaryExpr) {
-            left,
-            right,
-            token
-        };
-
-        left = binary;
     }
 
     return left;
@@ -221,48 +216,91 @@ Ast *parse_additive(Parser *p) {
 
 
 Ast *parse_condition(Parser *p) {
-  debug_log("TODO IMPLEMENT condition\n");
   Ast *left = parse_additive(p);
+
+  Token token = parser_peek(p);
+  if (token.kind == TOKEN_LESS  || token.kind == TOKEN_GREATER ||
+      token.kind == TOKEN_EQUAL || token.kind == TOKEN_LE      ||
+      token.kind == TOKEN_GE    || token.kind == TOKEN_NOTEQUAL) {
+    Ast* right = parse_expression(p);
+    left = new_binary_expr(left, right, token);
+  }
+
   return left;
 }
 
 Ast *parse_and(Parser *p) {
-  debug_log("TODO IMPLEMENT and\n");
   Ast *left = parse_condition(p);
+
+  while (1) {
+    Token token = parser_peek(p);
+
+    if (token.kind != TOKEN_AND) {
+      break;
+    }
+
+    debug_log("Found or operator\n");
+    parser_advance(p);
+
+    Ast *right = parse_term(p);
+    left = new_binary_expr(left, right, token);
+  }
+
   return left;
 }
 
 
 Ast *parse_or(Parser *p) {
-  debug_log("TODO IMPLEMENT OR\n");
   Ast *left = parse_and(p);
+
+  while (1) {
+    Token token = parser_peek(p);
+
+    if (token.kind != TOKEN_OR) {
+      break;
+    }
+
+    debug_log("Found or operator\n");
+    parser_advance(p);
+
+    Ast *right = parse_term(p);
+    left = new_binary_expr(left, right, token);
+  }
+
+  return left;
+}
+
+Ast *parse_variable_decl(Parser *p) {
+  Ast *left_ = parse_or(p);
+  Ast *left = malloc(sizeof(Ast));
+  left->kind = AST_DECL;
+  left->value.decl_expr = (DeclExpr) {
+    left_,
+  };
+
+  
+
+  if (parser_advance(p).kind != TOKEN_COLON) {
+    panic("AH");
+  }
+
+  if (parser_is(p, TOKEN_ASSIGN) == true) {
+    debug_log("We should guess type of initlizer\n");
+
+    Ast *initlizer = parse_expression(p);
+    debug_log("after0\n");
+    left->value.decl_expr.initlizer = initlizer;
+  }
+  else {
+    Ast *type = parse_type(p);
+    left->value.decl_expr.type = type;
+  }
   return left;
 }
 
 Ast *parse_assignment(Parser* p) {
   Ast* left = parse_or(p);
-  if (parser_is(p, TOKEN_COLON) == true) {
-    Ast *left_ = left;
-    left = malloc(sizeof(Ast));
-    left->kind = AST_DECL;
-    left->value.decl_expr = (DeclExpr) {
-      left_,
-    };
-    free_ast(left_);
-
-    if (parser_is(p, TOKEN_ASSIGN) == true) {
-      debug_log("We should guess type of initlizer\n");
-
-      Ast *initlizer = parse_expression(p);
-      debug_log("after0\n");
-      left->value.decl_expr.initlizer = initlizer;
-      //panic("SHOULD PARSE INITLIZER");
-    }
-    else {
-      Ast *type = parse_type(p);
-      left->value.decl_expr.type = type;
-    }
-  } else if (parser_is(p, TOKEN_ASSIGN)) {
+  if (parser_is(p, TOKEN_ASSIGN)) {
     Ast *left_ = left;
     left = malloc(sizeof(Ast));
     left->kind = AST_ASSIGN;
@@ -270,11 +308,7 @@ Ast *parse_assignment(Parser* p) {
       left_,
       parse_or(p)
     };
-    free_ast(left_);
-
-
   }
-  
   return left;
 }
 
@@ -282,13 +316,35 @@ Ast *parse_expression(Parser *p) {
   debug_log("Parsing expresstion\n");
   Ast *left = parse_assignment(p);
   debug_log("After\n");
-  /* parser_skip(p, TOKEN_SEMICOLON); */
+  parser_skip(p, TOKEN_SEMICOLON);
 
   print_ast(left,0);
 
   return left;
 }
 
+Ast *parse_stmt(Parser *p) {
+  if (parser_peek(p).kind == TOKEN_IF) {
+    panic("TODO if parsing");
+  }
+  else if (parser_peek(p).kind == TOKEN_FOR) {
+    panic("TODO for parsing");
+  }
+  else if (parser_peek(p).kind == TOKEN_WHILE) {
+    panic("TODO while parsing");
+  }
+  else if (parser_peek(p).kind == TOKEN_RETURN) {
+    panic("TODO return parsing");
+  }
+  else if (parser_next(p).kind == TOKEN_COLON) {
+    debug_log("parser decl\n");
+    return parse_variable_decl(p);
+  } else if (parser_peek(p).kind != TOKEN_EOF) {
+    return parse_expression(p);
+  }
+  
+  return 0;
+}
 
 
 void free_ast(Ast *ast) {

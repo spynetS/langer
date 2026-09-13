@@ -36,8 +36,8 @@ int main() {
 
   Parser p = {0};
   p.tokens = token;
-  parse_expression(&p);
-
+  Ast* ast = parse_stmt(&p);
+  print_ast(ast,0);
 
   for (size_t i = 0; i < arrlen(token); i++) {
     printf("%s ", token[i].lexeme);

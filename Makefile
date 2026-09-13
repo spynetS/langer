@@ -1,4 +1,4 @@
-CC = gcc -Wall -pedantic
+CC = gcc
 
 run: langer
 	./langer
