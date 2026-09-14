@@ -32,6 +32,8 @@ MU_TEST(test_assign0) {
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
   mu_check(e->value.decl_expr.initlizer != NULL);
+  mu_check(e->value.decl_expr.type != NULL);
+  mu_check(e->value.decl_expr.type->kind == AST_TYPE_I32);
   mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
   mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
@@ -46,6 +48,29 @@ MU_TEST(test_assign1) {
   mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
   mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
+
+MU_TEST(test_assign_expr) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred := 67+69*2/4");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer != NULL);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_BINARY);
+}
+
+MU_TEST(test_assign_expr2) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred :int = 67+69*2/4");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer != NULL);
+  mu_check(e->value.decl_expr.type != NULL);
+  mu_check(e->value.decl_expr.type->kind == AST_TYPE_I32);
+  mu_check(e->value.decl_expr.initlizer->kind == AST_BINARY);
+}
+
 
 MU_TEST(test_assign2) {
   Parser p = {0};
@@ -168,6 +193,8 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
   MU_RUN_TEST(test_assign0);
   MU_RUN_TEST(test_assign1);
+  MU_RUN_TEST(test_assign_expr);
+  MU_RUN_TEST(test_assign_expr2);
   MU_RUN_TEST(test_assign2);
   MU_RUN_TEST(test_assignidentifer);
   MU_RUN_TEST(test_assignstring);
