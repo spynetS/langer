@@ -50,9 +50,6 @@ int main() {
     print_func_decl(program->functions[i], 0);
   }
 
-
-
-
   for (size_t i = 0; i < arrlen(token); i++) {
     printf("%s ", token[i].lexeme);
     free_token(&token[i]);

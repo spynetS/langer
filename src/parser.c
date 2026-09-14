@@ -85,19 +85,24 @@ void print_ast(Ast *ast, int depth) {
       print_ast(ast->value.block_stmt.stmts[i], depth+1);
     }    
     break;
-    
+  case AST_CALL:
+    debug_log("Call\n");
+    print_ast(ast->value.call_expr.left, depth+1);
+    for(int i = 0; i < arrlen(ast->value.call_expr.parameters); i ++) {
+      print_ast(ast->value.call_expr.parameters[i], depth+1);
+    }
+    break;
   case AST_DECL:
-    
     debug_log("Variable Decl (%s)\n",
               ast->value.decl_expr.type != NULL ?
               ast_kind_to_string(ast->value.decl_expr.type->kind) :
               "unknown type");
-
-    print_type(ast->value.decl_expr.type, depth+1);
-
-    print_ast(ast->value.decl_expr.left, depth+1);
-    //print_ast(ast->value.decl_expr.type, depth+1);
-    print_ast(ast->value.decl_expr.initlizer, depth+1);
+    if(ast->value.decl_expr.type != NULL)
+      print_type(ast->value.decl_expr.type, depth+1);
+    if (ast->value.decl_expr.left != NULL)
+      print_ast(ast->value.decl_expr.left, depth+1);
+    if (ast->value.decl_expr.initlizer != NULL)
+      print_ast(ast->value.decl_expr.initlizer, depth+1);
     break;
   case AST_ASSIGN:
     debug_log("Variable Assign\n");
@@ -106,6 +111,9 @@ void print_ast(Ast *ast, int depth) {
     break;
   case AST_IDENTIFER:
     debug_log("Identifer (%s)\n", ast->value.identifer_expr.value);
+    break;
+  case AST_STRING_LITERAL:
+    debug_log("String (%s)\n", ast->value.string_expr.value);
     break;
   case AST_INTEGER_LITERAL:
     debug_log("Integer (%d)\n", ast->value.int_expr.value);
@@ -160,6 +168,9 @@ Ast *parse_type(Parser *p) {
     break;
   case TOKEN_F64:
     ast->kind = AST_TYPE_F64;
+    break;
+  case TOKEN_VOID:
+    ast->kind = AST_TYPE_VOID;
     break;
   case TOKEN_IDENTIFER:
     ast->kind = AST_TYPE_NAME;
@@ -265,16 +276,16 @@ Ast *parse_postfix(Parser *p) {
 
       if (parser_peek(p).kind != TOKEN_RPAR) {
         do{
-          Ast *var = parse_variable_decl(p);
+          Ast *var = parse_or(p);
           debug_log("PARAMETER FOUND\n");
           print_ast(var, 0);
           debug_log("================\n");
-          //arrput(func->value.function_decl.parameters, var);
+          arrput(left->value.call_expr.parameters, var);
         } while (parser_is(p, TOKEN_COMMA));
       }
+      parser_expect(p, TOKEN_RPAR);
 
-      //return left;
-      panic("TODO call");
+      return left;
     }
     else if (token.kind == TOKEN_LBRACK) {
       panic("TODO subscript");
@@ -581,6 +592,7 @@ Ast *parse_struct_decl(Parser *p) {
 Program *parse_program(Parser *p) {
   Program *program = malloc(sizeof(Program));
   program->functions = NULL;
+  program->structs = NULL;
   program->variables = NULL;
 
 

@@ -302,8 +302,10 @@ MU_TEST(test_call) {
   Parser p = {0};
   p.tokens = get_tokens("foo()");
 
-  Ast* e = parse_package(&p);
+  Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_CALL);
+  mu_check(e->value.call_expr.left->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.call_expr.left->value.identifer_expr.value, "foo") == 0);
 }
 
 MU_TEST_SUITE(test_suite_parser) {
@@ -339,5 +341,4 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_struct);
   
   MU_RUN_TEST(test_call);
-  
 }
