@@ -1,11 +1,11 @@
 package std.fmt;
 
-extern printf(fmt: string, str: string, age: int);
+extern func printf(fmt: string, str: string, age: int): void
 
-public func print(str: string) {
+func print(str: string):void {
 	printf("%s\n", str, 0)
 }
-public func print_int(str: int) {
+func print_int(str: int):void {
 	printf("%s%d\n", "", str)
 }
 

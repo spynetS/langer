@@ -298,6 +298,34 @@ MU_TEST(test_struct) {
   mu_check(strcmp(struc->value.struct_decl.members[1]->value.decl_expr.left->value.identifer_expr.value, "b") == 0);
 }
 
+MU_TEST(test_function_decl) {
+  Parser p = {0};
+  p.tokens = get_tokens("func foo(a :int, b: string): void ");
+
+  Ast* e = parse_function(&p);
+  mu_check(e->kind == AST_FUNC_DECL);
+    mu_check(e->value.function_decl.body == NULL);
+}
+
+MU_TEST(test_function) {
+  Parser p = {0};
+  p.tokens = get_tokens("func foo(a :int, b: string): void {\n\treturn 0\n}");
+
+  Ast* e = parse_function(&p);
+  mu_check(e->kind == AST_FUNC_DECL);
+  mu_check(e->value.function_decl.body != NULL);
+}
+
+MU_TEST(test_extern_function_decl) {
+  Parser p = {0};
+  p.tokens = get_tokens("extern func foo(a :int, b: string): void ");
+
+  Ast* e = parse_function(&p);
+  mu_check(e->kind == AST_FUNC_DECL);
+  mu_check(e->value.function_decl.body == NULL);
+  mu_check(e->value.function_decl.is_extern == true);
+}
+
 MU_TEST(test_call) {
   Parser p = {0};
   p.tokens = get_tokens("foo()");
@@ -339,6 +367,9 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_program);
 
   MU_RUN_TEST(test_struct);
+  MU_RUN_TEST(test_function_decl);
+  MU_RUN_TEST(test_function);
+  MU_RUN_TEST(test_extern_function_decl);
   
   MU_RUN_TEST(test_call);
 }

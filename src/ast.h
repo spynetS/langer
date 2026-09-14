@@ -163,6 +163,7 @@ typedef struct {
   Ast** parameters;
   Ast* return_type;
   Ast* body;
+  bool is_extern; // If it is not defined in langer 
 } FunctionDecl;
 
 typedef struct {

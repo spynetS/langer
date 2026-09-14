@@ -11,13 +11,13 @@
 
 
 Token parser_advance(Parser *p) {
-  assert(p->pos < arrlen(p->tokens));
+  if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
   Token t = p->tokens[p->pos];
   p->pos += 1;
   return t;
 }
 Token parser_peek(Parser *p) {
-  assert(p->pos < arrlen(p->tokens));
+  if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
   Token t = p->tokens[p->pos];
   return t;
 }
@@ -40,7 +40,7 @@ void print_depth(int depth) {
 }
 
 void print_func_decl(FunctionDecl decl, int depth) {
-  debug_log("Function Decl (%s)\n", decl.name);
+  debug_log("%sFunction Decl (%s)\n", decl.is_extern ? "extern ": "",  decl.name);
   for (size_t i = 0; i < arrlen(decl.parameters); i ++) {
     print_ast(decl.parameters[i], depth+1);
   }
@@ -533,13 +533,22 @@ Ast *parse_block(Parser *p) {
 
 
 Ast *parse_function(Parser *p) {
-  if (parser_peek(p).kind != TOKEN_FUNC)
+  debug_log("=====parsing function =====\n");
+  if (parser_peek(p).kind != TOKEN_FUNC && parser_peek(p).kind != TOKEN_EXTERN)
     log_span(parser_peek(p).span, "Must start with func\n");
 
+  
   Ast* func = malloc(sizeof(Ast));
   func->kind = AST_FUNC_DECL;
   func->value.function_decl = (FunctionDecl){0};
   func->value.function_decl.parameters = NULL;
+  // if its extern we have to advance extra
+  if (parser_peek(p).kind == TOKEN_EXTERN){
+    parser_expect(p, TOKEN_FUNC);
+    func->value.function_decl.is_extern = true;
+  }
+
+
   parser_advance(p);
 
   func->value.function_decl.name = (const char*)parser_expect(p, TOKEN_IDENTIFER).lexeme;
@@ -561,8 +570,11 @@ Ast *parse_function(Parser *p) {
   Ast* ret_type = parse_type(p);
   func->value.function_decl.return_type = ret_type;
 
-  Ast *block = parse_block(p);
-  func->value.function_decl.body = block;
+  if (parser_peek(p).kind == TOKEN_LCBRACK) {
+    Ast *block = parse_block(p);
+    func->value.function_decl.body = block;
+  }
+
   
   return func;
 }
@@ -602,7 +614,7 @@ Program *parse_program(Parser *p) {
   parser_skip(p, TOKEN_SEMICOLON);
   
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
-    if (parser_peek(p).kind == TOKEN_FUNC) {
+    if (parser_peek(p).kind == TOKEN_FUNC || parser_peek(p).kind == TOKEN_EXTERN) {
       debug_log("parsing funcion\n");      
       arrput(program->functions, parse_function(p)->value.function_decl);
     }
