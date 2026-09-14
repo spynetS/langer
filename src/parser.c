@@ -50,6 +50,10 @@ void print_ast(Ast *ast, int depth) {
   case AST_FLOAT_LITERAL:
     debug_log("Float (%f)\n", ast->value.float_expr.value);
     break;
+  case AST_RETURN:
+    debug_log("Return\n");
+    print_ast(ast->value.return_stmt.value, depth+1);
+    break;
   case AST_BINARY:
     debug_log("Binary\n");
     print_ast(ast->value.binary_expr.left, depth+1);
@@ -323,6 +327,19 @@ Ast *parse_expression(Parser *p) {
   return left;
 }
 
+Ast *parse_return(Parser *p) {
+  if (!parser_is(p, TOKEN_RETURN))
+    panic("TODO parse_return error");
+
+  Ast* ret = malloc(sizeof(Ast));
+  ret->kind = AST_RETURN;
+  ret->value.return_stmt = (ReturnStmt){0};
+
+  ret->value.return_stmt.value = parse_expression(p);
+
+  return ret;
+}
+
 Ast *parse_stmt(Parser *p) {
   if (parser_peek(p).kind == TOKEN_IF) {
     panic("TODO if parsing");
@@ -334,12 +351,13 @@ Ast *parse_stmt(Parser *p) {
     panic("TODO while parsing");
   }
   else if (parser_peek(p).kind == TOKEN_RETURN) {
-    panic("TODO return parsing");
+    return parse_return(p);
   }
   else if (parser_next(p).kind == TOKEN_COLON) {
     debug_log("parser decl\n");
     return parse_variable_decl(p);
-  } else if (parser_peek(p).kind != TOKEN_EOF) {
+  }
+  else if (parser_peek(p).kind != TOKEN_EOF) {
     return parse_expression(p);
   }
   

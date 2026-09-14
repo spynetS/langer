@@ -189,6 +189,27 @@ MU_TEST(test_and) {
 }
 
 
+
+MU_TEST(test_return) {
+  Parser p = {0};
+  p.tokens = get_tokens("return 0");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_RETURN);
+  mu_check(e->value.return_stmt.value->kind == AST_INTEGER_LITERAL);
+}
+
+MU_TEST(test_return_expr) {
+  Parser p = {0};
+  p.tokens = get_tokens("return 1+2+asd");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_RETURN);
+  mu_check(e->value.return_stmt.value->kind == AST_BINARY);
+}
+
+
+
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
   MU_RUN_TEST(test_assign0);
@@ -208,5 +229,6 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_or);
   MU_RUN_TEST(test_and);
 
-  
+  MU_RUN_TEST(test_return);
+  MU_RUN_TEST(test_return_expr);
 }

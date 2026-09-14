@@ -18,12 +18,12 @@ typedef enum {
   VAR_DECL,
 
   //Statments
-  BLOCK,
-  RETURN,
-  IF,
-  WHILE,
-  FOR,
-  EXPR_STMT,
+  AST_BLOCK,
+  AST_RETURN,
+  AST_IF,
+  AST_WHILE,
+  AST_FOR,
+  AST_EXPR_STMT,
 
   //Expressions
   AST_INTEGER_LITERAL,
@@ -124,6 +124,11 @@ typedef struct {
 } AssignExpr;
 
 
+typedef struct {
+  Ast *value;
+} ReturnStmt;
+
+
 
 
 typedef struct Ast {
@@ -140,6 +145,8 @@ typedef struct Ast {
     DeclExpr decl_expr;
     AssignExpr assign_expr;
     BinaryExpr binary_expr;
+
+    ReturnStmt return_stmt;
 
   } value;
 } Ast;
