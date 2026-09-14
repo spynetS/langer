@@ -138,6 +138,14 @@ typedef struct {
   const char* value;
 } PackageStmt;
 
+typedef struct {
+  Ast* to;
+} PointerType;
+
+typedef struct {
+  const char* name;
+} NamedType;
+
 
 typedef struct {
   const char* name;
@@ -186,6 +194,10 @@ typedef struct Ast {
 
     FunctionDecl function_decl;
     StructDecl struct_decl;
+
+    PointerType pointer_type;
+    NamedType named_type;
+    
 
   } value;
 } Ast;

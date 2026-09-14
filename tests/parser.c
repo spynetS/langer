@@ -25,6 +25,38 @@ MU_TEST(test_decl) {
   mu_check(e->kind == AST_DECL);
 }
 
+MU_TEST(test_decl_struct) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred : Person");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.type->kind == AST_TYPE_NAME);
+}
+
+MU_TEST(test_decl_struct_ptr) {
+  Parser p = {0};
+  p.tokens = get_tokens("alfred : *Person");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.type->kind == AST_TYPE_POINTER);
+  mu_check(e->value.decl_expr.type->value.pointer_type.to->kind == AST_TYPE_NAME);
+  p = (Parser){0};
+  p.tokens = get_tokens("alfred : ***Person");
+
+  e = parse_stmt(&p);
+  mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.type->kind == AST_TYPE_POINTER);
+  mu_check(e->value.decl_expr.type->value.pointer_type.to->kind == AST_TYPE_POINTER);
+  mu_check(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_POINTER);
+  mu_check(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_NAME);
+  mu_check(strcmp(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->value.named_type.name, "Person") == 0);
+}
+
+
+
+
 MU_TEST(test_assign0) {
   Parser p = {0};
   p.tokens = get_tokens("alfred : int = 67");
@@ -271,6 +303,8 @@ MU_TEST(test_struct) {
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
+  MU_RUN_TEST(test_decl_struct);
+  MU_RUN_TEST(test_decl_struct_ptr);
   MU_RUN_TEST(test_assign0);
   MU_RUN_TEST(test_assign1);
   MU_RUN_TEST(test_assign_expr);

@@ -49,6 +49,28 @@ void print_func_decl(FunctionDecl decl, int depth) {
 
 }
 
+void print_type(Ast *ast, int depth) {
+  print_depth(depth);
+  switch (ast->kind) {
+  case AST_TYPE_POINTER:
+    debug_log("*");
+    print_type(ast->value.pointer_type.to, 0);
+    break;
+  case AST_TYPE_NAME:
+    debug_log("%s\n", ast->value.named_type.name);
+    break;
+  case AST_TYPE_VOID:
+  case AST_TYPE_BOOL:
+  case AST_TYPE_BYTE:
+  case AST_TYPE_I16:
+  case AST_TYPE_I32:
+  case AST_TYPE_I64:
+  case AST_TYPE_F32:
+  case AST_TYPE_F64:
+    debug_log("%s\n", ast_kind_to_string(ast->kind));
+  }
+}
+
 void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   print_depth(depth);
@@ -65,7 +87,14 @@ void print_ast(Ast *ast, int depth) {
     break;
     
   case AST_DECL:
-    debug_log("Variable Decl (%s)\n", ast->value.decl_expr.type != NULL ? ast_kind_to_string(ast->value.decl_expr.type->kind): "unknown type");
+    
+    debug_log("Variable Decl (%s)\n",
+              ast->value.decl_expr.type != NULL ?
+              ast_kind_to_string(ast->value.decl_expr.type->kind) :
+              "unknown type");
+
+    print_type(ast->value.decl_expr.type, depth+1);
+
     print_ast(ast->value.decl_expr.left, depth+1);
     //print_ast(ast->value.decl_expr.type, depth+1);
     print_ast(ast->value.decl_expr.initlizer, depth+1);
@@ -132,6 +161,15 @@ Ast *parse_type(Parser *p) {
   case TOKEN_F64:
     ast->kind = AST_TYPE_F64;
     break;
+  case TOKEN_IDENTIFER:
+    ast->kind = AST_TYPE_NAME;
+    ast->value.named_type.name = next.lexeme;
+    break;
+  case TOKEN_STAR:
+    ast->kind = AST_TYPE_POINTER;
+    ast->value.pointer_type.to = parse_type(p);
+    break;
+
   default:
     log_span(next.span, "No type\n");
     break;
