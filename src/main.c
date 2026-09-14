@@ -40,13 +40,13 @@ int main() {
 
   
   debug_log("package %s\n", program->package.value);
+  for(int i = 0; i < arrlen(program->variables); i ++) {
+    debug_log("Variable %s\n", program->variables[i].left->value.identifer_expr, 0);
+  }
   for(int i = 0; i < arrlen(program->functions); i ++) {
     print_func_decl(program->functions[i], 0);
   }
 
-  for(int i = 0; i < arrlen(program->variables); i ++) {
-    debug_log("Variable %s\n", program->variables[i].left->value.identifer_expr, 0);
-  }
 
 
 

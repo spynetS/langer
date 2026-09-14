@@ -22,7 +22,7 @@ Token parser_peek(Parser *p) {
   return t;
 }
 Token parser_next(Parser *p) {
-  if(p->pos+1 < arrlen(p->tokens)) return (Token){TOKEN_INVALID};
+  if(p->pos+1 >= arrlen(p->tokens)) return (Token){TOKEN_INVALID};
   Token t = p->tokens[p->pos+1];
   return t;
 }
@@ -483,15 +483,26 @@ Program *parse_program(Parser *p) {
   Ast *package = parse_package(p);
   if (package == NULL) log_span(parser_peek(p).span, "NO PACKAGE FOUND");
   program->package = package->value.package_stmt;
+  parser_skip(p, TOKEN_SEMICOLON);
 
   program->functions = NULL;
+  program->variables = NULL;
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
-    if (parser_peek(p).kind == TOKEN_FUNC)
+    if (parser_peek(p).kind == TOKEN_FUNC) {
+      debug_log("parsing funcion\n");      
       arrput(program->functions, parse_function(p)->value.function_decl);
-    
-    if (parser_next(p).kind == TOKEN_COLON)
-      arrput(program->variables, parse_variable_decl(p)->value.decl_expr);
-    
+    }
+    else if (parser_next(p).kind == TOKEN_COLON) {
+      debug_log("parsing var\n");
+      print_token(parser_next(p));
+      Ast *var = parse_variable_decl(p);
+      arrput(program->variables, var->value.decl_expr);
+    }
+    else {
+      log_span(parser_peek(p).span,"unexpected token\n");
+      print_token(parser_peek(p));
+      break;
+    }
   }
   
   return program;
