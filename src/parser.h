@@ -69,6 +69,9 @@ Ast *parse_expression(Parser*);
 Ast *parse_stmt(Parser*);
 Ast *parse_block(Parser*);
 Ast *parse_function(Parser*);
+Ast *parse_struct_decl(Parser *p);
+
+Ast *parse_package(Parser *p);
 
 Program *parse_program(Parser *p);
 

@@ -141,6 +141,12 @@ typedef struct {
 
 typedef struct {
   const char* name;
+  Ast** members;
+} StructDecl;
+
+
+typedef struct {
+  const char* name;
   Ast** parameters;
   Ast* return_type;
   Ast* body;
@@ -178,6 +184,7 @@ typedef struct Ast {
     BlockStmt block_stmt;
 
     FunctionDecl function_decl;
+    StructDecl struct_decl;
 
   } value;
 } Ast;

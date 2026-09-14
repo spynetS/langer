@@ -478,6 +478,26 @@ Ast *parse_function(Parser *p) {
   return func;
 }
 
+Ast *parse_struct_decl(Parser *p) {
+  parser_expect(p, TOKEN_STRUCT);
+  Token identifer = parser_expect(p, TOKEN_IDENTIFER);
+  parser_expect(p, TOKEN_LCBRACK);
+
+  Ast *struc = malloc(sizeof(Ast));
+  struc->kind = AST_STRUCT_DECL;
+  struc->value.struct_decl = (StructDecl){0};
+  struc->value.struct_decl.name = identifer.lexeme;
+  struc->value.struct_decl.members = NULL;
+  
+  while (parser_peek(p).kind != TOKEN_RCBRACK) {
+    Ast* var = parse_variable_decl(p);
+    arrput(struc->value.struct_decl.members,var);
+    parser_skip(p, TOKEN_SEMICOLON);
+  }
+  
+  return struc;
+}
+
 Program *parse_program(Parser *p) {
   Program *program = malloc(sizeof(Program));
   Ast *package = parse_package(p);

@@ -212,7 +212,7 @@ MU_TEST(test_package) {
   Parser p = {0};
   p.tokens = get_tokens("package main");
 
-  Ast* e = parse_stmt(&p);
+  Ast* e = parse_package(&p);
   mu_check(e->kind == AST_PACKAGE);
   mu_check(strcmp(e->value.package_stmt.value, "main") == 0);
 }
@@ -221,7 +221,7 @@ MU_TEST(test_package2) {
   Parser p = {0};
   p.tokens = get_tokens("package foo.bar.bizz");
 
-  Ast* e = parse_stmt(&p);
+  Ast* e = parse_package(&p);
   mu_check(e->kind == AST_PACKAGE);
   mu_check(strcmp(e->value.package_stmt.value, "foo.bar.bizz") == 0);
 }
@@ -231,9 +231,42 @@ MU_TEST(test_package_fail) {
   Parser p = {0};
   p.tokens = get_tokens("package 1.2");
 
-  Ast* e = parse_stmt(&p);
+  Ast* e = parse_package(&p);
   mu_check(e->kind == AST_INVALID);
 }
+
+
+MU_TEST(test_program) {
+  Parser p = {0};
+  p.tokens = get_tokens("package foo.bar.bazz;\nasd :int = 10+10; \n func main(a: int, b: int): float { return 0; }");
+
+  Program* program = parse_program(&p);
+  mu_check(arrlen(program->variables) == 1);
+  mu_check(program->variables[0].left->kind == AST_IDENTIFER);
+  mu_check(arrlen(program->functions) == 1);
+}
+
+
+MU_TEST(test_struct) {
+  Parser p = {0};
+  p.tokens = get_tokens("struct Foo {\na:int;\nb:int\n}");
+
+  Ast* struc = parse_struct_decl(&p);
+  mu_check(struc->kind == AST_STRUCT_DECL);
+  mu_check(struc->value.struct_decl.name != NULL);
+  mu_check(strcmp(struc->value.struct_decl.name, "Foo") == 0);
+
+  mu_check(arrlen(struc->value.struct_decl.members) == 2);
+  mu_check(struc->value.struct_decl.members[0]->kind = AST_VAR_DECL);
+  mu_check(struc->value.struct_decl.members[0]->value.decl_expr.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[0]->value.decl_expr.left->value.identifer_expr.value, "a") == 0);
+
+  mu_check(struc->value.struct_decl.members[1]->kind = AST_VAR_DECL);
+  mu_check(struc->value.struct_decl.members[1]->value.decl_expr.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[1]->value.decl_expr.left->value.identifer_expr.value, "b") == 0);
+  
+}
+
 
 
 MU_TEST_SUITE(test_suite_parser) {
@@ -261,4 +294,8 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_package);
   MU_RUN_TEST(test_package2);
   MU_RUN_TEST(test_package_fail);
+
+  MU_RUN_TEST(test_program);
+
+  MU_RUN_TEST(test_struct);
 }
