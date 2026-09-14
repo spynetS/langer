@@ -1,6 +1,6 @@
 # move dependencies outside src
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS:
 

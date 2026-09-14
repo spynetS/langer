@@ -1,7 +1,7 @@
 #include "lexer.h"
 #include "utils.h"
-#include "stb_ds.h"
-#include "sb.h"
+#include "../include/stb_ds.h"
+#include "../include/sb.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

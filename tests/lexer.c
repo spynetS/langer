@@ -2,7 +2,7 @@
 #include "../src/lexer.h"
 #include <string.h>
 #include <stdio.h>
-#include "../src/stb_ds.h"
+#include "../include/stb_ds.h"
 
 
 
