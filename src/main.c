@@ -4,7 +4,7 @@
 #include "lexer.h"
 #include "parser.h"
 #define STB_DS_IMPLEMENTATION
-#include "stb_ds.h"
+#include "../include/stb_ds.h"
 #include "utils.h"
 
 // lexer

@@ -3,8 +3,8 @@ CC = gcc
 run: langer
 	./langer
 
-langer: ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c ./src/parser.c
-	$(CC) ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c ./src/parser.c -o langer
+langer: ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c
+	$(CC) ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c -o langer
 
 test:
 	$(CC) -DSILENT -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./include/sb.c -o test &&./test
