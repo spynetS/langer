@@ -31,7 +31,7 @@ void print_ast(Ast *ast, int depth) {
   for (int i = 0; i < depth; i ++) debug_log(" ");
   switch (ast->kind) {
   case AST_DECL:
-    debug_log("Variable Decl (%s)\n", token_kind_to_string(ast->value.decl_expr.type->kind));
+    debug_log("Variable Decl (%s)\n", ast->value.decl_expr.type != NULL ? token_kind_to_string(ast->value.decl_expr.type->kind): "unknown type");
     print_ast(ast->value.decl_expr.left, depth+1);
     //print_ast(ast->value.decl_expr.type, depth+1);
     print_ast(ast->value.decl_expr.initlizer, depth+1);
@@ -274,16 +274,19 @@ Ast *parse_variable_decl(Parser *p) {
   Ast *left_ = parse_or(p);
   Ast *left = malloc(sizeof(Ast));
   left->kind = AST_DECL;
-  left->value.decl_expr = (DeclExpr) {
-    left_,
-  };
-
+  left->value.decl_expr = (DeclExpr) {0};
+  left->value.decl_expr.left = left_;
   
 
   if (parser_advance(p).kind != TOKEN_COLON) {
     panic("AH");
   }
-
+  // if next isnt equals we should try to parse a type
+  if (parser_peek(p).kind != TOKEN_ASSIGN) {
+    Ast *type = parse_type(p);
+    left->value.decl_expr.type = type;
+  }
+  // if next is assign we should try to parse initlizer
   if (parser_is(p, TOKEN_ASSIGN) == true) {
     debug_log("We should guess type of initlizer\n");
 
@@ -291,10 +294,7 @@ Ast *parse_variable_decl(Parser *p) {
     debug_log("after0\n");
     left->value.decl_expr.initlizer = initlizer;
   }
-  else {
-    Ast *type = parse_type(p);
-    left->value.decl_expr.type = type;
-  }
+
   return left;
 }
 

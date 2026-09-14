@@ -23,8 +23,6 @@ MU_TEST(test_decl) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
-  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
 
 MU_TEST(test_assign0) {
@@ -33,6 +31,7 @@ MU_TEST(test_assign0) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer != NULL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
   mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
@@ -43,6 +42,7 @@ MU_TEST(test_assign1) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_DECL);
+  mu_check(e->value.decl_expr.initlizer != NULL);
   mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
   mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
 }
@@ -165,8 +165,8 @@ MU_TEST(test_and) {
 
 
 MU_TEST_SUITE(test_suite_parser) {
-  //MU_RUN_TEST(test_decl);
-  //MU_RUN_TEST(test_assign0);
+  MU_RUN_TEST(test_decl);
+  MU_RUN_TEST(test_assign0);
   MU_RUN_TEST(test_assign1);
   MU_RUN_TEST(test_assign2);
   MU_RUN_TEST(test_assignidentifer);
