@@ -264,6 +264,8 @@ Ast *parse_postfix(Parser *p) {
       panic("TODO DEREFERANCE");
     }
     else if (token.kind == TOKEN_DOT) {
+      
+
       panic("TODO MEMBERACCESS");
     }
     else if (token.kind == TOKEN_LPAR) {
@@ -284,8 +286,6 @@ Ast *parse_postfix(Parser *p) {
         } while (parser_is(p, TOKEN_COMMA));
       }
       parser_expect(p, TOKEN_RPAR);
-
-      return left;
     }
     else if (token.kind == TOKEN_LBRACK) {
       panic("TODO subscript");

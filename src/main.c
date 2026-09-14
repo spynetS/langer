@@ -18,13 +18,13 @@ int main() {
 
   
   size_t size = 0;
-  char *input = read_file("./std/fmt.l", &size);
+  char *input = read_file("./main.l", &size);
 
 
   Lexer lexer = {
     0,
     0,
-    "./std/fmt.l",
+    "./main.l",
     0,
     input,
     size

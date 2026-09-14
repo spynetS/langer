@@ -151,6 +151,11 @@ typedef struct {
   Ast** parameters;
 } CallExpr;
 
+typedef struct {
+  Ast *left;
+  const char *member;
+} MemberAccessExpr;
+
 
 typedef struct {
   const char* name;
