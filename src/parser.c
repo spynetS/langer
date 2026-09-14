@@ -244,6 +244,45 @@ Ast *parse_primary(Parser *p) {
 Ast *parse_postfix(Parser *p) {
   debug_log("TODO IMPLEMENT postfix\n");
   Ast *left = parse_primary(p);
+  while (1) {
+    Token token = parser_peek(p);
+    print_token(token);
+    // DEREFERANCE
+    // FIXME dereferance should be star
+    if (token.kind == TOKEN_FUNC) {
+      panic("TODO DEREFERANCE");
+    }
+    else if (token.kind == TOKEN_DOT) {
+      panic("TODO MEMBERACCESS");
+    }
+    else if (token.kind == TOKEN_LPAR) {
+      parser_advance(p);
+      Ast *left_ = left;
+      left = malloc(sizeof(Ast));
+      left->kind = AST_CALL;
+      left->value.call_expr = (CallExpr){0};
+      left->value.call_expr.left = left_;
+
+      if (parser_peek(p).kind != TOKEN_RPAR) {
+        do{
+          Ast *var = parse_variable_decl(p);
+          debug_log("PARAMETER FOUND\n");
+          print_ast(var, 0);
+          debug_log("================\n");
+          //arrput(func->value.function_decl.parameters, var);
+        } while (parser_is(p, TOKEN_COMMA));
+      }
+
+      //return left;
+      panic("TODO call");
+    }
+    else if (token.kind == TOKEN_LBRACK) {
+      panic("TODO subscript");
+    }
+    else {
+      break;
+    }
+  }
   return left;
 }
 
@@ -481,6 +520,7 @@ Ast *parse_block(Parser *p) {
   return block;
 }
 
+
 Ast *parse_function(Parser *p) {
   if (parser_peek(p).kind != TOKEN_FUNC)
     log_span(parser_peek(p).span, "Must start with func\n");
@@ -540,13 +580,15 @@ Ast *parse_struct_decl(Parser *p) {
 
 Program *parse_program(Parser *p) {
   Program *program = malloc(sizeof(Program));
+  program->functions = NULL;
+  program->variables = NULL;
+
+
   Ast *package = parse_package(p);
   if (package == NULL) log_span(parser_peek(p).span, "NO PACKAGE FOUND");
   program->package = package->value.package_stmt;
   parser_skip(p, TOKEN_SEMICOLON);
-
-  program->functions = NULL;
-  program->variables = NULL;
+  
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
     if (parser_peek(p).kind == TOKEN_FUNC) {
       debug_log("parsing funcion\n");      

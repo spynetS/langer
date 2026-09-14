@@ -146,6 +146,11 @@ typedef struct {
   const char* name;
 } NamedType;
 
+typedef struct {
+  Ast* left;
+  Ast** parameters;
+} CallExpr;
+
 
 typedef struct {
   const char* name;
@@ -187,6 +192,7 @@ typedef struct Ast {
     DeclExpr decl_expr;
     AssignExpr assign_expr;
     BinaryExpr binary_expr;
+    CallExpr call_expr;
 
     ReturnStmt return_stmt;
     PackageStmt package_stmt;

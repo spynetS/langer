@@ -296,10 +296,15 @@ MU_TEST(test_struct) {
   mu_check(struc->value.struct_decl.members[1]->kind = AST_VAR_DECL);
   mu_check(struc->value.struct_decl.members[1]->value.decl_expr.left->kind = AST_IDENTIFER);
   mu_check(strcmp(struc->value.struct_decl.members[1]->value.decl_expr.left->value.identifer_expr.value, "b") == 0);
-  
 }
 
+MU_TEST(test_call) {
+  Parser p = {0};
+  p.tokens = get_tokens("foo()");
 
+  Ast* e = parse_package(&p);
+  mu_check(e->kind == AST_CALL);
+}
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
@@ -332,4 +337,7 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_program);
 
   MU_RUN_TEST(test_struct);
+  
+  MU_RUN_TEST(test_call);
+  
 }

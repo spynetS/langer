@@ -9,6 +9,9 @@ langer: ./src/main.c ./src/lexer.c ./src/utils.c ./src/sb.c ./src/parser.c
 test:
 	$(CC) -DSILENT -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./src/sb.c -o test &&./test
 
+verbose:
+	$(CC) -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./src/sb.c -o test &&./test
+
 
 # install: langer
 # 	ln -s $$PWD/langer /usr/local/bin/langer

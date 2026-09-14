@@ -72,7 +72,8 @@ Ast *parse_function(Parser*);
 Ast *parse_struct_decl(Parser *p);
 
 Ast *parse_package(Parser *p);
-
+Ast *parse_variable_decl(Parser *p);
+  
 Program *parse_program(Parser *p);
 
 #endif
