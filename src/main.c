@@ -43,6 +43,9 @@ int main() {
   for(int i = 0; i < arrlen(program->variables); i ++) {
     debug_log("Variable %s\n", program->variables[i].left->value.identifer_expr, 0);
   }
+  for(int i = 0; i < arrlen(program->structs); i ++) {
+    debug_log("struct %s\n", program->structs[i].name, 0);
+  }
   for(int i = 0; i < arrlen(program->functions); i ++) {
     print_func_decl(program->functions[i], 0);
   }

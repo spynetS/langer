@@ -494,7 +494,9 @@ Ast *parse_struct_decl(Parser *p) {
     arrput(struc->value.struct_decl.members,var);
     parser_skip(p, TOKEN_SEMICOLON);
   }
-  
+
+  parser_expect(p, TOKEN_RCBRACK);
+
   return struc;
 }
 
@@ -512,6 +514,9 @@ Program *parse_program(Parser *p) {
       debug_log("parsing funcion\n");      
       arrput(program->functions, parse_function(p)->value.function_decl);
     }
+    else if (parser_peek(p).kind == TOKEN_STRUCT) {
+     arrput(program->structs, parse_struct_decl(p)->value.struct_decl); 
+    }
     else if (parser_next(p).kind == TOKEN_COLON) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
@@ -519,10 +524,11 @@ Program *parse_program(Parser *p) {
       arrput(program->variables, var->value.decl_expr);
     }
     else {
-      log_span(parser_peek(p).span,"unexpected token\n");
+      log_span(parser_peek(p).span,"unexpected token when parsing program\n");
       print_token(parser_peek(p));
       break;
     }
+    parser_skip(p, TOKEN_SEMICOLON);
   }
   
   return program;

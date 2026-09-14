@@ -160,6 +160,7 @@ typedef struct {
   PackageStmt package;
   DeclExpr* variables;
   FunctionDecl* functions;
+  StructDecl* structs;
 } Program;
 
 
