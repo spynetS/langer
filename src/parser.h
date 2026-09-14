@@ -70,6 +70,6 @@ Ast *parse_stmt(Parser*);
 Ast *parse_block(Parser*);
 Ast *parse_function(Parser*);
 
-
+Program *parse_program(Parser *p);
 
 #endif

@@ -208,6 +208,32 @@ MU_TEST(test_return_expr) {
   mu_check(e->value.return_stmt.value->kind == AST_BINARY);
 }
 
+MU_TEST(test_package) {
+  Parser p = {0};
+  p.tokens = get_tokens("package main");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_PACKAGE);
+  mu_check(strcmp(e->value.package_stmt.value, "main") == 0);
+}
+
+MU_TEST(test_package2) {
+  Parser p = {0};
+  p.tokens = get_tokens("package foo.bar.bizz");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_PACKAGE);
+  mu_check(strcmp(e->value.package_stmt.value, "foo.bar.bizz") == 0);
+}
+
+
+MU_TEST(test_package_fail) {
+  Parser p = {0};
+  p.tokens = get_tokens("package 1.2");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_INVALID);
+}
 
 
 MU_TEST_SUITE(test_suite_parser) {
@@ -231,4 +257,8 @@ MU_TEST_SUITE(test_suite_parser) {
 
   MU_RUN_TEST(test_return);
   MU_RUN_TEST(test_return_expr);
+  
+  MU_RUN_TEST(test_package);
+  MU_RUN_TEST(test_package2);
+  MU_RUN_TEST(test_package_fail);
 }

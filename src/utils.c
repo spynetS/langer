@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -81,6 +82,66 @@ const char *token_kind_to_string(TokenKind kind)
   }
 
   return "UNKNOWN_TOKEN";
+}
+
+const char *ast_kind_to_string(AstKind kind)
+{
+    switch (kind) {
+        // Declarations
+        case AST_INVALID:          return "INVALID";
+        case AST_PACKAGE:          return "PACKAGE";
+        case AST_IMPORT:           return "IMPORT";
+
+        case AST_FUNC_DECL:        return "FUNC_DECL";
+        case AST_STRUCT_DECL:      return "STRUCT_DECL";
+        case AST_ENUM_DECL:        return "ENUM_DECL";
+        case AST_UNION_DECL:       return "UNION_DECL";
+
+        case AST_VAR_DECL:         return "VAR_DECL";
+
+        // Statements
+        case AST_BLOCK:            return "BLOCK";
+        case AST_RETURN:           return "RETURN";
+        case AST_IF:               return "IF";
+        case AST_WHILE:            return "WHILE";
+        case AST_FOR:              return "FOR";
+        case AST_EXPR_STMT:        return "EXPR_STMT";
+
+        // Expressions
+        case AST_INTEGER_LITERAL:  return "INTEGER_LITERAL";
+        case AST_FLOAT_LITERAL:    return "FLOAT_LITERAL";
+        case AST_STRING_LITERAL:   return "STRING_LITERAL";
+        case AST_CHAR_LITERAL:     return "CHAR_LITERAL";
+        case AST_IDENTIFER:        return "IDENTIFER";
+        case AST_BOOL_LITERAL:     return "BOOL_LITERAL";
+
+        case AST_BINARY:           return "BINARY";
+        case AST_UNARY:            return "UNARY";
+        case AST_ASSIGN:           return "ASSIGN";
+        case AST_DECL:             return "DECL";
+        case AST_CALL:             return "CALL";
+        case AST_MEMBER:           return "MEMBER";
+        case AST_INDEX:            return "INDEX";
+        case AST_CAST:             return "CAST";
+        case AST_COMPOUND_LITERAL: return "COMPOUND_LITERAL";
+
+        // Types
+        case AST_TYPE_VOID:        return "TYPE_VOID";
+        case AST_TYPE_BOOL:        return "TYPE_BOOL";
+        case AST_TYPE_BYTE:        return "TYPE_BYTE";
+        case AST_TYPE_I16:         return "TYPE_I16";
+        case AST_TYPE_I32:         return "TYPE_I32";
+        case AST_TYPE_I64:         return "TYPE_I64";
+        case AST_TYPE_F32:         return "TYPE_F32";
+        case AST_TYPE_F64:         return "TYPE_F64";
+
+        case AST_TYPE_NAME:        return "TYPE_NAME";
+        case AST_TYPE_POINTER:     return "TYPE_POINTER";
+        case AST_TYPE_ARRAY:       return "TYPE_ARRAY";
+
+        default:
+            return "UNKNOWN";
+    }
 }
 
 void log_span(SourceSpan span, const char* fmt, ...) {

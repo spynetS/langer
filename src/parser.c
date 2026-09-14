@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "stb_ds.h"
+#include "sb.h"
 #include "ast.h"
 #include "lexer.h"
 #include "utils.h"
@@ -21,17 +22,50 @@ Token parser_peek(Parser *p) {
   return t;
 }
 Token parser_next(Parser *p) {
-  assert(p->pos+1 < arrlen(p->tokens));
+  if(p->pos+1 < arrlen(p->tokens)) return (Token){TOKEN_INVALID};
   Token t = p->tokens[p->pos+1];
   return t;
+}
+Token parser_expect(Parser *p, TokenKind kind) {
+  Token t = parser_advance(p);
+  if (t.kind != kind) {
+    log_span(parser_peek(p).span, "unexpected token. wanted '%s' but got '%s'\n", token_kind_to_string(kind), token_kind_to_string(t.kind));
+    return (Token){TOKEN_INVALID, "",t.span};
+  }
+  return t;
+}
+
+void print_depth(int depth) {
+  for (int i = 0; i < depth; i ++) debug_log(" ");
+}
+
+void print_func_decl(FunctionDecl decl, int depth) {
+  debug_log("Function Decl (%s)\n", decl.name);
+  for (size_t i = 0; i < arrlen(decl.parameters); i ++) {
+    print_ast(decl.parameters[i], depth+1);
+  }
+  if (decl.body == NULL) return;
+  print_ast(decl.body, depth+1);
+
 }
 
 void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
-  for (int i = 0; i < depth; i ++) debug_log(" ");
+  print_depth(depth);
   switch (ast->kind) {
+  case AST_FUNC_DECL:
+    print_func_decl(ast->value.function_decl, depth+1);
+    break;
+  case AST_BLOCK:
+    debug_log("Block\n");
+    if (ast->value.block_stmt.stmts == NULL) break;
+    for (size_t i = 0; i < arrlen(ast->value.block_stmt.stmts); i ++) {
+      print_ast(ast->value.block_stmt.stmts[i], depth+1);
+    }    
+    break;
+    
   case AST_DECL:
-    debug_log("Variable Decl (%s)\n", ast->value.decl_expr.type != NULL ? token_kind_to_string(ast->value.decl_expr.type->kind): "unknown type");
+    debug_log("Variable Decl (%s)\n", ast->value.decl_expr.type != NULL ? ast_kind_to_string(ast->value.decl_expr.type->kind): "unknown type");
     print_ast(ast->value.decl_expr.left, depth+1);
     //print_ast(ast->value.decl_expr.type, depth+1);
     print_ast(ast->value.decl_expr.initlizer, depth+1);
@@ -283,7 +317,7 @@ Ast *parse_variable_decl(Parser *p) {
   
 
   if (parser_advance(p).kind != TOKEN_COLON) {
-    panic("AH");
+    panic("EXPECTED COLON WHEN VARIABLE DECL");
   }
   // if next isnt equals we should try to parse a type
   if (parser_peek(p).kind != TOKEN_ASSIGN) {
@@ -340,8 +374,32 @@ Ast *parse_return(Parser *p) {
   return ret;
 }
 
+Ast *parse_package(Parser *p) {
+  parser_expect(p, TOKEN_PACKAGE);
+  Ast *package = malloc(sizeof(Ast));
+  package->kind = AST_PACKAGE;
+  StringBuilder sb = {0};
+  Token t = parser_expect(p, TOKEN_IDENTIFER);
+  if (t.kind == TOKEN_INVALID) package->kind = AST_INVALID;
+  sb_append(&sb, t.lexeme);
+  while (parser_advance(p).kind == TOKEN_DOT) {
+    sb_append(&sb, ".");
+    t = parser_expect(p, TOKEN_IDENTIFER);
+    sb_append(&sb, t.lexeme);
+    if (t.kind == TOKEN_INVALID) package->kind = AST_INVALID;
+    
+  }
+
+  package->value.package_stmt.value = sb_concat(&sb);
+  return package;
+}
+
 Ast *parse_stmt(Parser *p) {
-  if (parser_peek(p).kind == TOKEN_IF) {
+  // MAYBE should functions be able to be declared in blocks?
+  if (parser_peek(p).kind == TOKEN_FUNC) {
+    return parse_function(p);
+  }
+  else if (parser_peek(p).kind == TOKEN_IF) {
     panic("TODO if parsing");
   }
   else if (parser_peek(p).kind == TOKEN_FOR) {
@@ -364,6 +422,80 @@ Ast *parse_stmt(Parser *p) {
   return 0;
 }
 
+Ast *parse_block(Parser *p) {
+  parser_expect(p, TOKEN_LCBRACK);
+
+  Ast *block = malloc(sizeof(Ast));
+  block->kind = AST_BLOCK;
+  block->value.block_stmt = (BlockStmt){0};
+  block->value.block_stmt.stmts = NULL;
+
+  
+  // parse statements
+  while(parser_peek(p).kind != TOKEN_RCBRACK) {
+    debug_log("parse stmt in block\n");
+    Ast *stmt = parse_stmt(p);
+    parser_skip(p, TOKEN_SEMICOLON);
+    arrput(block->value.block_stmt.stmts, stmt);
+  }
+
+  parser_expect(p, TOKEN_RCBRACK);
+  return block;
+}
+
+Ast *parse_function(Parser *p) {
+  if (parser_peek(p).kind != TOKEN_FUNC)
+    log_span(parser_peek(p).span, "Must start with func\n");
+
+  Ast* func = malloc(sizeof(Ast));
+  func->kind = AST_FUNC_DECL;
+  func->value.function_decl = (FunctionDecl){0};
+  func->value.function_decl.parameters = NULL;
+  parser_advance(p);
+
+  func->value.function_decl.name = (const char*)parser_expect(p, TOKEN_IDENTIFER).lexeme;
+  parser_expect(p, TOKEN_LPAR);
+  if (parser_peek(p).kind != TOKEN_RPAR) {
+    do{
+      Ast *var = parse_variable_decl(p);
+      debug_log("PARAMETER FOUND\n");
+      print_ast(var, 0);
+      debug_log("================\n");
+      arrput(func->value.function_decl.parameters, var);
+    } while (parser_is(p, TOKEN_COMMA));
+  }
+
+  parser_expect(p, TOKEN_RPAR);
+
+  // MAYBE be optional with return type
+  parser_expect(p, TOKEN_COLON);
+  Ast* ret_type = parse_type(p);
+  func->value.function_decl.return_type = ret_type;
+
+  Ast *block = parse_block(p);
+  func->value.function_decl.body = block;
+  
+  return func;
+}
+
+Program *parse_program(Parser *p) {
+  Program *program = malloc(sizeof(Program));
+  Ast *package = parse_package(p);
+  if (package == NULL) log_span(parser_peek(p).span, "NO PACKAGE FOUND");
+  program->package = package->value.package_stmt;
+
+  program->functions = NULL;
+  while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
+    if (parser_peek(p).kind == TOKEN_FUNC)
+      arrput(program->functions, parse_function(p)->value.function_decl);
+    
+    if (parser_next(p).kind == TOKEN_COLON)
+      arrput(program->variables, parse_variable_decl(p)->value.decl_expr);
+    
+  }
+  
+  return program;
+}
 
 void free_ast(Ast *ast) {
 

@@ -36,8 +36,19 @@ int main() {
 
   Parser p = {0};
   p.tokens = token;
-  Ast* ast = parse_stmt(&p);
-  print_ast(ast,0);
+  Program* program = parse_program(&p);
+
+  
+  debug_log("package %s\n", program->package.value);
+  for(int i = 0; i < arrlen(program->functions); i ++) {
+    print_func_decl(program->functions[i], 0);
+  }
+
+  for(int i = 0; i < arrlen(program->variables); i ++) {
+    debug_log("Variable %s\n", program->variables[i].left->value.identifer_expr, 0);
+  }
+
+
 
   for (size_t i = 0; i < arrlen(token); i++) {
     printf("%s ", token[i].lexeme);

@@ -7,15 +7,19 @@ typedef struct Ast Ast;
 
 typedef enum {
   // Declarations
-  PACKAGE,
-  IMPORT,
+  AST_INVALID,
+  
+  AST_PACKAGE,
+  AST_IMPORT,
 
-  FUNC_DECL,
-  STRUCT_DECL,
-  ENUM_DECL,
-  UNION_DECL,
+  AST_PROGRAM,
 
-  VAR_DECL,
+  AST_FUNC_DECL,
+  AST_STRUCT_DECL,
+  AST_ENUM_DECL,
+  AST_UNION_DECL,
+
+  AST_VAR_DECL,
 
   //Statments
   AST_BLOCK,
@@ -56,6 +60,8 @@ typedef enum {
   AST_TYPE_NAME,
   AST_TYPE_POINTER,
   AST_TYPE_ARRAY,
+
+
 
 } AstKind;
 
@@ -128,6 +134,27 @@ typedef struct {
   Ast *value;
 } ReturnStmt;
 
+typedef struct {
+  const char* value;
+} PackageStmt;
+
+
+typedef struct {
+  const char* name;
+  Ast** parameters;
+  Ast* return_type;
+  Ast* body;
+} FunctionDecl;
+
+typedef struct {
+  Ast** stmts;
+} BlockStmt;
+
+typedef struct {
+  PackageStmt package;
+  DeclExpr* variables;
+  FunctionDecl* functions;
+} Program;
 
 
 
@@ -147,6 +174,10 @@ typedef struct Ast {
     BinaryExpr binary_expr;
 
     ReturnStmt return_stmt;
+    PackageStmt package_stmt;
+    BlockStmt block_stmt;
+
+    FunctionDecl function_decl;
 
   } value;
 } Ast;
@@ -155,5 +186,6 @@ typedef struct Ast {
 
 void free_ast(Ast *ast);
 void print_ast(Ast *ast, int depth);
+void print_func_decl(FunctionDecl decl, int depth);
 
 #endif
