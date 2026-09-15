@@ -103,7 +103,7 @@ MU_TEST(test_chars) {
 MU_TEST(test_operators) {
 
   Lexer lexer = {0};
-  lexer.bytes = "+ - * / & && || = == % < > <= >= !=";
+  lexer.bytes = "+ - * / & || = == % < > <= >= !=";
   lexer.bytes_length = strlen(lexer.bytes);
 
   Token *tokens = NULL;
@@ -113,16 +113,15 @@ MU_TEST(test_operators) {
   mu_check(tokens[2].kind == TOKEN_STAR);
   mu_check(tokens[3].kind == TOKEN_SLASH);
   mu_check(tokens[4].kind == TOKEN_AMPER);
-  mu_check(tokens[5].kind == TOKEN_AND);
-  mu_check(tokens[6].kind == TOKEN_OR);
-  mu_check(tokens[7].kind == TOKEN_ASSIGN);
-  mu_check(tokens[8].kind == TOKEN_EQUAL);
-  mu_check(tokens[9].kind == TOKEN_MOD);
-  mu_check(tokens[10].kind == TOKEN_LESS);
-  mu_check(tokens[11].kind == TOKEN_GREATER);
-  mu_check(tokens[12].kind == TOKEN_LE);
-  mu_check(tokens[13].kind == TOKEN_GE);
-  mu_check(tokens[14].kind == TOKEN_NOTEQUAL);
+  mu_check(tokens[5].kind == TOKEN_OR);
+  mu_check(tokens[6].kind == TOKEN_ASSIGN);
+  mu_check(tokens[7].kind == TOKEN_EQUAL);
+  mu_check(tokens[8].kind == TOKEN_MOD);
+  mu_check(tokens[9].kind == TOKEN_LESS);
+  mu_check(tokens[10].kind == TOKEN_GREATER);
+  mu_check(tokens[11].kind == TOKEN_LE);
+  mu_check(tokens[12].kind == TOKEN_GE);
+  mu_check(tokens[13].kind == TOKEN_NOTEQUAL);
 }
 
 MU_TEST(test_comments) {

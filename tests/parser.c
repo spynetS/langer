@@ -142,7 +142,7 @@ MU_TEST(test_plus) {
 
   Ast* e = parse_expression(&p);
   mu_check(e->kind == AST_BINARY);
-  mu_check(e->value.binary_expr.operator.kind == TOKEN_PLUS);
+  mu_check(e->value.binary_expr.operator == TOKEN_PLUS);
 }
 
 MU_TEST(test_minus) {
@@ -151,7 +151,7 @@ MU_TEST(test_minus) {
 
   Ast* e = parse_expression(&p);
   mu_check(e->kind == AST_BINARY);
-  mu_check(e->value.binary_expr.operator.kind == TOKEN_MINUS);
+  mu_check(e->value.binary_expr.operator == TOKEN_MINUS);
 }
 
 MU_TEST(test_multiply) {
@@ -164,21 +164,21 @@ MU_TEST(test_multiply) {
   mu_check(e->kind == AST_BINARY);
 
   // Root: +
-  mu_check(e->value.binary_expr.operator.kind == TOKEN_PLUS);
+  mu_check(e->value.binary_expr.operator == TOKEN_PLUS);
 
   Ast *right = e->value.binary_expr.right;
   mu_check(right != NULL);
   mu_check(right->kind == AST_BINARY);
 
   // Right side: (2 * 3) / 4
-  mu_check(right->value.binary_expr.operator.kind == TOKEN_SLASH);
+  mu_check(right->value.binary_expr.operator == TOKEN_SLASH);
 
   Ast *multiply = right->value.binary_expr.left;
   mu_check(multiply != NULL);
   mu_check(multiply->kind == AST_BINARY);
 
   // (2 * 3)
-  mu_check(multiply->value.binary_expr.operator.kind == TOKEN_STAR);
+  mu_check(multiply->value.binary_expr.operator == TOKEN_STAR);
 
   mu_check(multiply->value.binary_expr.left->kind == AST_INTEGER_LITERAL);
   mu_check(multiply->value.binary_expr.left->value.int_expr.value == 2);
@@ -209,7 +209,7 @@ MU_TEST(test_or) {
 
   Ast* e = parse_expression(&p);
   mu_check(e->kind == AST_BINARY);
-  mu_check(e->value.binary_expr.operator.kind == TOKEN_OR);
+  mu_check(e->value.binary_expr.operator == TOKEN_OR);
 }
 
 MU_TEST(test_and) {
@@ -218,7 +218,7 @@ MU_TEST(test_and) {
 
   Ast* e = parse_expression(&p);
   mu_check(e->kind == AST_BINARY);
-  mu_check(e->value.binary_expr.operator.kind == TOKEN_AND);
+  mu_check(e->value.binary_expr.operator == TOKEN_AND);
 }
 
 
@@ -424,6 +424,45 @@ MU_TEST(test_visibility_decl) {
   mu_check(e->value.struct_decl.visibility == VIS_PUBLIC);
 }
 
+MU_TEST(test_unary) {
+  Parser p = {0};
+  p.tokens = get_tokens("-1");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operator == TOKEN_MINUS);
+  mu_check(e->value.unary_expr.operand->kind == AST_INTEGER_LITERAL);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("-asd");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operator == TOKEN_MINUS);
+  mu_check(e->value.unary_expr.operand->kind == AST_IDENTIFER);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("*asd");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operator == TOKEN_STAR);
+  mu_check(e->value.unary_expr.operand->kind == AST_IDENTIFER);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("&asd");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operator == TOKEN_AMPER);
+  mu_check(e->value.unary_expr.operand->kind == AST_IDENTIFER);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("&&asd");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operator == TOKEN_AMPER);
+  mu_check(e->value.unary_expr.operand->kind == AST_UNARY);
+  mu_check(e->value.unary_expr.operand->value.unary_expr.operand->kind == AST_IDENTIFER);
+}
+
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
@@ -465,4 +504,6 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_member_access2);
 
   MU_RUN_TEST(test_visibility_decl);
+
+  MU_RUN_TEST(test_unary);
 }

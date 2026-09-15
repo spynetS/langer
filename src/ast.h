@@ -118,7 +118,7 @@ typedef struct {
 typedef struct {
   Ast *left;
   Ast *right;
-  Token operator;
+  TokenKind operator;
 } BinaryExpr;
 
 typedef struct {
@@ -147,6 +147,12 @@ typedef struct {
   Ast* left;
   Ast** parameters;
 } CallExpr;
+
+typedef struct {
+  Ast* operand;
+  TokenKind operator;
+} UnaryExpr;
+
 
 typedef struct {
   Ast *left;
@@ -205,7 +211,8 @@ typedef struct Ast {
     BinaryExpr binary_expr;
     CallExpr call_expr;
     MemberAccessExpr member_expr;
-
+    UnaryExpr unary_expr;
+    
     ReturnStmt return_stmt;
     PackageStmt package_stmt;
     BlockStmt block_stmt;

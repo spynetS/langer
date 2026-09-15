@@ -253,8 +253,8 @@ Token lex(Lexer *lexer) {
   if (c == '\0')
     return token;
 
-  if      ( (token = lex_two(lexer, '&', '&', TOKEN_AND)).kind != TOKEN_INVALID){}
-  else if ( (token = lex_two(lexer, '|', '|', TOKEN_OR)).kind != TOKEN_INVALID){}
+  //if      ( (token = lex_two(lexer, '&', '&', TOKEN_AND)).kind != TOKEN_INVALID){}
+  if      ( (token = lex_two(lexer, '|', '|', TOKEN_OR)).kind != TOKEN_INVALID){}
   else if ( (token = lex_two(lexer, '=', '=', TOKEN_EQUAL)).kind != TOKEN_INVALID){}
   else if ( (token = lex_two(lexer, '<','=', TOKEN_LE)).kind != TOKEN_INVALID){}
   else if ( (token = lex_two(lexer, '>','=', TOKEN_GE)).kind != TOKEN_INVALID){}

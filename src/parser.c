@@ -85,6 +85,13 @@ void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   print_depth(depth);
   switch (ast->kind) {
+  case AST_UNARY:
+    debug_log("Unary\n");
+    print_ast(ast->value.unary_expr.operand, depth+1);
+    print_depth(depth+1);
+    debug_log("operator %s", token_kind_to_string(ast->value.unary_expr.operator));
+    debug_log("\n");
+    break;
   case AST_MEMBER:
     debug_log("Member access\n");
     print_ast(ast->value.member_expr.left, depth+1);
@@ -109,7 +116,7 @@ void print_ast(Ast *ast, int depth) {
       print_ast(ast->value.call_expr.parameters[i], depth+1);
     }
     break;
-  case AST_DECL:
+  case AST_VAR_DECL:
     debug_log("Variable Decl (%s) %s\n",
               ast->value.variable_decl.type != NULL ?
               ast_kind_to_string(ast->value.variable_decl.type->kind) :
@@ -148,7 +155,7 @@ void print_ast(Ast *ast, int depth) {
     debug_log("Binary\n");
     print_ast(ast->value.binary_expr.left, depth+1);
     for (int i = 0; i < depth+1; i ++) debug_log(" ");
-    print_token(ast->value.binary_expr.operator);
+    debug_log("%s\n", token_kind_to_string(ast->value.binary_expr.operator));
     print_ast(ast->value.binary_expr.right, depth+1);
   default:
     debug_log("\n");
@@ -257,7 +264,7 @@ Token parser_skip(Parser *p, TokenKind kind) {
 }
 
 
-Ast *new_binary_expr(Ast* left, Ast* right, Token operator) {
+Ast *new_binary_expr(Ast* left, Ast* right, TokenKind operator) {
   Ast *binary = malloc(sizeof(Ast));
   binary->kind = AST_BINARY;
   binary->value.binary_expr = (BinaryExpr){left, right, operator};
@@ -364,8 +371,33 @@ Ast *parse_postfix(Parser *p) {
   return left;
 }
 
+Ast *new_unary_expr(Ast *operand, TokenKind operator) {
+  Ast *unary = malloc(sizeof(Ast));
+  unary->kind = AST_UNARY;
+  unary->value.unary_expr = (UnaryExpr){0};
+  unary->value.unary_expr.operator = operator;
+  unary->value.unary_expr.operand = operand;
+  return unary;
+}
+
+Ast *parse_unary(Parser *p) {
+  if (parser_is(p, TOKEN_MINUS)) {
+    Ast *operand = parse_unary(p);
+    return new_unary_expr(operand, TOKEN_MINUS);
+  }
+  if (parser_is(p, TOKEN_AMPER)) {
+    print_token(parser_peek(p));
+    return new_unary_expr(parse_unary(p), TOKEN_AMPER);
+  }
+  if (parser_is(p, TOKEN_STAR)) {
+    return new_unary_expr(parse_unary(p), TOKEN_STAR);
+  }
+
+  return parse_postfix(p);
+}
+
 Ast *parse_term(Parser *p) {
-    Ast *left = parse_postfix(p);
+    Ast *left = parse_unary(p);
 
     while (1) {
         Token token = parser_peek(p);
@@ -378,8 +410,8 @@ Ast *parse_term(Parser *p) {
         debug_log("Found operators star slash\n");
         parser_advance(p);
 
-        Ast *right = parse_postfix(p);
-        left = new_binary_expr(left, right, token);
+        Ast *right = parse_unary(p);
+        left = new_binary_expr(left, right, token.kind);
     }
 
     return left;
@@ -400,7 +432,7 @@ Ast *parse_additive(Parser *p) {
         parser_advance(p);
 
         Ast *right = parse_term(p);
-        left = new_binary_expr(left, right, token);
+        left = new_binary_expr(left, right, token.kind);
 
     }
 
@@ -416,7 +448,7 @@ Ast *parse_condition(Parser *p) {
       token.kind == TOKEN_EQUAL || token.kind == TOKEN_LE      ||
       token.kind == TOKEN_GE    || token.kind == TOKEN_NOTEQUAL) {
     Ast* right = parse_expression(p);
-    left = new_binary_expr(left, right, token);
+    left = new_binary_expr(left, right, token.kind);
   }
 
   return left;
@@ -426,9 +458,7 @@ Ast *parse_and(Parser *p) {
   Ast *left = parse_condition(p);
 
   while (1) {
-    Token token = parser_peek(p);
-
-    if (token.kind != TOKEN_AND) {
+    if (parser_peek(p).kind != TOKEN_AMPER && parser_next(p).kind != TOKEN_AMPER) {
       break;
     }
 
@@ -436,7 +466,7 @@ Ast *parse_and(Parser *p) {
     parser_advance(p);
 
     Ast *right = parse_term(p);
-    left = new_binary_expr(left, right, token);
+    left = new_binary_expr(left, right, TOKEN_AND);
   }
 
   return left;
@@ -457,7 +487,7 @@ Ast *parse_or(Parser *p) {
     parser_advance(p);
 
     Ast *right = parse_term(p);
-    left = new_binary_expr(left, right, token);
+    left = new_binary_expr(left, right, token.kind);
   }
 
   return left;
