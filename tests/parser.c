@@ -463,6 +463,40 @@ MU_TEST(test_unary) {
   mu_check(e->value.unary_expr.operand->value.unary_expr.operand->kind == AST_IDENTIFER);
 }
 
+MU_TEST(test_index) {
+  Parser p = {0};
+  p.tokens = get_tokens("asd[0]");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_INDEX);
+  mu_check(e->value.index_expr.left->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.index_expr.left->value.identifer_expr.value, "asd") == 0);
+  mu_check(e->value.index_expr.index->kind == AST_INTEGER_LITERAL);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("asd[1+1]");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_INDEX);
+  mu_check(e->value.index_expr.left->kind == AST_IDENTIFER);
+  mu_check(e->value.index_expr.index->kind == AST_BINARY);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("asd[asd]");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_INDEX);
+  mu_check(e->value.index_expr.left->kind == AST_IDENTIFER);
+  mu_check(e->value.index_expr.index->kind == AST_IDENTIFER);
+
+  
+  p = (Parser){0};
+  p.tokens = get_tokens("asd[foo[1+1]]");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_INDEX);
+  mu_check(e->value.index_expr.left->kind == AST_IDENTIFER);
+  mu_check(e->value.index_expr.index->kind == AST_INDEX);
+  mu_check(e->value.index_expr.index->value.index_expr.index->kind == AST_BINARY);
+
+}
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
@@ -506,4 +540,6 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_visibility_decl);
 
   MU_RUN_TEST(test_unary);
+
+  MU_RUN_TEST(test_index);
 }

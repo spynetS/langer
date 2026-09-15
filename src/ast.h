@@ -153,6 +153,10 @@ typedef struct {
   TokenKind operator;
 } UnaryExpr;
 
+typedef struct {
+  Ast *left;
+  Ast *index;
+} IndexExpr;
 
 typedef struct {
   Ast *left;
@@ -212,7 +216,8 @@ typedef struct Ast {
     CallExpr call_expr;
     MemberAccessExpr member_expr;
     UnaryExpr unary_expr;
-    
+    IndexExpr index_expr;
+
     ReturnStmt return_stmt;
     PackageStmt package_stmt;
     BlockStmt block_stmt;

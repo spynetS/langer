@@ -85,6 +85,11 @@ void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   print_depth(depth);
   switch (ast->kind) {
+  case AST_INDEX:
+    debug_log("Index\n");
+    print_ast(ast->value.index_expr.left, depth+1);
+    print_ast(ast->value.index_expr.index, depth+1);
+    break;
   case AST_UNARY:
     debug_log("Unary\n");
     print_ast(ast->value.unary_expr.operand, depth+1);
@@ -325,12 +330,7 @@ Ast *parse_postfix(Parser *p) {
   while (1) {
     Token token = parser_peek(p);
     print_token(token);
-    // DEREFERANCE
-    // FIXME dereferance should be star
-    if (token.kind == TOKEN_FUNC) {
-      panic("TODO DEREFERANCE");
-    }
-    else if (token.kind == TOKEN_DOT) {
+    if (token.kind == TOKEN_DOT) {
       parser_advance(p);
       Token id = parser_expect(p, TOKEN_IDENTIFER);
       Ast *left_ = left;
@@ -341,8 +341,8 @@ Ast *parse_postfix(Parser *p) {
       left->value.member_expr.left = left_;
       left->value.member_expr.member = (const char*) id.lexeme;
       parser_skip(p, TOKEN_SEMICOLON);
-    }
-    else if (token.kind == TOKEN_LPAR) {
+    } else if (token.kind == TOKEN_LPAR) {
+      // CALL
       parser_advance(p);
       Ast *left_ = left;
       left = malloc(sizeof(Ast));
@@ -362,7 +362,17 @@ Ast *parse_postfix(Parser *p) {
       parser_expect(p, TOKEN_RPAR);
     }
     else if (token.kind == TOKEN_LBRACK) {
-      panic("TODO subscript");
+      parser_advance(p);
+      Ast *index = parse_additive(p);
+
+      parser_expect(p, TOKEN_RBRACK);
+
+      Ast* left_ = left;
+      left = malloc(sizeof(Ast));
+      left->kind = AST_INDEX;
+      left->value.index_expr.left = left_;
+      left->value.index_expr.index = index;
+
     }
     else {
       break;
