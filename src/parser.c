@@ -75,6 +75,13 @@ void print_ast(Ast *ast, int depth) {
   if (ast == NULL) return;
   print_depth(depth);
   switch (ast->kind) {
+  case AST_MEMBER:
+    debug_log("Member access\n");
+    print_ast(ast->value.member_expr.left, depth+1);
+    print_depth(depth+1);
+    debug_log("Member %s", ast->value.member_expr.member);
+    debug_log("\n");
+    break;
   case AST_FUNC_DECL:
     print_func_decl(ast->value.function_decl, depth+1);
     break;
@@ -264,9 +271,16 @@ Ast *parse_postfix(Parser *p) {
       panic("TODO DEREFERANCE");
     }
     else if (token.kind == TOKEN_DOT) {
-      
+      parser_advance(p);
+      Token id = parser_expect(p, TOKEN_IDENTIFER);
+      Ast *left_ = left;
+      left = malloc(sizeof(Ast));
 
-      panic("TODO MEMBERACCESS");
+      left->kind = AST_MEMBER;
+      left->value.member_expr = (MemberAccessExpr){0};
+      left->value.member_expr.left = left_;
+      left->value.member_expr.member = (const char*) id.lexeme;
+      parser_skip(p, TOKEN_SEMICOLON);
     }
     else if (token.kind == TOKEN_LPAR) {
       parser_advance(p);

@@ -199,6 +199,7 @@ typedef struct Ast {
     AssignExpr assign_expr;
     BinaryExpr binary_expr;
     CallExpr call_expr;
+    MemberAccessExpr member_expr;
 
     ReturnStmt return_stmt;
     PackageStmt package_stmt;

@@ -2,6 +2,7 @@
 #include "../src/parser.h"
 #include "../src/lexer.h"
 #include "../src/ast.h"
+#include "../src/utils.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -336,6 +337,28 @@ MU_TEST(test_call) {
   mu_check(strcmp(e->value.call_expr.left->value.identifer_expr.value, "foo") == 0);
 }
 
+MU_TEST(test_member_access) {
+  Parser p = {0};
+  p.tokens = get_tokens("foo.bar");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_MEMBER);
+  mu_check(e->value.member_expr.left->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.member_expr.left->value.identifer_expr.value, "foo") == 0);
+  mu_check(strcmp(e->value.member_expr.member, "bar") == 0);
+}
+
+MU_TEST(test_member_access2) {
+  Parser p = {0};
+  p.tokens = get_tokens("foo.bar.bizz");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_MEMBER);
+  mu_check(e->value.member_expr.left->kind == AST_MEMBER);
+  mu_check(e->value.member_expr.left->value.member_expr.left->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.member_expr.left->value.member_expr.member, "bar") == 0);
+}
+
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
   MU_RUN_TEST(test_decl_struct);
@@ -372,4 +395,6 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_extern_function_decl);
   
   MU_RUN_TEST(test_call);
+  MU_RUN_TEST(test_member_access);
+  MU_RUN_TEST(test_member_access2);
 }
