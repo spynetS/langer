@@ -6,6 +6,11 @@
 typedef struct Ast Ast;
 
 typedef enum {
+    VIS_PRIVATE,
+    VIS_PUBLIC,
+} Visibility;
+
+typedef enum {
   // Declarations
   AST_INVALID,
   
@@ -117,13 +122,6 @@ typedef struct {
   Token operator;
 } BinaryExpr;
 
-
-typedef struct {
-  Ast *left;
-  Ast *initlizer;
-  Ast *type;
-} DeclExpr;
-
 typedef struct {
   Ast *left;
   Ast *value;
@@ -156,10 +154,18 @@ typedef struct {
   const char *member;
 } MemberAccessExpr;
 
+typedef struct {
+  Ast *left;
+  Ast *initlizer;
+  Ast *type;
+  Visibility visibility;
+} DeclExpr;
+
 
 typedef struct {
   const char* name;
   Ast** members;
+  Visibility visibility;
 } StructDecl;
 
 
@@ -168,7 +174,8 @@ typedef struct {
   Ast** parameters;
   Ast* return_type;
   Ast* body;
-  bool is_extern; // If it is not defined in langer 
+  bool is_extern; // If it is not defined in langer
+  Visibility visibility;
 } FunctionDecl;
 
 typedef struct {
