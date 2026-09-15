@@ -14,16 +14,16 @@
 // checker
 // generator
 
-void print_program(Program *program) {
-  debug_log("package %s\n", program->package.value);
-  for(int i = 0; i < arrlen(program->variables); i ++) {
-    debug_log("Variable %s\n", program->variables[i].left->value.identifer_expr, 0);
+void print_package(Package *package) {
+  debug_log("package %s\n", package->package.value);
+  for(int i = 0; i < arrlen(package->variables); i ++) {
+    debug_log("Variable %s\n", package->variables[i].left->value.identifer_expr, 0);
   }
-  for(int i = 0; i < arrlen(program->structs); i ++) {
-    debug_log("struct %s\n", program->structs[i].name, 0);
+  for(int i = 0; i < arrlen(package->structs); i ++) {
+    debug_log("struct %s\n", package->structs[i].name, 0);
   }
-  for(int i = 0; i < arrlen(program->functions); i ++) {
-    print_func_decl(program->functions[i], 0);
+  for(int i = 0; i < arrlen(package->functions); i ++) {
+    print_func_decl(package->functions[i], 0);
   }
 
 }
@@ -51,11 +51,11 @@ int main() {
   
   Parser p = {0};
   p.tokens = token;
-  Program* program = parse_program(&p);
+  Package* package = parse_package(&p);
   
-  print_program(program);
+  print_package(package);
 
-  gen_program(program);
+  gen_package(package);
 
 
 

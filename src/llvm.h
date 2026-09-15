@@ -25,7 +25,7 @@ typedef struct {
 } LLVMGenerator;
 
 
-void gen_program(Program *program);
+void gen_package(Package *package);
 
 #endif
 

@@ -70,7 +70,7 @@ LLVMValueRef create_function(LLVMGenerator lg, FunctionDecl func) {
   return function;
 }
 
-void gen_program(Program *program) {
+void gen_package(Package *package) {
   LLVMContextRef context = LLVMContextCreate();
 
   LLVMModuleRef module =
@@ -96,8 +96,8 @@ void gen_program(Program *program) {
   lg.builder = builder;
 
 
-  for(int i = 0; i < arrlen(program->functions); i ++ ){
-    create_function(lg, program->functions[i]);
+  for(int i = 0; i < arrlen(package->functions); i ++ ){
+    create_function(lg, package->functions[i]);
   }
 
   char *ir =

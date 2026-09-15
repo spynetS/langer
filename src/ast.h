@@ -17,7 +17,6 @@ typedef enum {
   AST_PACKAGE,
   AST_IMPORT,
 
-  AST_PROGRAM,
 
   AST_FUNC_DECL,
   AST_STRUCT_DECL,
@@ -187,7 +186,7 @@ typedef struct {
   VariableDecl* variables;
   FunctionDecl* functions;
   StructDecl* structs;
-} Program;
+} Package;
 
 
 

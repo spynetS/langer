@@ -541,7 +541,7 @@ Ast *parse_return(Parser *p) {
   return ret;
 }
 
-Ast *parse_package(Parser *p) {
+Ast *parse_package_stmt(Parser *p) {
   parser_expect(p, TOKEN_PACKAGE);
   Ast *package = malloc(sizeof(Ast));
   package->kind = AST_PACKAGE;
@@ -697,41 +697,41 @@ Ast *parse_struct_decl(Parser *p) {
 }
 
 
-Program *parse_program(Parser *p) {
-  Program *program = malloc(sizeof(Program));
-  program->functions = NULL;
-  program->structs = NULL;
-  program->variables = NULL;
+Package *parse_package(Parser *p) {
+  Package *package = malloc(sizeof(Package));
+  package->functions = NULL;
+  package->structs = NULL;
+  package->variables = NULL;
 
 
-  Ast *package = parse_package(p);
+  Ast *package_stmt = parse_package_stmt(p);
   if (package == NULL) log_span(parser_peek(p).span, "NO PACKAGE FOUND");
-  program->package = package->value.package_stmt;
+  package->package = package_stmt->value.package_stmt;
   parser_skip(p, TOKEN_SEMICOLON);
   
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
     if (is_function_decl(p)) {
       debug_log("parsing funcion\n");      
-      arrput(program->functions, parse_function(p)->value.function_decl);
+      arrput(package->functions, parse_function(p)->value.function_decl);
     }
     else if (is_struct_decl(p)) {
-     arrput(program->structs, parse_struct_decl(p)->value.struct_decl); 
+     arrput(package->structs, parse_struct_decl(p)->value.struct_decl); 
     }
     else if (is_variable_decl(p)) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
       Ast *var = parse_variable_decl(p);
-      arrput(program->variables, var->value.variable_decl);
+      arrput(package->variables, var->value.variable_decl);
     }
     else {
-      log_span(parser_peek(p).span,"unexpected token when parsing program\n");
+      log_span(parser_peek(p).span,"unexpected token when parsing package\n");
       print_token(parser_peek(p));
       break;
     }
     parser_skip(p, TOKEN_SEMICOLON);
   }
   
-  return program;
+  return package;
 }
 
 void free_ast(Ast *ast) {
