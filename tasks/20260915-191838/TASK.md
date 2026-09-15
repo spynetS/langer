@@ -1,4 +1,4 @@
-# compound literals
+# for
 
 - STATUS: OPEN
 - PRIORITY: 100

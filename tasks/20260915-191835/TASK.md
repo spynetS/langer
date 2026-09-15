@@ -1,4 +1,4 @@
-# compound literals
+# while
 
 - STATUS: OPEN
 - PRIORITY: 100

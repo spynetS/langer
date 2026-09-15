@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 
 Token *get_tokens(const char *val) {

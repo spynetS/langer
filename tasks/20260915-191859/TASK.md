@@ -1,4 +1,4 @@
-# compound literals
+# cast
 
 - STATUS: OPEN
 - PRIORITY: 100

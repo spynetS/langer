@@ -69,24 +69,6 @@ typedef enum {
 
 } AstKind;
 
-/* typedef enum { */
-/*   EXPR_INTEGER_LITERAL, */
-/*   EXPR_FLOAT_LITERAL, */
-/*   EXPR_STRING_LITERAL, */
-/*   EXPR_CHAR_LITERAL, */
-/*   EXPR_IDENTIFER, */
-/*   EXPR_BOOL_LITERAL, */
-
-/*   EXPR_BINARY, */
-/*   EXPR_UNARY, */
-/*   EXPR_ASSIGN, */
-/*   EXPR_CALL, */
-/*   EXPR_MEMBER, */
-/*   EXPR_INDEX, */
-/*   EXPR_CAST, */
-/*   EXPR_COMPOUND_LITERAL, */
-/* } ExprKind; */
-
 typedef struct {
   int value;
 } IntExpr;

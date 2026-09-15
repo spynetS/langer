@@ -1,4 +1,4 @@
-# compound literals
+# char literal
 
 - STATUS: OPEN
 - PRIORITY: 100

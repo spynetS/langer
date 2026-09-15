@@ -1,4 +1,4 @@
-# compound literals
+# bool literal
 
 - STATUS: OPEN
 - PRIORITY: 100
