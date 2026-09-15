@@ -1,10 +1,14 @@
 CC = gcc
 
+CFLAGS = -Wall -pedantic $(shell llvm-config --cflags)
+LDFLAGS = $(shell llvm-config --ldflags)
+LIBS = $(shell llvm-config --libs)
+
 run: langer
 	./langer
 
-langer: ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c
-	$(CC) ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c -o langer
+langer: ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c ./src/llvm.c
+	$(CC) $(CFLAGS) ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c ./src/llvm.c  -o langer $(LDFLAGS) $(LIBS)
 
 test:
 	$(CC) -DSILENT -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./include/sb.c -o test &&./test

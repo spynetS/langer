@@ -313,9 +313,6 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
       
       if (token.kind == TOKEN_EOF || token.kind == TOKEN_INVALID)
         break;
-      #ifndef SILENT
-      print_token(token);
-      #endif
       arrput(*result, token);
   }
   Token eof = {0};

@@ -74,7 +74,11 @@ void print_type(Ast *ast, int depth) {
   case AST_TYPE_F32:
   case AST_TYPE_F64:
     debug_log("%s\n", ast_kind_to_string(ast->kind));
+    break;
+  default:
+    break;
   }
+  
 }
 
 void print_ast(Ast *ast, int depth) {
