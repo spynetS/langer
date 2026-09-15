@@ -1,6 +1,6 @@
 # bool literal
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS:
 

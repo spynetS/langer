@@ -143,6 +143,9 @@ void print_ast(Ast *ast, int depth) {
   case AST_IDENTIFER:
     debug_log("Identifer (%s)\n", ast->value.identifer_expr.value);
     break;
+  case AST_BOOL_LITERAL:
+    debug_log("Bool (%s)\n", ast->value.bool_expr.value ? "true" : "false");
+    break;
   case AST_STRING_LITERAL:
     debug_log("String (%s)\n", ast->value.string_expr.value);
     break;
@@ -297,6 +300,20 @@ Ast *parse_primary(Parser *p) {
     ast->kind = AST_FLOAT_LITERAL;
     ast->value.float_expr = (FloatExpr){
       atof(token.lexeme)
+    };
+    return ast;
+  case TOKEN_FALSE:
+    debug_log("Primary bool %s\n", token.lexeme);
+    ast->kind = AST_BOOL_LITERAL;
+    ast->value.bool_expr = (BoolExpr){
+      false
+    };
+    return ast;
+  case TOKEN_TRUE:
+    debug_log("Primary bool %s\n", token.lexeme);
+    ast->kind = AST_BOOL_LITERAL;
+    ast->value.bool_expr = (BoolExpr){
+      true
     };
     return ast;
   case TOKEN_STRING_LITERAL:
