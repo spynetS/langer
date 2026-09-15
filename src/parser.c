@@ -21,6 +21,12 @@ Token parser_peek(Parser *p) {
   Token t = p->tokens[p->pos];
   return t;
 }
+Token parser_previous(Parser *p) {
+  if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
+  if(p->pos == 0) return (Token) {TOKEN_INVALID};
+  Token t = p->tokens[p->pos-1];
+  return t;
+}
 Token parser_next(Parser *p) {
   if(p->pos+1 >= arrlen(p->tokens)) return (Token){TOKEN_INVALID};
   Token t = p->tokens[p->pos+1];
@@ -40,7 +46,7 @@ void print_depth(int depth) {
 }
 
 void print_func_decl(FunctionDecl decl, int depth) {
-  debug_log("%sFunction Decl (%s)\n", decl.is_extern ? "extern ": "",  decl.name);
+  debug_log("%sFunction Decl (%s) %s\n", decl.is_extern ? "extern ": "",  decl.name, decl.visibility == VIS_PRIVATE ? "private" : "public");
   for (size_t i = 0; i < arrlen(decl.parameters); i ++) {
     print_ast(decl.parameters[i], depth+1);
   }
@@ -100,10 +106,12 @@ void print_ast(Ast *ast, int depth) {
     }
     break;
   case AST_DECL:
-    debug_log("Variable Decl (%s)\n",
+    debug_log("Variable Decl (%s) %s\n",
               ast->value.decl_expr.type != NULL ?
               ast_kind_to_string(ast->value.decl_expr.type->kind) :
-              "unknown type");
+              "unknown type",
+              ast->value.decl_expr.visibility == VIS_PRIVATE ? "private" : "public"
+             );
     if(ast->value.decl_expr.type != NULL)
       print_type(ast->value.decl_expr.type, depth+1);
     if (ast->value.decl_expr.left != NULL)
@@ -143,6 +151,34 @@ void print_ast(Ast *ast, int depth) {
     break;
   }
 
+}
+
+bool is_variable_decl(Parser *p) {
+  Token t = parser_peek(p);
+  if (t.kind == TOKEN_PRIVATE || t.kind == TOKEN_PUBLIC) {
+    p->pos ++;
+    if (is_variable_decl(p)) return true;
+    p->pos --;
+    return false;
+  }
+  else if (parser_next(p).kind == TOKEN_COLON) {
+    debug_log("It is\n");
+    return true;
+  }
+  return false;
+}
+
+bool is_function_decl(Parser* p) {
+  if (parser_peek(p).kind == TOKEN_FUNC ||
+      parser_peek(p).kind == TOKEN_EXTERN) return true;
+
+  if (parser_peek(p).kind == TOKEN_PRIVATE ||
+      parser_peek(p).kind == TOKEN_PUBLIC) {
+    p->pos ++;
+    if (is_function_decl(p)) return true;
+    p->pos --;
+  }
+  return false;
 }
 
 bool parser_is(Parser *p, TokenKind kind) {
@@ -410,14 +446,26 @@ Ast *parse_or(Parser *p) {
   return left;
 }
 
+Visibility parse_visibility(Parser *p) {
+  debug_log("---------------\n");
+  print_token(parser_previous(p));
+  debug_log("-------++------\n");
+  if (parser_previous(p).kind == TOKEN_PUBLIC){
+    return VIS_PUBLIC;
+  }
+  return VIS_PRIVATE;    
+}
+
 Ast *parse_variable_decl(Parser *p) {
+  Visibility visibility = parse_visibility(p);
   Ast *left_ = parse_or(p);
   Ast *left = malloc(sizeof(Ast));
-  left->kind = AST_DECL;
+  left->kind = AST_VAR_DECL;
   left->value.decl_expr = (VariableDecl) {0};
   left->value.decl_expr.left = left_;
-  
+  left->value.decl_expr.visibility = visibility;
 
+  
   if (parser_advance(p).kind != TOKEN_COLON) {
     panic("EXPECTED COLON WHEN VARIABLE DECL");
   }
@@ -480,9 +528,12 @@ Ast *parse_package(Parser *p) {
   parser_expect(p, TOKEN_PACKAGE);
   Ast *package = malloc(sizeof(Ast));
   package->kind = AST_PACKAGE;
+  
   StringBuilder sb = {0};
   Token t = parser_expect(p, TOKEN_IDENTIFER);
+  
   if (t.kind == TOKEN_INVALID) package->kind = AST_INVALID;
+  
   sb_append(&sb, t.lexeme);
   while (parser_advance(p).kind == TOKEN_DOT) {
     sb_append(&sb, ".");
@@ -499,7 +550,8 @@ Ast *parse_package(Parser *p) {
 Ast *parse_stmt(Parser *p) {
   // MAYBE should functions be able to be declared in blocks?
   if (parser_peek(p).kind == TOKEN_FUNC) {
-    return parse_function(p);
+    //return parse_function(p);
+    panic("TODO function");
   }
   else if (parser_peek(p).kind == TOKEN_IF) {
     panic("TODO if parsing");
@@ -513,7 +565,7 @@ Ast *parse_stmt(Parser *p) {
   else if (parser_peek(p).kind == TOKEN_RETURN) {
     return parse_return(p);
   }
-  else if (parser_next(p).kind == TOKEN_COLON) {
+  else if (is_variable_decl(p)) {
     debug_log("parser decl\n");
     return parse_variable_decl(p);
   }
@@ -548,6 +600,11 @@ Ast *parse_block(Parser *p) {
 
 Ast *parse_function(Parser *p) {
   debug_log("=====parsing function =====\n");
+  Visibility visibility = parse_visibility(p);
+
+  parser_skip(p, TOKEN_PRIVATE);
+  parser_skip(p, TOKEN_PUBLIC);
+
   if (parser_peek(p).kind != TOKEN_FUNC && parser_peek(p).kind != TOKEN_EXTERN)
     log_span(parser_peek(p).span, "Must start with func\n");
 
@@ -556,6 +613,8 @@ Ast *parse_function(Parser *p) {
   func->kind = AST_FUNC_DECL;
   func->value.function_decl = (FunctionDecl){0};
   func->value.function_decl.parameters = NULL;
+  func->value.function_decl.visibility = visibility;
+  
   // if its extern we have to advance extra
   if (parser_peek(p).kind == TOKEN_EXTERN){
     parser_expect(p, TOKEN_FUNC);
@@ -615,6 +674,7 @@ Ast *parse_struct_decl(Parser *p) {
   return struc;
 }
 
+
 Program *parse_program(Parser *p) {
   Program *program = malloc(sizeof(Program));
   program->functions = NULL;
@@ -628,14 +688,14 @@ Program *parse_program(Parser *p) {
   parser_skip(p, TOKEN_SEMICOLON);
   
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
-    if (parser_peek(p).kind == TOKEN_FUNC || parser_peek(p).kind == TOKEN_EXTERN) {
+    if (is_function_decl(p)) {
       debug_log("parsing funcion\n");      
       arrput(program->functions, parse_function(p)->value.function_decl);
     }
     else if (parser_peek(p).kind == TOKEN_STRUCT) {
      arrput(program->structs, parse_struct_decl(p)->value.struct_decl); 
     }
-    else if (parser_next(p).kind == TOKEN_COLON) {
+    else if (is_variable_decl(p)) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
       Ast *var = parse_variable_decl(p);

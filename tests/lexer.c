@@ -361,6 +361,19 @@ MU_TEST(test_person_program) {
   //mu_check(tokens[i].kind == TOKEN_EOF);
 }
 
+MU_TEST(test_visibility) {
+  Lexer lexer = {0};
+  lexer.bytes = "private public";
+  lexer.bytes_length = strlen(lexer.bytes);
+
+  Token *tokens = NULL;
+  lexer_tokenize(&lexer, &tokens);
+  mu_check(tokens[0].kind == TOKEN_PRIVATE);
+  mu_check(tokens[1].kind == TOKEN_PUBLIC);
+}
+
+
+
 MU_TEST_SUITE(test_suite_lexer) {
 	MU_RUN_TEST(test_a);
 	MU_RUN_TEST(test_string_literal);
@@ -372,4 +385,6 @@ MU_TEST_SUITE(test_suite_lexer) {
   MU_RUN_TEST(test_comments);
   MU_RUN_TEST(test_types);
   MU_RUN_TEST(test_person_program);
+
+  MU_RUN_TEST(test_visibility);
 }
