@@ -7,6 +7,7 @@
 #include <llvm-c/Types.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "./ast.h"
 #include "./utils.h"
@@ -34,8 +35,11 @@ LLVMTypeRef get_llvm_type(LLVMGenerator lg, Ast *node) {
     panic("TODO GET LLVM ARRATYY");
     break;
   default:
-    print_ast(node, 0);
-    panic("TODO NOT AN TYPE");
+    printf("=============\n");
+    printf("%s\n", ast_kind_to_string(node->kind));
+    printf("TODO NOT AN LLVM TYPE\n");
+    printf("==============\n");
+    assert(0);
     break;
   }
   return NULL;
@@ -45,7 +49,7 @@ LLVMValueRef create_function(LLVMGenerator lg, FunctionDecl func) {
   size_t pl = arrlen(func.parameters);
   LLVMTypeRef *params = malloc(sizeof(LLVMTypeRef) * pl);
   for (int i = 0; i < pl; i++) {
-    params[i] = get_llvm_type(lg, func.parameters[i]);
+    params[i] = get_llvm_type(lg, func.parameters[i]->value.variable_decl.type);
   }
   LLVMTypeRef fn_type = LLVMFunctionType(lg.i32, params, pl, 0);
   free(params);
@@ -75,7 +79,7 @@ void gen_package(Package *package) {
 
   LLVMModuleRef module =
     LLVMModuleCreateWithNameInContext(
-                                      "my_module",
+                                      package->package.value,
                                       context
                                      );
 

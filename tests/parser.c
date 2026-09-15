@@ -245,7 +245,7 @@ MU_TEST(test_package) {
   Parser p = {0};
   p.tokens = get_tokens("package main");
 
-  Ast* e = parse_package(&p);
+  Ast* e = parse_package_stmt(&p);
   mu_check(e->kind == AST_PACKAGE);
   mu_check(strcmp(e->value.package_stmt.value, "main") == 0);
 }
@@ -254,7 +254,7 @@ MU_TEST(test_package2) {
   Parser p = {0};
   p.tokens = get_tokens("package foo.bar.bizz");
 
-  Ast* e = parse_package(&p);
+  Ast* e = parse_package_stmt(&p);
   mu_check(e->kind == AST_PACKAGE);
   mu_check(strcmp(e->value.package_stmt.value, "foo.bar.bizz") == 0);
 }
@@ -264,19 +264,19 @@ MU_TEST(test_package_fail) {
   Parser p = {0};
   p.tokens = get_tokens("package 1.2");
 
-  Ast* e = parse_package(&p);
+  Ast* e = parse_package_stmt(&p);
   mu_check(e->kind == AST_INVALID);
 }
 
 
-MU_TEST(test_program) {
+MU_TEST(test_program_package) {
   Parser p = {0};
   p.tokens = get_tokens("package foo.bar.bazz;\nasd :int = 10+10; \n func main(a: int, b: int): float { return 0; }");
 
-  Program* program = parse_program(&p);
-  mu_check(arrlen(program->variables) == 1);
-  mu_check(program->variables[0].left->kind == AST_IDENTIFER);
-  mu_check(arrlen(program->functions) == 1);
+  Package* package = parse_package(&p);
+  mu_check(arrlen(package->variables) == 1);
+  mu_check(package->variables[0].left->kind == AST_IDENTIFER);
+  mu_check(arrlen(package->functions) == 1);
 }
 
 
@@ -453,7 +453,7 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_package2);
   MU_RUN_TEST(test_package_fail);
 
-  MU_RUN_TEST(test_program);
+  MU_RUN_TEST(test_program_package);
 
   MU_RUN_TEST(test_struct);
   MU_RUN_TEST(test_function_decl);

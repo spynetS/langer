@@ -8,6 +8,8 @@
 #include "../include/stb_ds.h"
 #include "utils.h"
 
+
+
 // lexer
 // parser
 // resolver
@@ -28,41 +30,55 @@ void print_package(Package *package) {
 
 }
 
-int main() {
-
-
-  
-  size_t size = 0;
-  char *input = read_file("./main.l", &size);
-
-
-  Lexer lexer = {
-    0,
-    0,
-    "./main.l",
-    0,
-    input,
-    size
-  };
-
-  Token* token = NULL;
-  lexer_tokenize(&lexer, &token);
-
-  
-  Parser p = {0};
-  p.tokens = token;
-  Package* package = parse_package(&p);
-  
-  print_package(package);
-
-  gen_package(package);
-
-
-
-  for (size_t i = 0; i < arrlen(token); i++) {
-    free_token(&token[i]);
+void handle_args(int argc, char** argv, char*** files) {
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0) {
+      printf("Hello world!\n");
+      exit(0);
+    } else {
+      arrput(*files, argv[i]);
+    }
   }
-  arrfree(token);
-  free(input);
+}
+
+int main(int argc, char** argv) {
+
+  char** files = NULL;
+  handle_args(argc, argv, &files);
+
+  for (int i = 0; i < arrlen(files); i++) {
+    size_t size = 0;
+    char *input = read_file(files[i], &size);
+
+
+    Lexer lexer = {
+      0,
+      0,
+      files[i],
+      0,
+      input,
+      size
+    };
+
+    Token* token = NULL;
+    lexer_tokenize(&lexer, &token);
+
+  
+    Parser p = {0};
+    p.tokens = token;
+    Package* package = parse_package(&p);
+  
+    print_package(package);
+
+    gen_package(package);
+
+
+
+    for (size_t i = 0; i < arrlen(token); i++) {
+      free_token(&token[i]);
+    }
+    arrfree(token);
+    free(input);
+  }
   return 0;
 }
