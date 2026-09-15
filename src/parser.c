@@ -146,6 +146,9 @@ void print_ast(Ast *ast, int depth) {
   case AST_BOOL_LITERAL:
     debug_log("Bool (%s)\n", ast->value.bool_expr.value ? "true" : "false");
     break;
+  case AST_CHAR_LITERAL:
+    debug_log("Char (%c)\n", ast->value.char_expr.value);
+    break;
   case AST_STRING_LITERAL:
     debug_log("String (%s)\n", ast->value.string_expr.value);
     break;
@@ -279,6 +282,24 @@ Ast *new_binary_expr(Ast* left, Ast* right, TokenKind operator) {
   return binary;
 }
 
+char decode_char_literal(const char *lexeme)
+{
+    if (lexeme[1] != '\\')
+        return lexeme[1];
+
+    switch (lexeme[2]) {
+        case 'n': return '\n';
+        case 't': return '\t';
+        case 'r': return '\r';
+        case '0': return '\0';
+        case '\\': return '\\';
+        case '\'': return '\'';
+        default:
+            // invalid escape
+            return 0;
+    }
+}
+
 Ast *parse_primary(Parser *p) {
   Ast *ast = malloc(sizeof(Ast));
   Token token = parser_advance(p);
@@ -323,6 +344,14 @@ Ast *parse_primary(Parser *p) {
       token.lexeme
     };
     return ast;
+  case TOKEN_CHAR_LITERAL:
+    debug_log("Primary char %s\n", token.lexeme);
+    ast->kind = AST_CHAR_LITERAL;
+    ast->value.char_expr = (CharExpr){
+      decode_char_literal(token.lexeme)
+    };
+    return ast;
+
   case TOKEN_IDENTIFER:
     debug_log("Primary identifer %s\n", token.lexeme);
     ast->kind = AST_IDENTIFER;

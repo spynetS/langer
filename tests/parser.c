@@ -514,6 +514,20 @@ MU_TEST(test_bool_literal) {
   mu_check(e->value.bool_expr.value == false);
 }
 
+MU_TEST(test_char_literal) {
+  Parser p = {0};
+  p.tokens = get_tokens("'a'");
+
+  Ast* e = parse_expression(&p);
+  mu_check(e->kind == AST_CHAR_LITERAL);
+  //mu_check(e->value.bool_expr.value == true);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("'\n'");
+  e = parse_expression(&p);
+  mu_check(e->kind == AST_CHAR_LITERAL);
+  //  mu_check(e->value.bool_expr.value == false);
+}
 
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
@@ -561,4 +575,5 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_index);
 
   MU_RUN_TEST(test_bool_literal);
+  MU_RUN_TEST(test_char_literal);
 }

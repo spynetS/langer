@@ -3,6 +3,8 @@
 
 #include "lexer.h"
 
+#include <stdint.h>
+
 typedef struct Ast Ast;
 
 typedef enum {
@@ -88,6 +90,10 @@ typedef struct {
 typedef struct {
   char value;
 } ByteExpr;
+
+typedef struct {
+  uint32_t value;
+} CharExpr;
 
 typedef struct {
   const char* value;
@@ -190,6 +196,7 @@ typedef struct Ast {
     IntExpr int_expr;
     FloatExpr float_expr;
     DoubleExpr double_expr;
+    CharExpr char_expr;
     StringExpr string_expr;
     IdentiferExpr identifer_expr;
 

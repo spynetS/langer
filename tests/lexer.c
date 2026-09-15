@@ -88,7 +88,7 @@ MU_TEST(test_numbers) {
 MU_TEST(test_chars) {
 
   Lexer lexer = {0};
-  lexer.bytes = "'a' '1' '!' ' ' '\''";
+  lexer.bytes = "'a' '1' '!' ' ' '\n'";
   lexer.bytes_length = strlen(lexer.bytes);
 
   Token *tokens = NULL;

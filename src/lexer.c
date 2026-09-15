@@ -3,6 +3,7 @@
 #include "../include/stb_ds.h"
 #include "../include/sb.h"
 #include <stdio.h>
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -199,22 +200,75 @@ Token char_token(Lexer *lexer, TokenKind kind) {
   return t;
 }
 
-Token lex_char(Lexer *l) {
-  lexer_advance(l);
-  SourcePos start = lexer_create_pos(l);
-  Token token = {0};
-  token.kind = TOKEN_CHAR_LITERAL;
-  char c = lexer_advance(l);
-  token.lexeme = malloc(sizeof(char)*4);
-  sprintf(token.lexeme, "'%c'", c);
-  token.span = (SourceSpan){start, lexer_create_pos(l)};
+Token lex_char(Lexer *l)
+{
+    SourcePos start = lexer_create_pos(l);
 
-  if (lexer_advance(l) != '\'') {
-    log_span((SourceSpan){lexer_create_pos(l), lexer_create_pos(l)},"error: untermineted char\n");
-    return token_create(l, TOKEN_INVALID);
-  }
+    // consume opening '
+    lexer_advance(l);
 
-  return token;
+    Token token = {0};
+    token.kind = TOKEN_CHAR_LITERAL;
+
+    char c = lexer_advance(l);
+
+    if (c == '\\') {
+        switch (lexer_peek(l)) {
+        case 'n':
+            lexer_advance(l);
+            c = '\n';
+            break;
+
+        case 't':
+            lexer_advance(l);
+            c = '\t';
+            break;
+
+        case 'r':
+            lexer_advance(l);
+            c = '\r';
+            break;
+
+        case '\\':
+            lexer_advance(l);
+            c = '\\';
+            break;
+
+        case '\'':
+            lexer_advance(l);
+            c = '\'';
+            break;
+
+        default:
+            log_span(
+                (SourceSpan){start, lexer_create_pos(l)},
+                "error: invalid character escape\n"
+            );
+            return token_create(l, TOKEN_INVALID);
+        }
+    }
+
+    // Must have closing '
+    if (lexer_peek(l) != '\'') {
+        log_span(
+            (SourceSpan){start, lexer_create_pos(l)},
+            "error: unterminated character literal\n"
+        );
+        return token_create(l, TOKEN_INVALID);
+    }
+
+    // consume closing '
+    lexer_advance(l);
+
+    token.span = (SourceSpan){
+        start,
+        lexer_create_pos(l)
+    };
+
+    token.lexeme = malloc(4);
+    sprintf(token.lexeme, "'%c'", c);
+
+    return token;
 }
 
 Token lex_two(Lexer *lexer, char a, char b, TokenKind kind) {
@@ -267,10 +321,10 @@ Token lex(Lexer *lexer) {
     lex_comment(lexer);
     return lex(lexer);
   }
-  else if (c == '\'')       token = lex_char(lexer);
-  else if (is_char(c)) token = lex_identifer(lexer);
+  else if (c == '\'')     token = lex_char(lexer);
+  else if (is_char(c))  token = lex_identifer(lexer);
   else if (is_digit(c)) token = lex_number_literal(lexer);
-  else if (c == '"')    token = lex_string_literal(lexer);
+  else if (c == '"')      token = lex_string_literal(lexer);
   else {
     switch (c) {
     case '=': token = char_token(lexer, TOKEN_ASSIGN);    break;
