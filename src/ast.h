@@ -202,7 +202,6 @@ typedef struct Ast {
     StringExpr string_expr;
     IdentiferExpr identifer_expr;
 
-    VariableDecl decl_expr;
     AssignExpr assign_expr;
     BinaryExpr binary_expr;
     CallExpr call_expr;
@@ -212,6 +211,7 @@ typedef struct Ast {
     PackageStmt package_stmt;
     BlockStmt block_stmt;
 
+    VariableDecl variable_decl;
     FunctionDecl function_decl;
     StructDecl struct_decl;
 

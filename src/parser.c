@@ -107,17 +107,17 @@ void print_ast(Ast *ast, int depth) {
     break;
   case AST_DECL:
     debug_log("Variable Decl (%s) %s\n",
-              ast->value.decl_expr.type != NULL ?
-              ast_kind_to_string(ast->value.decl_expr.type->kind) :
+              ast->value.variable_decl.type != NULL ?
+              ast_kind_to_string(ast->value.variable_decl.type->kind) :
               "unknown type",
-              ast->value.decl_expr.visibility == VIS_PRIVATE ? "private" : "public"
+              ast->value.variable_decl.visibility == VIS_PRIVATE ? "private" : "public"
              );
-    if(ast->value.decl_expr.type != NULL)
-      print_type(ast->value.decl_expr.type, depth+1);
-    if (ast->value.decl_expr.left != NULL)
-      print_ast(ast->value.decl_expr.left, depth+1);
-    if (ast->value.decl_expr.initlizer != NULL)
-      print_ast(ast->value.decl_expr.initlizer, depth+1);
+    if(ast->value.variable_decl.type != NULL)
+      print_type(ast->value.variable_decl.type, depth+1);
+    if (ast->value.variable_decl.left != NULL)
+      print_ast(ast->value.variable_decl.left, depth+1);
+    if (ast->value.variable_decl.initlizer != NULL)
+      print_ast(ast->value.variable_decl.initlizer, depth+1);
     break;
   case AST_ASSIGN:
     debug_log("Variable Assign\n");
@@ -461,9 +461,9 @@ Ast *parse_variable_decl(Parser *p) {
   Ast *left_ = parse_or(p);
   Ast *left = malloc(sizeof(Ast));
   left->kind = AST_VAR_DECL;
-  left->value.decl_expr = (VariableDecl) {0};
-  left->value.decl_expr.left = left_;
-  left->value.decl_expr.visibility = visibility;
+  left->value.variable_decl = (VariableDecl) {0};
+  left->value.variable_decl.left = left_;
+  left->value.variable_decl.visibility = visibility;
 
   
   if (parser_advance(p).kind != TOKEN_COLON) {
@@ -472,7 +472,7 @@ Ast *parse_variable_decl(Parser *p) {
   // if next isnt equals we should try to parse a type
   if (parser_peek(p).kind != TOKEN_ASSIGN) {
     Ast *type = parse_type(p);
-    left->value.decl_expr.type = type;
+    left->value.variable_decl.type = type;
   }
   // if next is assign we should try to parse initlizer
   if (parser_is(p, TOKEN_ASSIGN) == true) {
@@ -480,7 +480,7 @@ Ast *parse_variable_decl(Parser *p) {
 
     Ast *initlizer = parse_expression(p);
     debug_log("after0\n");
-    left->value.decl_expr.initlizer = initlizer;
+    left->value.variable_decl.initlizer = initlizer;
   }
 
   return left;
@@ -699,7 +699,7 @@ Program *parse_program(Parser *p) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
       Ast *var = parse_variable_decl(p);
-      arrput(program->variables, var->value.decl_expr);
+      arrput(program->variables, var->value.variable_decl);
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing program\n");

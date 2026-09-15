@@ -32,7 +32,7 @@ MU_TEST(test_decl_struct) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.type->kind == AST_TYPE_NAME);
+  mu_check(e->value.variable_decl.type->kind == AST_TYPE_NAME);
 }
 
 MU_TEST(test_decl_struct_ptr) {
@@ -41,18 +41,18 @@ MU_TEST(test_decl_struct_ptr) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.type->kind == AST_TYPE_POINTER);
-  mu_check(e->value.decl_expr.type->value.pointer_type.to->kind == AST_TYPE_NAME);
+  mu_check(e->value.variable_decl.type->kind == AST_TYPE_POINTER);
+  mu_check(e->value.variable_decl.type->value.pointer_type.to->kind == AST_TYPE_NAME);
   p = (Parser){0};
   p.tokens = get_tokens("alfred : ***Person");
 
   e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.type->kind == AST_TYPE_POINTER);
-  mu_check(e->value.decl_expr.type->value.pointer_type.to->kind == AST_TYPE_POINTER);
-  mu_check(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_POINTER);
-  mu_check(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_NAME);
-  mu_check(strcmp(e->value.decl_expr.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->value.named_type.name, "Person") == 0);
+  mu_check(e->value.variable_decl.type->kind == AST_TYPE_POINTER);
+  mu_check(e->value.variable_decl.type->value.pointer_type.to->kind == AST_TYPE_POINTER);
+  mu_check(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_POINTER);
+  mu_check(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_NAME);
+  mu_check(strcmp(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->value.named_type.name, "Person") == 0);
 }
 
 
@@ -64,11 +64,11 @@ MU_TEST(test_assign0) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer != NULL);
-  mu_check(e->value.decl_expr.type != NULL);
-  mu_check(e->value.decl_expr.type->kind == AST_TYPE_I32);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
-  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
+  mu_check(e->value.variable_decl.initlizer != NULL);
+  mu_check(e->value.variable_decl.type != NULL);
+  mu_check(e->value.variable_decl.type->kind == AST_TYPE_I32);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.variable_decl.initlizer->value.int_expr.value == 67);
 }
 
 MU_TEST(test_assign1) {
@@ -77,9 +77,9 @@ MU_TEST(test_assign1) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer != NULL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_INTEGER_LITERAL);
-  mu_check(e->value.decl_expr.initlizer->value.int_expr.value == 67);
+  mu_check(e->value.variable_decl.initlizer != NULL);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_INTEGER_LITERAL);
+  mu_check(e->value.variable_decl.initlizer->value.int_expr.value == 67);
 }
 
 MU_TEST(test_assign_expr) {
@@ -88,8 +88,8 @@ MU_TEST(test_assign_expr) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer != NULL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_BINARY);
+  mu_check(e->value.variable_decl.initlizer != NULL);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_BINARY);
 }
 
 MU_TEST(test_assign_expr2) {
@@ -98,10 +98,10 @@ MU_TEST(test_assign_expr2) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer != NULL);
-  mu_check(e->value.decl_expr.type != NULL);
-  mu_check(e->value.decl_expr.type->kind == AST_TYPE_I32);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_BINARY);
+  mu_check(e->value.variable_decl.initlizer != NULL);
+  mu_check(e->value.variable_decl.type != NULL);
+  mu_check(e->value.variable_decl.type->kind == AST_TYPE_I32);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_BINARY);
 }
 
 
@@ -111,8 +111,8 @@ MU_TEST(test_assign2) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_FLOAT_LITERAL);
-  mu_check((int)e->value.decl_expr.initlizer->value.float_expr.value*100 == (int)67.69*100);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_FLOAT_LITERAL);
+  mu_check((int)e->value.variable_decl.initlizer->value.float_expr.value*100 == (int)67.69*100);
 }
 
 
@@ -122,8 +122,8 @@ MU_TEST(test_assignidentifer) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_IDENTIFER);
-  mu_check(strcmp(e->value.decl_expr.initlizer->value.identifer_expr.value, "alfred2") == 0);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_IDENTIFER);
+  mu_check(strcmp(e->value.variable_decl.initlizer->value.identifer_expr.value, "alfred2") == 0);
 }
 
 MU_TEST(test_assignstring) {
@@ -132,8 +132,8 @@ MU_TEST(test_assignstring) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.initlizer->kind == AST_STRING_LITERAL);
-  mu_check(strcmp(e->value.decl_expr.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
+  mu_check(e->value.variable_decl.initlizer->kind == AST_STRING_LITERAL);
+  mu_check(strcmp(e->value.variable_decl.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
 }
 
 MU_TEST(test_plus) {
@@ -291,12 +291,12 @@ MU_TEST(test_struct) {
 
   mu_check(arrlen(struc->value.struct_decl.members) == 2);
   mu_check(struc->value.struct_decl.members[0]->kind = AST_VAR_DECL);
-  mu_check(struc->value.struct_decl.members[0]->value.decl_expr.left->kind = AST_IDENTIFER);
-  mu_check(strcmp(struc->value.struct_decl.members[0]->value.decl_expr.left->value.identifer_expr.value, "a") == 0);
+  mu_check(struc->value.struct_decl.members[0]->value.variable_decl.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[0]->value.variable_decl.left->value.identifer_expr.value, "a") == 0);
 
   mu_check(struc->value.struct_decl.members[1]->kind = AST_VAR_DECL);
-  mu_check(struc->value.struct_decl.members[1]->value.decl_expr.left->kind = AST_IDENTIFER);
-  mu_check(strcmp(struc->value.struct_decl.members[1]->value.decl_expr.left->value.identifer_expr.value, "b") == 0);
+  mu_check(struc->value.struct_decl.members[1]->value.variable_decl.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[1]->value.variable_decl.left->value.identifer_expr.value, "b") == 0);
 }
 
 MU_TEST(test_function_decl) {
@@ -365,19 +365,19 @@ MU_TEST(test_visibility_decl) {
 
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.visibility == VIS_PRIVATE);
+  mu_check(e->value.variable_decl.visibility == VIS_PRIVATE);
 
   p = (Parser){0};
   p.tokens = get_tokens("private alfred : int");
   e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.visibility == VIS_PRIVATE);
+  mu_check(e->value.variable_decl.visibility == VIS_PRIVATE);
 
   p = (Parser){0};
   p.tokens = get_tokens("public alfred : int");
   e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
-  mu_check(e->value.decl_expr.visibility == VIS_PUBLIC);
+  mu_check(e->value.variable_decl.visibility == VIS_PUBLIC);
 
   p = (Parser){0};
   p.tokens = get_tokens("func main(): int");
