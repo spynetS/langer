@@ -414,7 +414,7 @@ Ast *parse_variable_decl(Parser *p) {
   Ast *left_ = parse_or(p);
   Ast *left = malloc(sizeof(Ast));
   left->kind = AST_DECL;
-  left->value.decl_expr = (DeclExpr) {0};
+  left->value.decl_expr = (VariableDecl) {0};
   left->value.decl_expr.left = left_;
   
 

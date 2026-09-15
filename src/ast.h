@@ -159,7 +159,7 @@ typedef struct {
   Ast *initlizer;
   Ast *type;
   Visibility visibility;
-} DeclExpr;
+} VariableDecl;
 
 
 typedef struct {
@@ -184,7 +184,7 @@ typedef struct {
 
 typedef struct {
   PackageStmt package;
-  DeclExpr* variables;
+  VariableDecl* variables;
   FunctionDecl* functions;
   StructDecl* structs;
 } Program;
@@ -202,7 +202,7 @@ typedef struct Ast {
     StringExpr string_expr;
     IdentiferExpr identifer_expr;
 
-    DeclExpr decl_expr;
+    VariableDecl decl_expr;
     AssignExpr assign_expr;
     BinaryExpr binary_expr;
     CallExpr call_expr;
