@@ -387,6 +387,7 @@ MU_TEST(test_visibility_decl) {
 
   p = (Parser){0};
   p.tokens = get_tokens("private func main(): int");
+  p.pos++;
   e = parse_function(&p);
   mu_check(e->kind == AST_FUNC_DECL);
   mu_check(e->value.function_decl.visibility == VIS_PRIVATE);
@@ -400,6 +401,27 @@ MU_TEST(test_visibility_decl) {
   e = parse_function(&p);
   mu_check(e->kind == AST_FUNC_DECL);
   mu_check(e->value.function_decl.visibility == VIS_PUBLIC);
+
+
+  p = (Parser){0};
+  p.tokens = get_tokens("struct Person {}");
+  e = parse_struct_decl(&p);
+  mu_check(e->kind == AST_STRUCT_DECL);
+  mu_check(e->value.struct_decl.visibility == VIS_PRIVATE);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("private struct Person {}");
+  p.pos++;
+  e = parse_struct_decl(&p);
+  mu_check(e->kind == AST_STRUCT_DECL);
+  mu_check(e->value.struct_decl.visibility == VIS_PRIVATE);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("public struct Person {}");
+  p.pos++;
+  e = parse_struct_decl(&p);
+  mu_check(e->kind == AST_STRUCT_DECL);
+  mu_check(e->value.struct_decl.visibility == VIS_PUBLIC);
 }
 
 

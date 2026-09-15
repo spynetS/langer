@@ -181,6 +181,19 @@ bool is_function_decl(Parser* p) {
   return false;
 }
 
+bool is_struct_decl(Parser* p) {
+  if (parser_peek(p).kind == TOKEN_STRUCT) return true;
+
+  if (parser_peek(p).kind == TOKEN_PRIVATE ||
+      parser_peek(p).kind == TOKEN_PUBLIC) {
+    p->pos ++;
+    if (is_struct_decl(p)) return true;
+    p->pos --;
+  }
+  return false;
+}
+
+
 bool parser_is(Parser *p, TokenKind kind) {
   //print_token(parser_peek(p));
   if (parser_peek(p).kind == kind) {
@@ -653,6 +666,9 @@ Ast *parse_function(Parser *p) {
 }
 
 Ast *parse_struct_decl(Parser *p) {
+
+  Visibility visibility = parse_visibility(p);
+
   parser_expect(p, TOKEN_STRUCT);
   Token identifer = parser_expect(p, TOKEN_IDENTIFER);
   parser_expect(p, TOKEN_LCBRACK);
@@ -662,6 +678,8 @@ Ast *parse_struct_decl(Parser *p) {
   struc->value.struct_decl = (StructDecl){0};
   struc->value.struct_decl.name = identifer.lexeme;
   struc->value.struct_decl.members = NULL;
+  struc->value.struct_decl.visibility = visibility;
+
   
   while (parser_peek(p).kind != TOKEN_RCBRACK) {
     Ast* var = parse_variable_decl(p);
@@ -692,7 +710,7 @@ Program *parse_program(Parser *p) {
       debug_log("parsing funcion\n");      
       arrput(program->functions, parse_function(p)->value.function_decl);
     }
-    else if (parser_peek(p).kind == TOKEN_STRUCT) {
+    else if (is_struct_decl(p)) {
      arrput(program->structs, parse_struct_decl(p)->value.struct_decl); 
     }
     else if (is_variable_decl(p)) {
