@@ -82,8 +82,11 @@ void ast_print_type(Ast *ast, int depth) {
 }
 
 void print_ast(Ast *ast, int depth) {
-  if (ast == NULL) return;
   print_depth(depth);
+  if (ast == NULL) {
+    printf("<NULL>\n");
+    return;
+  }
   switch (ast->kind) {
   case AST_INDEX:
     debug_log("Index\n");
@@ -178,6 +181,11 @@ void print_ast(Ast *ast, int depth) {
     for (int i = 0; i < depth+1; i ++) debug_log(" ");
     debug_log("%s\n", token_kind_to_string(ast->value.binary_expr.operator));
     print_ast(ast->value.binary_expr.right, depth+1);
+    break;
+  case AST_CAST:
+    debug_log("Cast\n");
+    print_ast(ast->value.cast_expr.expression, depth+1);
+    print_type(ast->value.cast_expr.cast_type, depth+1);
     break;
   default:
     debug_log("\n");
@@ -372,7 +380,15 @@ Ast *parse_primary(Parser *p) {
       token.lexeme
     };
     return ast;
+  case TOKEN_LPAR: // casting
+    debug_log("Primary casting %s\n", token.lexeme);
+    ast->kind = AST_CAST;
+    ast->value.cast_expr.cast_type = parse_type(p);
+    parser_skip(p, TOKEN_RPAR);
+    
+    ast->value.cast_expr.expression = parse_or(p);
 
+    return ast;
   default:
     debug_log("Primary error\n");
     log_span(token.span, "Primary error\n");

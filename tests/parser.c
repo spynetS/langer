@@ -608,6 +608,25 @@ MU_TEST(test_conditions) {
 
 }
 
+
+MU_TEST(test_cast) {
+  Parser p = {0};
+  p.tokens = get_tokens("(f32)x");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_CAST);
+  mu_check(e->value.cast_expr.expression->kind == AST_IDENTIFER);
+  mu_check(e->value.cast_expr.cast_type->kind == AST_TYPE_F32);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("(f32)1+1");
+  e = parse_stmt(&p);
+  mu_check(e->kind == AST_CAST);
+  mu_check(e->value.cast_expr.expression->kind == AST_BINARY);
+  mu_check(e->value.cast_expr.cast_type->kind == AST_TYPE_F32);
+}
+
+
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
   MU_RUN_TEST(test_decl_struct);
@@ -646,6 +665,7 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_call);
   MU_RUN_TEST(test_member_access);
   MU_RUN_TEST(test_member_access2);
+  MU_RUN_TEST(test_cast);
 
   MU_RUN_TEST(test_visibility_decl);
 

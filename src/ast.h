@@ -102,6 +102,12 @@ typedef struct {
 } CharExpr;
 
 typedef struct {
+  Ast *expression;
+  Ast *cast_type;
+} CastExpr;
+
+
+typedef struct {
   String value;
 } StringExpr;
 
@@ -221,6 +227,7 @@ typedef struct Ast {
     MemberAccessExpr member_expr;
     UnaryExpr unary_expr;
     IndexExpr index_expr;
+    CastExpr cast_expr;
 
     ReturnStmt return_stmt;
     PackageStmt package_stmt;
