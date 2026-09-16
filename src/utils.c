@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "symbol_table.h"
 #include "ast.h"
 #include <stdio.h>
 #include <assert.h>
@@ -142,6 +143,39 @@ const char *ast_kind_to_string(AstKind kind)
 
         default:
             return "UNKNOWN";
+    }
+}
+
+const char *type_kind_name(TypeKind kind)
+{
+    switch (kind) {
+        case TYPE_VOID:  return "void";
+        case TYPE_BOOL:  return "bool";
+        case TYPE_BYTE:  return "byte";
+        case TYPE_I16:   return "i16";
+        case TYPE_I32:   return "i32";
+        case TYPE_I64:   return "i64";
+        case TYPE_F32:   return "f32";
+        case TYPE_F64:   return "f64";
+
+        case TYPE_POINTER:  return "pointer";
+        case TYPE_ARRAY:    return "array";
+        case TYPE_FUNCTION: return "function";
+        case TYPE_STRUCT:   return "struct";
+
+        default: return "unknown";
+    }
+}
+
+const char *symbol_kind_name(SymbolKind kind)
+{
+    switch (kind) {
+        case SYMBOL_VARIABLE:  return "variable";
+        case SYMBOL_FUNCTION:  return "function";
+        case SYMBOL_TYPE:      return "type";
+        case SYMBOL_PARAMETER: return "parameter";
+        case SYMBOL_FIELD:     return "field";
+        default:               return "unknown";
     }
 }
 

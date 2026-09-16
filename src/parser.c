@@ -55,12 +55,12 @@ void print_func_decl(FunctionDecl decl, int depth) {
 
 }
 
-void print_type(Ast *ast, int depth) {
+void ast_print_type(Ast *ast, int depth) {
   print_depth(depth);
   switch (ast->kind) {
   case AST_TYPE_POINTER:
     debug_log("*");
-    print_type(ast->value.pointer_type.to, 0);
+    ast_print_type(ast->value.pointer_type.to, 0);
     break;
   case AST_TYPE_NAME:
     debug_log("%s\n", ast->value.named_type.name);
@@ -129,7 +129,7 @@ void print_ast(Ast *ast, int depth) {
               ast->value.variable_decl.visibility == VIS_PRIVATE ? "private" : "public"
              );
     if(ast->value.variable_decl.type != NULL)
-      print_type(ast->value.variable_decl.type, depth+1);
+      ast_print_type(ast->value.variable_decl.type, depth+1);
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
     if (ast->value.variable_decl.initlizer != NULL)

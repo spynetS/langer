@@ -76,4 +76,6 @@ Ast *parse_variable_decl(Parser *p);
   
 Package *parse_package(Parser *p);
 
+void print_type(Ast *ast, int depth);
+
 #endif
