@@ -10,17 +10,22 @@
 typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION,
+    SYMBOL_BLOCK,
     SYMBOL_TYPE,
     SYMBOL_PARAMETER,
     SYMBOL_FIELD,
 } SymbolKind;
 
+typedef struct symbol_table SymbolTable;
 
 typedef struct {
   SymbolKind kind;
   const char *key;
   Type *type;
   Ast *node;
+  Visibility visibility;
+
+  SymbolTable *scope;
 } Symbol;
 
 // can be seen as the scope
@@ -30,11 +35,14 @@ typedef struct symbol_table {
   
 } SymbolTable; 
 
-Symbol *symbol_define(SymbolTable *table, Ast *node, const char* key);
-
+Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
 
-void print_symbol(Symbol *sym);
+SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
+SymbolTable *symbol_table_package(SymbolTable *root, Package *package);
 
 
+void print_symbol(Symbol *sym, int depth);
+void print_symbol_table(SymbolTable *scope, int depth);
+  
 #endif

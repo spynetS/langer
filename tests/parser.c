@@ -275,9 +275,9 @@ MU_TEST(test_program_package) {
   p.tokens = get_tokens("package foo.bar.bazz;\nasd :int = 10+10; \n func main(a: int, b: int): float { return 0; }");
 
   Package* package = parse_package(&p);
-  mu_check(arrlen(package->variables) == 1);
-  mu_check(package->variables[0].left->kind == AST_IDENTIFER);
-  mu_check(arrlen(package->functions) == 1);
+  mu_check(arrlen(package->declarations) == 2);
+  mu_check(package->declarations[0]->value.variable_decl.left->kind == AST_IDENTIFER);
+  mu_check(arrlen(package->declarations) == 2);
 }
 
 

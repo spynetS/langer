@@ -185,7 +185,7 @@ void print_ast(Ast *ast, int depth) {
   case AST_CAST:
     debug_log("Cast\n");
     print_ast(ast->value.cast_expr.expression, depth+1);
-    print_type(ast->value.cast_expr.cast_type, depth+1);
+    ast_print_type(ast->value.cast_expr.cast_type, depth+1);
     break;
   default:
     debug_log("\n");
@@ -863,9 +863,7 @@ Ast *parse_struct_decl(Parser *p) {
 
 Package *parse_package(Parser *p) {
   Package *package = malloc(sizeof(Package));
-  package->functions = NULL;
-  package->structs = NULL;
-  package->variables = NULL;
+  package->declarations = NULL;
 
 
   Ast *package_stmt = parse_package_stmt(p);
@@ -876,16 +874,15 @@ Package *parse_package(Parser *p) {
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
     if (is_function_decl(p)) {
       debug_log("parsing funcion\n");      
-      arrput(package->functions, parse_function(p)->value.function_decl);
+      arrput(package->declarations, parse_function(p));
     }
     else if (is_struct_decl(p)) {
-     arrput(package->structs, parse_struct_decl(p)->value.struct_decl); 
+     arrput(package->declarations, parse_struct_decl(p)); 
     }
     else if (is_variable_decl(p)) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
-      Ast *var = parse_variable_decl(p);
-      arrput(package->variables, var->value.variable_decl);
+      arrput(package->declarations, parse_variable_decl(p));
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing package\n");

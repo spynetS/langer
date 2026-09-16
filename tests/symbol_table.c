@@ -1,5 +1,6 @@
 #include "minunit.h"
 #include "../src/lexer.h"
+#include "../src/utils.h"
 #include "../src/parser.h"
 #include "../src/symbol_table.h"
 
@@ -9,11 +10,10 @@
 
 MU_TEST(test_symbol1) {
 
-  char *val = "func main(): int";
-
   Lexer lexer = {0};
-  lexer.bytes = (char*)val;
-  lexer.bytes_length = strlen(lexer.bytes);
+  size_t size = 0;
+  lexer.bytes = read_file("./tests/program.l", &size);
+  lexer.bytes_length = size;
 
   Token *tokens = NULL;
   lexer_tokenize(&lexer, &tokens);
@@ -22,12 +22,11 @@ MU_TEST(test_symbol1) {
   Parser p = {0};
   p.tokens = tokens;
 
-  Ast* ast = parse_function(&p);
-  print_ast(ast, 0);
+  Package *package = parse_package(&p);
 
-  SymbolTable root;
-  Symbol *sym = symbol_define(&root, ast, ast->value.function_decl.name);
-  print_symbol(sym);
+  SymbolTable root = {0};
+  symbol_table_package(&root, package);
+
 
   mu_check(1);
 }

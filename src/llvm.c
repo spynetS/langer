@@ -100,9 +100,9 @@ void gen_package(Package *package) {
   lg.builder = builder;
 
 
-  for(int i = 0; i < arrlen(package->functions); i ++ ){
-    create_function(lg, package->functions[i]);
-  }
+  /* for(int i = 0; i < arrlen(package->functions); i ++ ){ */
+  /*   create_function(lg, package->functions[i]); */
+  /* } */
 
   char *ir =
     LLVMPrintModuleToString(module);

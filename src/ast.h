@@ -200,9 +200,7 @@ typedef struct {
 
 typedef struct {
   PackageStmt package;
-  VariableDecl* variables;
-  FunctionDecl* functions;
-  StructDecl* structs;
+  Ast **declarations;
 } Package;
 
 
