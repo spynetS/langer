@@ -180,6 +180,13 @@ typedef struct {
 } BlockStmt;
 
 typedef struct {
+  Ast* condition;
+  Ast* body;
+  Ast* else_if_stmt;
+  Ast* else_body;
+} IfStmt;
+
+typedef struct {
   PackageStmt package;
   VariableDecl* variables;
   FunctionDecl* functions;
@@ -210,6 +217,7 @@ typedef struct Ast {
     ReturnStmt return_stmt;
     PackageStmt package_stmt;
     BlockStmt block_stmt;
+    IfStmt if_stmt;
 
     VariableDecl variable_decl;
     FunctionDecl function_decl;

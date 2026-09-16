@@ -547,6 +547,67 @@ MU_TEST(test_char_literal) {
   //  mu_check(e->value.bool_expr.value == false);
 }
 
+MU_TEST(test_if) {
+  Parser p = {0};
+  p.tokens = get_tokens("if 1 == 2 {\n}");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_IF);
+  mu_check(e->value.if_stmt.condition->kind == AST_BINARY);
+  mu_check(e->value.if_stmt.condition->value.binary_expr.operator == TOKEN_EQUAL);
+  mu_check(e->value.if_stmt.body != NULL);
+  mu_check(e->value.if_stmt.body->kind == AST_BLOCK);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("if true && false {\n}");
+  e = parse_stmt(&p);
+  mu_check(e->kind == AST_IF);
+  mu_check(e->value.if_stmt.condition->kind == AST_BINARY);
+  mu_check(e->value.if_stmt.condition->value.binary_expr.operator == TOKEN_AND);
+  mu_check(e->value.if_stmt.condition->value.binary_expr.left->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.if_stmt.condition->value.binary_expr.right->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.if_stmt.body != NULL);
+  mu_check(e->value.if_stmt.body->kind == AST_BLOCK);
+
+
+  p = (Parser){0};
+  p.tokens = get_tokens("if true || false {\n} \n else if true {\n} else {\n}");
+  e = parse_stmt(&p);
+  mu_check(e->kind == AST_IF);
+  mu_check(e->value.if_stmt.else_if_stmt->kind == AST_IF);
+  mu_check(e->value.if_stmt.condition->value.binary_expr.operator == TOKEN_OR);
+  mu_check(e->value.if_stmt.else_if_stmt->value.if_stmt.condition->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.if_stmt.body->kind == AST_BLOCK);
+  
+  mu_check(e->value.if_stmt.else_body == NULL);
+  mu_check(e->value.if_stmt.else_if_stmt->value.if_stmt.else_body != NULL);
+  mu_check(e->value.if_stmt.else_if_stmt->value.if_stmt.else_body->kind == AST_BLOCK);
+}
+
+MU_TEST(test_conditions) {
+  Parser p = {0};
+  p.tokens = get_tokens("true || false");
+
+  Ast* e = parse_stmt(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.left->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.binary_expr.right->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.binary_expr.operator == TOKEN_OR);
+  /* mu_check(e->value.if_stmt.condition->kind == AST_BINARY); */
+  /* mu_check(e->value.if_stmt.condition->value.binary_expr.operator == TOKEN_EQUAL); */
+  /* mu_check(e->value.if_stmt.body != NULL); */
+  /* mu_check(e->value.if_stmt.body->kind == AST_BLOCK); */
+
+  p = (Parser){0};
+  p.tokens = get_tokens("true && false");
+  e = parse_stmt(&p);
+  mu_check(e->kind == AST_BINARY);
+  mu_check(e->value.binary_expr.left->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.binary_expr.right->kind == AST_BOOL_LITERAL);
+  mu_check(e->value.binary_expr.operator == TOKEN_AND);
+
+}
+
 MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_decl);
   MU_RUN_TEST(test_decl_struct);
@@ -594,4 +655,6 @@ MU_TEST_SUITE(test_suite_parser) {
 
   MU_RUN_TEST(test_bool_literal);
   MU_RUN_TEST(test_char_literal);
+
+  MU_RUN_TEST(test_if);
 }

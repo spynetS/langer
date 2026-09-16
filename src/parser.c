@@ -162,12 +162,23 @@ void print_ast(Ast *ast, int depth) {
     debug_log("Return\n");
     print_ast(ast->value.return_stmt.value, depth+1);
     break;
+  case AST_IF:
+    debug_log("If\n");
+    print_ast(ast->value.if_stmt.condition, depth+1);
+    if (ast->value.if_stmt.body != NULL)
+      print_ast(ast->value.if_stmt.body, depth+1);
+    if (ast->value.if_stmt.else_if_stmt != NULL)
+      print_ast(ast->value.if_stmt.else_if_stmt, depth+1);
+    if (ast->value.if_stmt.else_body != NULL)
+      print_ast(ast->value.if_stmt.else_body, depth+1);
+    break;
   case AST_BINARY:
     debug_log("Binary\n");
     print_ast(ast->value.binary_expr.left, depth+1);
     for (int i = 0; i < depth+1; i ++) debug_log(" ");
     debug_log("%s\n", token_kind_to_string(ast->value.binary_expr.operator));
     print_ast(ast->value.binary_expr.right, depth+1);
+    break;
   default:
     debug_log("\n");
     break;
@@ -503,6 +514,7 @@ Ast *parse_condition(Parser *p) {
   if (token.kind == TOKEN_LESS  || token.kind == TOKEN_GREATER ||
       token.kind == TOKEN_EQUAL || token.kind == TOKEN_LE      ||
       token.kind == TOKEN_GE    || token.kind == TOKEN_NOTEQUAL) {
+    parser_advance(p);
     Ast* right = parse_expression(p);
     left = new_binary_expr(left, right, token.kind);
   }
@@ -518,7 +530,8 @@ Ast *parse_and(Parser *p) {
       break;
     }
 
-    debug_log("Found or operator\n");
+    debug_log("Found and operator\n");
+    parser_advance(p);
     parser_advance(p);
 
     Ast *right = parse_term(p);
@@ -654,20 +667,63 @@ Ast *parse_package_stmt(Parser *p) {
   return package;
 }
 
+Ast *parse_if_stmt(Parser *p) {
+  parser_is(p, TOKEN_IF);
+      
+  Ast *condition = parse_or(p);
+  print_ast(condition, 0);
+
+  Ast* block = parse_stmt(p);
+  // MAYBE not only block?
+  assert(block != NULL);
+
+  Ast *if_stmt = malloc(sizeof(Ast));
+  if_stmt->kind = AST_IF;
+  if_stmt->value.if_stmt = (IfStmt) {0};
+  if_stmt->value.if_stmt.else_if_stmt = NULL;
+  if_stmt->value.if_stmt.else_body = NULL;
+
+  if (parser_peek(p).kind == TOKEN_ELSE) {
+    parser_advance(p); // remove else
+
+    if (parser_peek(p).kind == TOKEN_IF) {
+      debug_log("else if\n");
+      Ast *else_if = parse_if_stmt(p);
+      print_ast(else_if, 0);
+      if_stmt->value.if_stmt.else_if_stmt = else_if;
+    } else {
+      Ast *else_body = parse_stmt(p);
+      if_stmt->value.if_stmt.else_body = else_body;
+    }
+  }
+
+  if_stmt->value.if_stmt.condition = condition;
+  if_stmt->value.if_stmt.body = block;
+
+  return if_stmt;
+}
+
 Ast *parse_stmt(Parser *p) {
   // MAYBE should functions be able to be declared in blocks?
   if (parser_peek(p).kind == TOKEN_FUNC) {
     //return parse_function(p);
-    panic("TODO function");
+    printf("TODO function\n");
+    assert(0);
+  }
+  else if (parser_peek(p).kind == TOKEN_LCBRACK) {
+    //return parse_function(p);
+    return parse_block(p);
   }
   else if (parser_peek(p).kind == TOKEN_IF) {
-    panic("TODO if parsing");
+    return parse_if_stmt(p);
   }
   else if (parser_peek(p).kind == TOKEN_FOR) {
-    panic("TODO for parsing");
+    printf("TODO for parsing\n");
+    assert(0);
   }
   else if (parser_peek(p).kind == TOKEN_WHILE) {
-    panic("TODO while parsing");
+    printf("TODO while parsing\n");
+    assert(0);
   }
   else if (parser_peek(p).kind == TOKEN_RETURN) {
     return parse_return(p);
