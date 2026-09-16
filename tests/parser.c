@@ -134,7 +134,7 @@ MU_TEST(test_assignstring) {
   Ast* e = parse_stmt(&p);
   mu_check(e->kind == AST_VAR_DECL);
   mu_check(e->value.variable_decl.initlizer->kind == AST_STRING_LITERAL);
-  mu_check(strcmp(e->value.variable_decl.initlizer->value.string_expr.value, "\"Alfred\"") == 0);
+  mu_check(strcmp(e->value.variable_decl.initlizer->value.string_expr.value.data, "\"Alfred\"") == 0);
 }
 
 MU_TEST(test_plus) {

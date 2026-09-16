@@ -72,6 +72,11 @@ typedef enum {
 } AstKind;
 
 typedef struct {
+  char *data;
+  size_t length;
+} String;
+
+typedef struct {
   int value;
 } IntExpr;
 
@@ -96,7 +101,7 @@ typedef struct {
 } CharExpr;
 
 typedef struct {
-  const char* value;
+  String value;
 } StringExpr;
 
 typedef struct {

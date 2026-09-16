@@ -351,9 +351,11 @@ Ast *parse_primary(Parser *p) {
   case TOKEN_STRING_LITERAL:
     debug_log("Primary string literal %s\n", token.lexeme);
     ast->kind = AST_STRING_LITERAL;
-    ast->value.string_expr = (StringExpr){
-      token.lexeme
+    ast->value.string_expr.value = (String){
+      token.lexeme,
+      strlen(token.lexeme)
     };
+      
     return ast;
   case TOKEN_CHAR_LITERAL:
     debug_log("Primary char %s\n", token.lexeme);
