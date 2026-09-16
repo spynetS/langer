@@ -23,6 +23,9 @@ void print_package(Package *package) {
   }
   for(int i = 0; i < arrlen(package->structs); i ++) {
     debug_log("struct %s\n", package->structs[i].name, 0);
+    for (int j = 0; j < arrlen(package->structs->members); j ++) {
+      print_ast(package->structs->members[j], 1);
+    }
   }
   for(int i = 0; i < arrlen(package->functions); i ++) {
     print_func_decl(package->functions[i], 0);

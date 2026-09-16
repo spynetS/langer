@@ -298,6 +298,24 @@ MU_TEST(test_struct) {
   mu_check(struc->value.struct_decl.members[1]->kind = AST_VAR_DECL);
   mu_check(struc->value.struct_decl.members[1]->value.variable_decl.left->kind = AST_IDENTIFER);
   mu_check(strcmp(struc->value.struct_decl.members[1]->value.variable_decl.left->value.identifer_expr.value, "b") == 0);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("struct Foo {\nprivate a:int;\npublic b:int\n}");
+
+  struc = parse_struct_decl(&p);
+  mu_check(struc->kind == AST_STRUCT_DECL);
+  mu_check(struc->value.struct_decl.name != NULL);
+  mu_check(strcmp(struc->value.struct_decl.name, "Foo") == 0);
+
+  mu_check(arrlen(struc->value.struct_decl.members) == 2);
+  mu_check(struc->value.struct_decl.members[0]->kind = AST_VAR_DECL);
+  mu_check(struc->value.struct_decl.members[0]->value.variable_decl.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[0]->value.variable_decl.left->value.identifer_expr.value, "a") == 0);
+
+  mu_check(struc->value.struct_decl.members[1]->kind = AST_VAR_DECL);
+  mu_check(struc->value.struct_decl.members[1]->value.variable_decl.left->kind = AST_IDENTIFER);
+  mu_check(strcmp(struc->value.struct_decl.members[1]->value.variable_decl.left->value.identifer_expr.value, "b") == 0);
+
 }
 
 MU_TEST(test_function_decl) {

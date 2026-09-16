@@ -560,6 +560,10 @@ Visibility parse_visibility(Parser *p) {
 }
 
 Ast *parse_variable_decl(Parser *p) {
+
+  parser_skip(p, TOKEN_PRIVATE);
+  parser_skip(p, TOKEN_PUBLIC);
+
   Visibility visibility = parse_visibility(p);
   Ast *left_ = parse_or(p);
   Ast *left = malloc(sizeof(Ast));
