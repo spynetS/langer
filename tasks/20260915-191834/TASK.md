@@ -1,6 +1,6 @@
 # if
 
-- STATUS: closed
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: in-progress
 
