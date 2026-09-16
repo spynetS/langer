@@ -4,17 +4,21 @@ CFLAGS = -Wall -pedantic $(shell llvm-config --cflags)
 LDFLAGS = $(shell llvm-config --ldflags)
 LIBS = $(shell llvm-config --libs)
 
+COMPILER_FILES = $(wildcard ./src/*.c)
+INCLUDE_FILES = $(wildcard ./include/*.c)
+
 run: langer
 	./langer
 
-langer: ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c ./src/llvm.c
-	$(CC) $(CFLAGS) ./src/main.c ./src/lexer.c ./src/utils.c ./include/sb.c ./src/parser.c ./src/llvm.c  -o langer $(LDFLAGS) $(LIBS)
+langer: $(COMPILER_FILES) ./src/main.c
+	$(CC) $(CFLAGS) $(COMPILER_FILES) $(INCLUDE_FILES) -o langer $(LDFLAGS) $(LIBS)
 
 test:
-	$(CC) -DSILENT -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./include/sb.c -o test &&./test
+	$(CC) -DSILENT -lrt -lm ./tests/tests.c $(filter-out ./src/main.c, $(COMPILER_FILES)) $(INCLUDE_FILES) -o test $(LDFLAGS) $(LIBS) &&./test
 
-verbose:
-	$(CC) -lrt -lm ./tests/tests.c ./src/parser.c ./src/lexer.c ./src/utils.c ./include/sb.c -o test &&./test
+verbose: 
+	$(CC) -lrt -lm ./tests/tests.c $(filter-out ./src/main.c, $(COMPILER_FILES)) $(INCLUDE_FILES) -o test $(LDFLAGS) $(LIBS) &&./test
+
 
 
 # install: langer
