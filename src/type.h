@@ -20,6 +20,8 @@ typedef enum {
   TYPE_FUNCTION,
 
   TYPE_STRUCT,
+  
+  TYPE_STRING,
 } TypeKind;
 
 
@@ -45,7 +47,8 @@ struct Type {
 
     struct {
       const char *name;
-    } NamedType;
+      // TODO add members here
+    } Struct;
   };
 };
 

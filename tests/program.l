@@ -4,15 +4,15 @@ public struct Person {
 	private a : int
 }
 
-public alfred : int = 10;
+public alfred : Person;
 
 public func main(a : int):void {
-
+	
 	a : Person = (Person)malloc(100);
 
 	return 0;
 }
 
-public func main2(): void {
-	stefan := "Stefan";
-}
+// // public func main2(): void {
+// // 	stefan := "Stefan";
+// // }

@@ -163,6 +163,8 @@ const char *type_kind_name(TypeKind kind)
         case TYPE_FUNCTION: return "function";
         case TYPE_STRUCT:   return "struct";
 
+        case TYPE_STRING:   return "string";
+
         default: return "unknown";
     }
 }

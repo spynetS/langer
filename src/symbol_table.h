@@ -3,6 +3,7 @@
 
 #include "type.h"
 #include "ast.h"
+#include "type_resolver.h"
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -10,6 +11,7 @@
 typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION,
+    SYMBOL_PACKAGE,
     SYMBOL_BLOCK,
     SYMBOL_TYPE,
     SYMBOL_PARAMETER,
@@ -41,6 +43,7 @@ Symbol *symbol_lookup(SymbolTable *table, const char *key);
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
 SymbolTable *symbol_table_package(SymbolTable *root, Package *package);
 
+void symbol_table_resolve_types(struct type_resolver *resolver, SymbolTable *table);
 
 void print_symbol(Symbol *sym, int depth);
 void print_symbol_table(SymbolTable *scope, int depth);

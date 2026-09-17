@@ -27,6 +27,11 @@ MU_TEST(test_symbol1) {
   SymbolTable root = {0};
   symbol_table_package(&root, package);
 
+  TypeResolver resolver = {0};
+  resolver.scope = &root;
+  symbol_table_resolve_types(&resolver, &root);
+  print_symbol_table(&root, 0);
+
   mu_check(1);
 }
 

@@ -2,32 +2,18 @@
 #include "../include/stb_ds.h"
 #include "ast.h"
 #include "utils.h"
+#include "type_resolver.h"
 #include <assert.h>
 #include <string.h>
 
 void print_depth(int depth);
 
-Type *symbol_get_type(AstKind kind) {
-  Type *type = malloc(sizeof(Type));
-  switch(kind) {
-  case AST_VAR_DECL:
-    type->kind = TYPE_I16;
-  case AST_TYPE_I32:
-    type->kind = TYPE_I32;
-  case AST_TYPE_I64:
-    type->kind = TYPE_I64;
-  case AST_TYPE_F32:
-    type->kind = TYPE_F32;
-  case AST_TYPE_F64:
-    type->kind = TYPE_F64;
-  }
-  return NULL;
-}
 
 Symbol *symbol_create(Ast *node) {
   Symbol *ns = malloc(sizeof(Symbol));
   ns->node = node;
-
+  ns->type = NULL;
+  
   switch (node->kind) {
   case AST_VAR_DECL:
     ns->kind = SYMBOL_VARIABLE;
@@ -47,6 +33,7 @@ Symbol *symbol_create(Ast *node) {
   case AST_STRUCT_DECL:
     ns->key = strdup(node->value.struct_decl.name);
     ns->visibility = node->value.struct_decl.visibility;
+    break;
   case AST_ENUM_DECL:
   case AST_UNION_DECL:
     ns->kind = SYMBOL_TYPE;
@@ -68,8 +55,8 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
   Symbol *sym = symbol_create(node);
   if (sym == NULL) return NULL;
 
+  // add scope to the ast nodes that have it
   SymbolTable *table;
-  
   switch (node->kind) {
   case AST_BLOCK:
     table = symbol_table_block(root, &node->value.block_stmt);
@@ -89,6 +76,19 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
   return sym;
 }
 
+Symbol *symbol_lookup(SymbolTable *table, const char *key) {
+  for(int i = 0; i < arrlen(table->symbols); i ++) {
+    Symbol *sym = table->symbols[i];
+    if (strcmp(sym->key, key) == 0 ){
+      return sym;
+    }
+  }
+  if (table->parent != NULL) {
+    return symbol_lookup(table->parent, key);
+  }
+
+  return NULL;
+}
 
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt) {
   SymbolTable *table = malloc(sizeof(SymbolTable));
@@ -109,57 +109,84 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
   for (int i = 0; i < arrlen(package->declarations); i++) {
     Symbol *sym = symbol_define(table, package->declarations[i]);
   }
-  print_symbol_table(table, 0);
+  Symbol *sym = malloc(sizeof(Symbol));
+  sym->scope = table;
+  sym->kind = SYMBOL_PACKAGE;
+  sym->key = strdup(package->package.value);
+
+  arrput(root->symbols, sym);
   return table;
 }
 
 
 
+void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
+  for(int i = 0; i < arrlen(table->symbols); i ++) {
+    Symbol *sym = table->symbols[i];
+    if (sym->node != NULL) {
+      Ast* node = sym->node;
+      Type *type = get_type(resolver, node);
+      assert(type != NULL);
+      sym->type = type;
+    } else {
+      sym->type = NULL;
+    }
+
+    if(sym->scope != NULL) {
+      // FIXME MAYBE  reset the scope when done?
+      resolver->scope = sym->scope;
+      symbol_table_resolve_types(resolver, sym->scope);
+    }
+
+
+  }
+}
+
 void print_symbol(Symbol *sym, int depth)
 {
-    if (!sym) {
-        printf("<null symbol>\n");
-        return;
-    }
-    print_depth(depth);
-    printf("Symbol {\n");
-    print_depth(depth);
-    printf("  visi: %s\n", sym->visibility == VIS_PRIVATE ? "private" : "public");
-    print_depth(depth);
-    printf("  name: %s\n", sym->key);
-    print_depth(depth);
-    printf("  kind: %s\n", symbol_kind_name(sym->kind));
-    print_depth(depth);
-    printf("  type: ");
-    if (sym->type)
-      printf("%s: ",type_kind_name(sym->type->kind));
-    else
-      printf("<none>");
-    printf("\n");
-    if (sym->scope) {
-      print_depth(depth + 1);
-      printf(" scope:\n");
-      print_symbol_table(sym->scope, depth + 3);
-    }
-    printf("\n");
-    print_depth(depth);
-    printf("}\n");
+  if (!sym) {
+    printf("<null symbol>\n");
+    return;
+  }
+  print_depth(depth);
+  printf("Symbol {\n");
+  print_depth(depth);
+  printf("  visi: %s\n", sym->visibility == VIS_PRIVATE ? "private" : "public");
+  print_depth(depth);
+  printf("  name: %s\n", sym->key);
+  print_depth(depth);
+  printf("  kind: %s\n", symbol_kind_name(sym->kind));
+  print_depth(depth);
+  printf("  type: ");
+  if (sym->type != NULL){
+    printf("%s: ",type_kind_name(sym->type->kind));
+  }
+  else
+    printf("<none>");
+  printf("\n");
+  if (sym->scope) {
+    print_depth(depth + 1);
+    printf(" scope:\n");
+    print_symbol_table(sym->scope, depth + 3);
+  }
+  printf("\n");
+  print_depth(depth);
+  printf("}\n");
 }
 
 void print_symbol_table(SymbolTable *scope, int depth)
 {
-    if (scope == NULL)
-        return;
+  if (scope == NULL)
+    return;
 
-    print_depth(depth);
-    printf("SymbolTable {\n");
+  print_depth(depth);
+  printf("SymbolTable {\n");
 
-    for (size_t i = 0; i < arrlen(scope->symbols); i++) {
-        Symbol *sym = scope->symbols[i];
+  for (size_t i = 0; i < arrlen(scope->symbols); i++) {
+    Symbol *sym = scope->symbols[i];
+    print_symbol(sym, depth + 1);
+  }
 
-        print_symbol(sym, depth + 1);
-    }
-
-    print_depth(depth);
-    printf("}\n");
+  print_depth(depth);
+  printf("}\n");
 }
