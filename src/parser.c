@@ -260,6 +260,9 @@ Ast *parse_type(Parser *p) {
   case TOKEN_I32:
     ast->kind = AST_TYPE_I32;
     break;
+  case TOKEN_I64:
+    ast->kind = AST_TYPE_I64;
+    break;
   case TOKEN_F32:
     ast->kind = AST_TYPE_F32;
     break;
@@ -268,6 +271,9 @@ Ast *parse_type(Parser *p) {
     break;
   case TOKEN_VOID:
     ast->kind = AST_TYPE_VOID;
+    break;
+  case TOKEN_BOOL:
+    ast->kind = AST_TYPE_BOOL;
     break;
   case TOKEN_IDENTIFER:
     ast->kind = AST_TYPE_NAME;

@@ -137,6 +137,75 @@ MU_TEST(test_assignstring) {
   mu_check(strcmp(e->value.variable_decl.initlizer->value.string_expr.value.data, "\"Alfred\"") == 0);
 }
 
+MU_TEST(test_parse_types) {
+  Parser p = {0};
+  p.tokens = get_tokens("char");
+
+  Ast* e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_BYTE);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("byte");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_BYTE);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("byte");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_BYTE);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("i16");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_I16);
+  
+  p = (Parser){0};
+  p.tokens = get_tokens("i32");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_I32);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("int");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_I32);
+  
+  p = (Parser){0};
+  p.tokens = get_tokens("i64");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_I64);
+  
+  p = (Parser){0};
+  p.tokens = get_tokens("f32");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_F32);
+  
+  p = (Parser){0};
+  p.tokens = get_tokens("f64");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_F64);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("double");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_F64);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("void");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_VOID);
+
+  p = (Parser){0};
+  p.tokens = get_tokens("bool");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_BOOL);
+
+
+  p = (Parser){0};
+  p.tokens = get_tokens("Person");
+  e = parse_type(&p);
+  mu_check(e->kind == AST_TYPE_NAME);
+}
+
 MU_TEST(test_plus) {
   Parser p = {0};
   p.tokens = get_tokens("1+1");
@@ -638,6 +707,7 @@ MU_TEST_SUITE(test_suite_parser) {
   MU_RUN_TEST(test_assign2);
   MU_RUN_TEST(test_assignidentifer);
   MU_RUN_TEST(test_assignstring);
+  MU_RUN_TEST(test_parse_types);
 
   MU_RUN_TEST(test_plus);
   MU_RUN_TEST(test_minus);

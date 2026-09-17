@@ -56,6 +56,8 @@ Token parser_skip(Parser *, TokenKind);
 // if it is it will advance the parser
 bool parser_is(Parser*, TokenKind);
 
+Ast *parse_type(Parser*);
+
 Ast *parse_primary(Parser*);
 Ast *parse_postfix(Parser*);
 Ast *parse_term(Parser*);
