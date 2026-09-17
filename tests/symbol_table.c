@@ -27,7 +27,6 @@ MU_TEST(test_symbol1) {
   SymbolTable root = {0};
   symbol_table_package(&root, package);
 
-
   mu_check(1);
 }
 

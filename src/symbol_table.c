@@ -2,27 +2,37 @@
 #include "../include/stb_ds.h"
 #include "ast.h"
 #include "utils.h"
-#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 void print_depth(int depth);
 
-Type *symbol_get_type(Ast *node) {
-  printf("TODO FIX SYMBOL GET TYPE IN SYMBOL TABLE\n");
+Type *symbol_get_type(AstKind kind) {
+  Type *type = malloc(sizeof(Type));
+  switch(kind) {
+  case AST_VAR_DECL:
+    type->kind = TYPE_I16;
+  case AST_TYPE_I32:
+    type->kind = TYPE_I32;
+  case AST_TYPE_I64:
+    type->kind = TYPE_I64;
+  case AST_TYPE_F32:
+    type->kind = TYPE_F32;
+  case AST_TYPE_F64:
+    type->kind = TYPE_F64;
+  }
   return NULL;
 }
 
 Symbol *symbol_create(Ast *node) {
   Symbol *ns = malloc(sizeof(Symbol));
   ns->node = node;
-  ns->type = symbol_get_type(node);
-
 
   switch (node->kind) {
   case AST_VAR_DECL:
     ns->kind = SYMBOL_VARIABLE;
     ns->key =
-        strdup(node->value.variable_decl.left->value.identifer_expr.value);
+      strdup(node->value.variable_decl.left->value.identifer_expr.value);
     ns->visibility = node->value.variable_decl.visibility;
     break;
   case AST_FUNC_DECL:
