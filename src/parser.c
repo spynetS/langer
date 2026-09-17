@@ -89,7 +89,18 @@ void print_ast(Ast *ast, int depth) {
     printf("<NULL>\n");
     return;
   }
+
+  if (ast->type != NULL)
+    debug_log("<%s> ", type_kind_name(ast->type->kind));
+
   switch (ast->kind) {
+  case AST_STRUCT_DECL:
+    debug_log("Struct\n");
+    for (int i = 0; i < arrlen(ast->value.struct_decl.members); i++) {
+      print_ast(ast->value.struct_decl.members[i], depth+1);
+    }
+    break;
+
   case AST_INDEX:
     debug_log("Index\n");
     print_ast(ast->value.index_expr.left, depth+1);

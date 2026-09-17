@@ -128,24 +128,28 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
 
 
 void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
+  assert(table != NULL);
+  assert(table->symbols != NULL);
+  printf("entering scope\n");
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     Symbol *sym = table->symbols[i];
+
     if (sym->node != NULL) {
       Ast* node = sym->node;
+      printf("-------\n");
+      print_ast(node, 0);
+      printf("-------\n");
       Type *type = get_type(resolver, node);
       assert(type != NULL);
       sym->type = type;
     } else {
       sym->type = NULL;
     }
-
-    if(sym->scope != NULL) {
+    if (sym->scope != NULL) {
       // FIXME MAYBE  reset the scope when done?
       resolver->scope = sym->scope;
       symbol_table_resolve_types(resolver, sym->scope);
     }
-
-
   }
 }
 
