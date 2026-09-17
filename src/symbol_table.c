@@ -46,7 +46,7 @@ Symbol *symbol_create(Ast *node) {
     return NULL;
     break;
   }
-  printf("CREATED A NEW SYMBOL %s\n", ast_kind_to_string(node->kind));
+  debug_log("CREATED A NEW SYMBOL %s\n", ast_kind_to_string(node->kind));
   return ns;
 }
 
@@ -65,6 +65,13 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
     break;
   case AST_FUNC_DECL:
     table = symbol_table_block(root, &node->value.function_decl.body->value.block_stmt);
+
+    for (int i = 0; i < arrlen(node->value.function_decl.parameters); i++) {
+      Symbol *sym = symbol_create(node->value.function_decl.parameters[i]);
+      sym->kind = SYMBOL_PARAMETER;
+      arrins(table->symbols, 0, sym);
+    }
+
     table->parent = root;
     sym->scope = table;
     break;

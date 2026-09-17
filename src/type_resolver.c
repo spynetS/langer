@@ -1,4 +1,5 @@
 #include "type_resolver.h"
+#include "ast.h"
 #include "utils.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -15,7 +16,12 @@ Type *new_type(TypeKind kind) {
 Type *resolve_type(TypeResolver *resolver, Ast* atype) {
   Type *type = malloc(sizeof(Type));
   switch(atype->kind) {
-  case AST_VAR_DECL:
+  case AST_TYPE_POINTER:
+    type->kind = TYPE_POINTER;
+    type->Pointer.base = resolve_type(resolver, atype->value.pointer_type.to);
+    break;
+
+  case AST_TYPE_I16:
     type->kind = TYPE_I16;
     break;
   case AST_TYPE_I32:
@@ -64,15 +70,16 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   FunctionDecl decl = node->value.function_decl;
 
-  Type *type = new_type(TYPE_FUNCTION);
-  type->Function.return_type = resolve_type(resolver, decl.return_type);
-  type->Function.parameters = NULL;
+  Type *ftype = new_type(TYPE_FUNCTION);
+  ftype->Function.return_type = resolve_type(resolver, decl.return_type);
+  ftype->Function.parameters = NULL;
+
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
     Type *type = get_type(resolver, decl.parameters[i]);
-    arrput(type->Function.parameters, type);
+    arrput(ftype->Function.parameters, type);
   }
-  
-  return type;
+
+  return ftype;
 }
 
 Type *get_type(TypeResolver *resolver, Ast *node) {

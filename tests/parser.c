@@ -393,7 +393,7 @@ MU_TEST(test_function_decl) {
 
   Ast* e = parse_function(&p);
   mu_check(e->kind == AST_FUNC_DECL);
-    mu_check(e->value.function_decl.body == NULL);
+  mu_check(e->value.function_decl.body == NULL);
 }
 
 MU_TEST(test_function) {

@@ -4,9 +4,9 @@
 #include "./symbol_table.c"
 
 int main(int argc, char *argv[]) {
-	/* MU_RUN_SUITE(test_suite_lexer); */
-	/* MU_RUN_SUITE(test_suite_parser); */
-	MU_RUN_SUITE(test_suite_symbol_table);
+	MU_RUN_SUITE(test_suite_lexer);
+	MU_RUN_SUITE(test_suite_parser);
+  MU_RUN_SUITE(test_suite_symbol_table);
 	MU_REPORT();
 	return MU_EXIT_CODE;
 }

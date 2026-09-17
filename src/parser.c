@@ -4,11 +4,13 @@
 #include "ast.h"
 #include "lexer.h"
 #include "utils.h"
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
 
+#define MAX_WHILE_LOOP 10000
 
 Token parser_advance(Parser *p) {
   if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
@@ -771,13 +773,23 @@ Ast *parse_block(Parser *p) {
   block->value.block_stmt = (BlockStmt){0};
   block->value.block_stmt.stmts = NULL;
 
-  
+
   // parse statements
+  int count = 0;
   while(parser_peek(p).kind != TOKEN_RCBRACK) {
     debug_log("parse stmt in block\n");
     Ast *stmt = parse_stmt(p);
+    if (stmt == NULL) {
+      // TODO error
+      printf("error: expected stmt");
+      break;
+    }
     parser_skip(p, TOKEN_SEMICOLON);
     arrput(block->value.block_stmt.stmts, stmt);
+    if (count++ > MAX_WHILE_LOOP) {
+      log_span(parser_peek(p).span, "error: block has to be closed with }\n");
+      break;
+    }
   }
 
   parser_expect(p, TOKEN_RCBRACK);

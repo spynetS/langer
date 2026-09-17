@@ -34,8 +34,9 @@ typedef struct {
 typedef struct symbol_table {
   struct symbol_table *parent;
   Symbol **symbols; //stb dynamic array
-  
 } SymbolTable; 
+
+
 
 Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
