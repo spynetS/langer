@@ -129,7 +129,7 @@ void print_symbol(Symbol *sym, int depth)
     if (sym->scope) {
       print_depth(depth + 1);
       printf(" scope:\n");
-      print_symbol_table(sym->scope, depth + 2);
+      print_symbol_table(sym->scope, depth + 3);
     }
     printf("\n");
     print_depth(depth);

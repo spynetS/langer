@@ -13,3 +13,6 @@ public func main(a : int):void {
 	return 0;
 }
 
+public func main2(): void {
+	stefan := "Stefan";
+}

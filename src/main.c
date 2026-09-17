@@ -18,17 +18,21 @@
 
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);
-  for(int i = 0; i < arrlen(package->variables); i ++) {
-    debug_log("Variable %s\n", package->variables[i].left->value.identifer_expr, 0);
-  }
-  for(int i = 0; i < arrlen(package->structs); i ++) {
-    debug_log("struct %s\n", package->structs[i].name, 0);
-    for (int j = 0; j < arrlen(package->structs->members); j ++) {
-      print_ast(package->structs->members[j], 1);
-    }
-  }
-  for(int i = 0; i < arrlen(package->functions); i ++) {
-    print_func_decl(package->functions[i], 0);
+  /* for(int i = 0; i < arrlen(package->variables); i ++) { */
+  /*   debug_log("Variable %s\n", package->variables[i].left->value.identifer_expr, 0); */
+  /* } */
+  /* for(int i = 0; i < arrlen(package->structs); i ++) { */
+  /*   debug_log("struct %s\n", package->structs[i].name, 0); */
+  /*   for (int j = 0; j < arrlen(package->structs->members); j ++) { */
+  /*     print_ast(package->structs->members[j], 1); */
+  /*   } */
+  /* } */
+  /* for(int i = 0; i < arrlen(package->functions); i ++) { */
+  /*   print_func_decl(package->functions[i], 0); */
+  /* } */
+
+  for(int i = 0; i < arrlen(package->declarations); i ++) {
+    print_ast(package->declarations[i], 0);
   }
 
 }
