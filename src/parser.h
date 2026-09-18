@@ -56,6 +56,8 @@ Token parser_skip(Parser *, TokenKind);
 // if it is it will advance the parser
 bool parser_is(Parser*, TokenKind);
 
+Ast *parse_type(Parser*);
+
 Ast *parse_primary(Parser*);
 Ast *parse_postfix(Parser*);
 Ast *parse_term(Parser*);
@@ -75,5 +77,7 @@ Ast *parse_package_stmt(Parser *p);
 Ast *parse_variable_decl(Parser *p);
   
 Package *parse_package(Parser *p);
+
+void print_type(Ast *ast, int depth);
 
 #endif

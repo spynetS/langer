@@ -4,6 +4,8 @@
 #include "lexer.h"
 #include "parser.h"
 #include "llvm.h"
+#include "symbol_table.h"
+#include "type_resolver.h"
 #define STB_DS_IMPLEMENTATION
 #include "../include/stb_ds.h"
 #include "utils.h"
@@ -18,19 +20,9 @@
 
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);
-  for(int i = 0; i < arrlen(package->variables); i ++) {
-    debug_log("Variable %s\n", package->variables[i].left->value.identifer_expr, 0);
+  for(int i = 0; i < arrlen(package->declarations); i ++) {
+    print_ast(package->declarations[i], 0);
   }
-  for(int i = 0; i < arrlen(package->structs); i ++) {
-    debug_log("struct %s\n", package->structs[i].name, 0);
-    for (int j = 0; j < arrlen(package->structs->members); j ++) {
-      print_ast(package->structs->members[j], 1);
-    }
-  }
-  for(int i = 0; i < arrlen(package->functions); i ++) {
-    print_func_decl(package->functions[i], 0);
-  }
-
 }
 
 void handle_args(int argc, char** argv, char*** files) {
@@ -48,6 +40,8 @@ int main(int argc, char** argv) {
 
   char** files = NULL;
   handle_args(argc, argv, &files);
+
+  SymbolTable root = {0};
 
   for (int i = 0; i < arrlen(files); i++) {
     size_t size = 0;
@@ -73,6 +67,15 @@ int main(int argc, char** argv) {
   
     print_package(package);
 
+    symbol_table_package(&root, package);
+    printf("====================\n");
+    TypeResolver resolver = {0};
+    resolver.scope = &root;
+    symbol_table_resolve_types(&resolver, &root);
+    printf("==========\n");
+    print_symbol_table(&root, 0);
+    printf("==========\n");
+    print_package(package);
     gen_package(package);
 
 

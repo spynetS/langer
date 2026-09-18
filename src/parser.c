@@ -4,11 +4,13 @@
 #include "ast.h"
 #include "lexer.h"
 #include "utils.h"
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
 
+#define MAX_WHILE_LOOP 10000
 
 Token parser_advance(Parser *p) {
   if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
@@ -55,12 +57,12 @@ void print_func_decl(FunctionDecl decl, int depth) {
 
 }
 
-void print_type(Ast *ast, int depth) {
+void ast_print_type(Ast *ast, int depth) {
   print_depth(depth);
   switch (ast->kind) {
   case AST_TYPE_POINTER:
     debug_log("*");
-    print_type(ast->value.pointer_type.to, 0);
+    ast_print_type(ast->value.pointer_type.to, 0);
     break;
   case AST_TYPE_NAME:
     debug_log("%s\n", ast->value.named_type.name);
@@ -87,7 +89,18 @@ void print_ast(Ast *ast, int depth) {
     printf("<NULL>\n");
     return;
   }
+
+  if (ast->type != NULL)
+    debug_log("<%s> ", type_kind_name(ast->type->kind));
+
   switch (ast->kind) {
+  case AST_STRUCT_DECL:
+    debug_log("Struct\n");
+    for (int i = 0; i < arrlen(ast->value.struct_decl.members); i++) {
+      print_ast(ast->value.struct_decl.members[i], depth+1);
+    }
+    break;
+
   case AST_INDEX:
     debug_log("Index\n");
     print_ast(ast->value.index_expr.left, depth+1);
@@ -132,7 +145,7 @@ void print_ast(Ast *ast, int depth) {
               ast->value.variable_decl.visibility == VIS_PRIVATE ? "private" : "public"
              );
     if(ast->value.variable_decl.type != NULL)
-      print_type(ast->value.variable_decl.type, depth+1);
+      ast_print_type(ast->value.variable_decl.type, depth+1);
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
     if (ast->value.variable_decl.initlizer != NULL)
@@ -185,7 +198,7 @@ void print_ast(Ast *ast, int depth) {
   case AST_CAST:
     debug_log("Cast\n");
     print_ast(ast->value.cast_expr.expression, depth+1);
-    print_type(ast->value.cast_expr.cast_type, depth+1);
+    ast_print_type(ast->value.cast_expr.cast_type, depth+1);
     break;
   default:
     debug_log("\n");
@@ -260,6 +273,9 @@ Ast *parse_type(Parser *p) {
   case TOKEN_I32:
     ast->kind = AST_TYPE_I32;
     break;
+  case TOKEN_I64:
+    ast->kind = AST_TYPE_I64;
+    break;
   case TOKEN_F32:
     ast->kind = AST_TYPE_F32;
     break;
@@ -268,6 +284,9 @@ Ast *parse_type(Parser *p) {
     break;
   case TOKEN_VOID:
     ast->kind = AST_TYPE_VOID;
+    break;
+  case TOKEN_BOOL:
+    ast->kind = AST_TYPE_BOOL;
     break;
   case TOKEN_IDENTIFER:
     ast->kind = AST_TYPE_NAME;
@@ -765,13 +784,23 @@ Ast *parse_block(Parser *p) {
   block->value.block_stmt = (BlockStmt){0};
   block->value.block_stmt.stmts = NULL;
 
-  
+
   // parse statements
+  int count = 0;
   while(parser_peek(p).kind != TOKEN_RCBRACK) {
     debug_log("parse stmt in block\n");
     Ast *stmt = parse_stmt(p);
+    if (stmt == NULL) {
+      // TODO error
+      printf("error: expected stmt");
+      break;
+    }
     parser_skip(p, TOKEN_SEMICOLON);
     arrput(block->value.block_stmt.stmts, stmt);
+    if (count++ > MAX_WHILE_LOOP) {
+      log_span(parser_peek(p).span, "error: block has to be closed with }\n");
+      break;
+    }
   }
 
   parser_expect(p, TOKEN_RCBRACK);
@@ -863,9 +892,7 @@ Ast *parse_struct_decl(Parser *p) {
 
 Package *parse_package(Parser *p) {
   Package *package = malloc(sizeof(Package));
-  package->functions = NULL;
-  package->structs = NULL;
-  package->variables = NULL;
+  package->declarations = NULL;
 
 
   Ast *package_stmt = parse_package_stmt(p);
@@ -876,16 +903,15 @@ Package *parse_package(Parser *p) {
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
     if (is_function_decl(p)) {
       debug_log("parsing funcion\n");      
-      arrput(package->functions, parse_function(p)->value.function_decl);
+      arrput(package->declarations, parse_function(p));
     }
     else if (is_struct_decl(p)) {
-     arrput(package->structs, parse_struct_decl(p)->value.struct_decl); 
+     arrput(package->declarations, parse_struct_decl(p)); 
     }
     else if (is_variable_decl(p)) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
-      Ast *var = parse_variable_decl(p);
-      arrput(package->variables, var->value.variable_decl);
+      arrput(package->declarations, parse_variable_decl(p));
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing package\n");

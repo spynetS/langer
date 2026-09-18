@@ -1,6 +1,6 @@
 package std.fmt;
 
-extern func printf(fmt: string, str: string, age: int): void
+func printf(fmt: string, str: string, age: int): void
 
 func print(str: string):void {
 	printf("%s\n", str, 0)
