@@ -150,7 +150,7 @@ typedef struct lexer {
   size_t bytes_length;
 } Lexer;
 
-
+SourceSpan span_combine(SourceSpan a, SourceSpan b);
 
 char lexer_skip_whitespace(Lexer *l);
 char lexer_peek(Lexer *l);

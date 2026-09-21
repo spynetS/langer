@@ -259,9 +259,9 @@ bool parser_is(Parser *p, TokenKind kind) {
 }
 
 Ast *parse_type(Parser *p) {
-  Ast *ast = new_ast(AST_INVALID);
-
   Token next = parser_advance(p);
+  Ast *ast = new_ast(AST_INVALID, next.span);
+  
   print_token(next);
   switch (next.kind) {
   case TOKEN_BYTE:
@@ -312,16 +312,17 @@ Token parser_skip(Parser *p, TokenKind kind) {
   return parser_peek(p);
 }
 
-Ast *new_ast(AstKind kind) {
+Ast *new_ast(AstKind kind, SourceSpan span) {
   Ast *ast = malloc(sizeof(Ast));
   ast->type = NULL;
   ast->kind = kind;
+  ast->span = span;
   return ast;
 }
 
 
 Ast *new_binary_expr(Ast* left, Ast* right, TokenKind operator) {
-  Ast *binary = new_ast(AST_BINARY);
+  Ast *binary = new_ast(AST_BINARY, span_combine(left->span, right->span));
   binary->value.binary_expr = (BinaryExpr){left, right, operator};
   return binary;
 }
@@ -346,8 +347,8 @@ char decode_char_literal(const char *lexeme)
 }
 
 Ast *parse_primary(Parser *p) {
-  Ast *ast = new_ast(0);
   Token token = parser_advance(p);
+  Ast *ast = new_ast(0, token.span);
   debug_log("primary -- ");
   print_token(token);
   
@@ -435,7 +436,7 @@ Ast *parse_postfix(Parser *p) {
       parser_advance(p);
       Token id = parser_expect(p, TOKEN_IDENTIFER);
       Ast *left_ = left;
-      left = new_ast(AST_MEMBER);
+      left = new_ast(AST_MEMBER, id.span);
 
       left->value.member_expr = (MemberAccessExpr){0};
       left->value.member_expr.left = left_;
@@ -443,9 +444,9 @@ Ast *parse_postfix(Parser *p) {
       parser_skip(p, TOKEN_SEMICOLON);
     } else if (token.kind == TOKEN_LPAR) {
       // CALL
-      parser_advance(p);
+      Token t = parser_advance(p);
       Ast *left_ = left;
-      left = new_ast(AST_CALL);
+      left = new_ast(AST_CALL, t.span);
       left->value.call_expr = (CallExpr){0};
       left->value.call_expr.left = left_;
 
@@ -464,10 +465,10 @@ Ast *parse_postfix(Parser *p) {
       parser_advance(p);
       Ast *index = parse_additive(p);
 
-      parser_expect(p, TOKEN_RBRACK);
+      Token rb = parser_expect(p, TOKEN_RBRACK);
 
       Ast* left_ = left;
-      left = new_ast(AST_INDEX);
+      left = new_ast(AST_INDEX, span_combine(token.span, rb.span));
       left->value.index_expr.left = left_;
       left->value.index_expr.index = index;
 
@@ -479,8 +480,9 @@ Ast *parse_postfix(Parser *p) {
   return left;
 }
 
-Ast *new_unary_expr(Ast *operand, TokenKind operator) {
-  Ast *unary = new_ast(AST_UNARY);
+Ast *new_unary_expr(Ast *operand, TokenKind operator, SourceSpan span) {
+  // FIXME BETTER SPAN
+  Ast *unary = new_ast(AST_UNARY, span);
   unary->value.unary_expr = (UnaryExpr){0};
   unary->value.unary_expr.operator = operator;
   unary->value.unary_expr.operand = operand;
@@ -488,16 +490,17 @@ Ast *new_unary_expr(Ast *operand, TokenKind operator) {
 }
 
 Ast *parse_unary(Parser *p) {
+  Token bef = parser_peek(p);
   if (parser_is(p, TOKEN_MINUS)) {
     Ast *operand = parse_unary(p);
-    return new_unary_expr(operand, TOKEN_MINUS);
+    return new_unary_expr(operand, TOKEN_MINUS, span_combine(bef.span, operand->span));
   }
   if (parser_is(p, TOKEN_AMPER)) {
     print_token(parser_peek(p));
-    return new_unary_expr(parse_unary(p), TOKEN_AMPER);
+    return new_unary_expr(parse_unary(p), TOKEN_AMPER, span_combine(bef.span, parser_peek(p).span));
   }
   if (parser_is(p, TOKEN_STAR)) {
-    return new_unary_expr(parse_unary(p), TOKEN_STAR);
+    return new_unary_expr(parse_unary(p), TOKEN_STAR, span_combine(bef.span, parser_peek(p).span));
   }
 
   return parse_postfix(p);
@@ -619,7 +622,8 @@ Ast *parse_variable_decl(Parser *p) {
 
   Visibility visibility = parse_visibility(p);
   Ast *left_ = parse_or(p);
-  Ast *left = new_ast(AST_VAR_DECL);
+  // TEMPORARY SPAN
+  Ast *left = new_ast(AST_VAR_DECL, left_->span);
   left->value.variable_decl = (VariableDecl) {0};
   left->value.variable_decl.left = left_;
   left->value.variable_decl.visibility = visibility;
@@ -641,7 +645,8 @@ Ast *parse_variable_decl(Parser *p) {
     debug_log("after0\n");
     left->value.variable_decl.initlizer = initlizer;
   }
-
+  // FIXME is it right to peek span?
+  left->span = span_combine(left_->span, parser_peek(p).span);
   return left;
 }
 
@@ -649,13 +654,16 @@ Ast *parse_assignment(Parser* p) {
   Ast* left = parse_or(p);
   if (parser_is(p, TOKEN_ASSIGN)) {
     Ast *left_ = left;
-    left = new_ast(AST_ASSIGN);
+    left = new_ast(AST_ASSIGN, left_->span);
     left->kind = AST_ASSIGN;
     left->value.assign_expr = (AssignExpr) {
       left_,
       parse_or(p)
     };
   }
+  // FIXME is itt right to peek span?
+  left->span = span_combine(left->span, parser_peek(p).span);
+
   return left;
 }
 
@@ -674,17 +682,19 @@ Ast *parse_return(Parser *p) {
   if (!parser_is(p, TOKEN_RETURN))
     panic("TODO parse_return error");
 
-  Ast* ret = new_ast(AST_RETURN);
+  Ast* ret = new_ast(AST_RETURN, parser_peek(p).span);
   ret->value.return_stmt = (ReturnStmt){0};
 
   ret->value.return_stmt.value = parse_expression(p);
+
+  ret->span = span_combine(ret->span, parser_peek(p).span);
 
   return ret;
 }
 
 Ast *parse_package_stmt(Parser *p) {
-  parser_expect(p, TOKEN_PACKAGE);
-  Ast *package = new_ast(AST_PACKAGE);
+  Token pt = parser_expect(p, TOKEN_PACKAGE);
+  Ast *package = new_ast(AST_PACKAGE, pt.span);
   
   StringBuilder sb = {0};
   Token t = parser_expect(p, TOKEN_IDENTIFER);
@@ -699,13 +709,15 @@ Ast *parse_package_stmt(Parser *p) {
     if (t.kind == TOKEN_INVALID) package->kind = AST_INVALID;
     
   }
-
   package->value.package_stmt.value = sb_concat(&sb);
+
+  package->span = span_combine(package->span, parser_peek(p).span);
+
   return package;
 }
 
 Ast *parse_if_stmt(Parser *p) {
-  parser_is(p, TOKEN_IF);
+  Token ift = parser_expect(p, TOKEN_IF);
       
   Ast *condition = parse_or(p);
   print_ast(condition, 0);
@@ -714,7 +726,8 @@ Ast *parse_if_stmt(Parser *p) {
   // MAYBE not only block?
   assert(block != NULL);
 
-  Ast *if_stmt = new_ast(AST_IF);
+  // TODO fix better span
+  Ast *if_stmt = new_ast(AST_IF, ift.span);
   if_stmt->value.if_stmt = (IfStmt) {0};
   if_stmt->value.if_stmt.else_if_stmt = NULL;
   if_stmt->value.if_stmt.else_body = NULL;
@@ -778,7 +791,7 @@ Ast *parse_stmt(Parser *p) {
 Ast *parse_block(Parser *p) {
   parser_expect(p, TOKEN_LCBRACK);
 
-  Ast *block = new_ast(AST_BLOCK);
+  Ast *block = new_ast(AST_BLOCK, parser_peek(p).span);
   block->value.block_stmt = (BlockStmt){0};
   block->value.block_stmt.stmts = NULL;
 
@@ -817,7 +830,7 @@ Ast *parse_function(Parser *p) {
     log_span(parser_peek(p).span, "Must start with func\n");
 
   
-  Ast* func = new_ast(AST_FUNC_DECL);
+  Ast* func = new_ast(AST_FUNC_DECL, parser_peek(p).span);
   func->value.function_decl = (FunctionDecl){0};
   func->value.function_decl.parameters = NULL;
   func->value.function_decl.visibility = visibility;
@@ -863,11 +876,11 @@ Ast *parse_struct_decl(Parser *p) {
 
   Visibility visibility = parse_visibility(p);
 
-  parser_expect(p, TOKEN_STRUCT);
+  Token st = parser_expect(p, TOKEN_STRUCT);
   Token identifer = parser_expect(p, TOKEN_IDENTIFER);
   parser_expect(p, TOKEN_LCBRACK);
 
-  Ast *struc = new_ast(AST_STRUCT_DECL);
+  Ast *struc = new_ast(AST_STRUCT_DECL, st.span);
   struc->value.struct_decl = (StructDecl){0};
   struc->value.struct_decl.name = identifer.lexeme;
   struc->value.struct_decl.members = NULL;
@@ -879,8 +892,9 @@ Ast *parse_struct_decl(Parser *p) {
     arrput(struc->value.struct_decl.members,var);
     parser_skip(p, TOKEN_SEMICOLON);
   }
-
+  
   parser_expect(p, TOKEN_RCBRACK);
+  struc->span = span_combine(struc->span,parser_peek(p).span);
 
   return struc;
 }

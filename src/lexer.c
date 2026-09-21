@@ -375,6 +375,13 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
   return 0;
 }
 
+SourceSpan span_combine(SourceSpan a, SourceSpan b) {
+  return (SourceSpan){
+    a.start,
+    b.start
+  };
+}
+
 void free_token(Token *token) {
   if (token == NULL) return;
   if (token->lexeme != NULL)

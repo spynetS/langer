@@ -51,7 +51,7 @@ typedef struct {
   Token *tokens; // stb_arr
 } Parser;
 
-Ast *new_ast(AstKind kind);
+Ast *new_ast(AstKind kind, SourceSpan span);
 
 
 Token parser_skip(Parser *, TokenKind);

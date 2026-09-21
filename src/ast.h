@@ -208,7 +208,6 @@ typedef struct {
 typedef struct Ast {
   AstKind kind;
   Type *type;
-
   union {
     BoolExpr bool_expr;
     ByteExpr byte_expr;
@@ -241,6 +240,8 @@ typedef struct Ast {
     
 
   } value;
+
+  SourceSpan span;
 } Ast;
 
 

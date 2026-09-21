@@ -1,7 +1,7 @@
 # add span into ast
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
-- TAGS:
+- TAGS: in-progress
 
 No description.
