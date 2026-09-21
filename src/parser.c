@@ -4,11 +4,13 @@
 #include "ast.h"
 #include "lexer.h"
 #include "utils.h"
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
 
+#define MAX_WHILE_LOOP 10000
 
 Token parser_advance(Parser *p) {
   if(p->pos > arrlen(p->tokens)) return (Token) {TOKEN_INVALID};
@@ -55,12 +57,12 @@ void print_func_decl(FunctionDecl decl, int depth) {
 
 }
 
-void print_type(Ast *ast, int depth) {
+void ast_print_type(Ast *ast, int depth) {
   print_depth(depth);
   switch (ast->kind) {
   case AST_TYPE_POINTER:
     debug_log("*");
-    print_type(ast->value.pointer_type.to, 0);
+    ast_print_type(ast->value.pointer_type.to, 0);
     break;
   case AST_TYPE_NAME:
     debug_log("%s\n", ast->value.named_type.name);
@@ -87,7 +89,18 @@ void print_ast(Ast *ast, int depth) {
     printf("<NULL>\n");
     return;
   }
+  
+  if (ast->type != NULL)
+    debug_log("<%s> ", type_kind_name(ast->type->kind));
+
   switch (ast->kind) {
+  case AST_STRUCT_DECL:
+    debug_log("Struct\n");
+    for (int i = 0; i < arrlen(ast->value.struct_decl.members); i++) {
+      print_ast(ast->value.struct_decl.members[i], depth+1);
+    }
+    break;
+
   case AST_INDEX:
     debug_log("Index\n");
     print_ast(ast->value.index_expr.left, depth+1);
@@ -132,7 +145,7 @@ void print_ast(Ast *ast, int depth) {
               ast->value.variable_decl.visibility == VIS_PRIVATE ? "private" : "public"
              );
     if(ast->value.variable_decl.type != NULL)
-      print_type(ast->value.variable_decl.type, depth+1);
+      ast_print_type(ast->value.variable_decl.type, depth+1);
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
     if (ast->value.variable_decl.initlizer != NULL)
@@ -185,7 +198,7 @@ void print_ast(Ast *ast, int depth) {
   case AST_CAST:
     debug_log("Cast\n");
     print_ast(ast->value.cast_expr.expression, depth+1);
-    print_type(ast->value.cast_expr.cast_type, depth+1);
+    ast_print_type(ast->value.cast_expr.cast_type, depth+1);
     break;
   default:
     debug_log("\n");
@@ -246,7 +259,7 @@ bool parser_is(Parser *p, TokenKind kind) {
 }
 
 Ast *parse_type(Parser *p) {
-  Ast *ast = malloc(sizeof(Ast));
+  Ast *ast = new_ast(AST_INVALID);
 
   Token next = parser_advance(p);
   print_token(next);
@@ -260,6 +273,9 @@ Ast *parse_type(Parser *p) {
   case TOKEN_I32:
     ast->kind = AST_TYPE_I32;
     break;
+  case TOKEN_I64:
+    ast->kind = AST_TYPE_I64;
+    break;
   case TOKEN_F32:
     ast->kind = AST_TYPE_F32;
     break;
@@ -268,6 +284,9 @@ Ast *parse_type(Parser *p) {
     break;
   case TOKEN_VOID:
     ast->kind = AST_TYPE_VOID;
+    break;
+  case TOKEN_BOOL:
+    ast->kind = AST_TYPE_BOOL;
     break;
   case TOKEN_IDENTIFER:
     ast->kind = AST_TYPE_NAME;
@@ -293,13 +312,20 @@ Token parser_skip(Parser *p, TokenKind kind) {
   return parser_peek(p);
 }
 
+Ast *new_ast(AstKind kind) {
+  Ast *ast = malloc(sizeof(Ast));
+  ast->type = NULL;
+  ast->kind = kind;
+  return ast;
+}
+
 
 Ast *new_binary_expr(Ast* left, Ast* right, TokenKind operator) {
-  Ast *binary = malloc(sizeof(Ast));
-  binary->kind = AST_BINARY;
+  Ast *binary = new_ast(AST_BINARY);
   binary->value.binary_expr = (BinaryExpr){left, right, operator};
   return binary;
 }
+
 
 char decode_char_literal(const char *lexeme)
 {
@@ -320,7 +346,7 @@ char decode_char_literal(const char *lexeme)
 }
 
 Ast *parse_primary(Parser *p) {
-  Ast *ast = malloc(sizeof(Ast));
+  Ast *ast = new_ast(0);
   Token token = parser_advance(p);
   debug_log("primary -- ");
   print_token(token);
@@ -409,9 +435,8 @@ Ast *parse_postfix(Parser *p) {
       parser_advance(p);
       Token id = parser_expect(p, TOKEN_IDENTIFER);
       Ast *left_ = left;
-      left = malloc(sizeof(Ast));
+      left = new_ast(AST_MEMBER);
 
-      left->kind = AST_MEMBER;
       left->value.member_expr = (MemberAccessExpr){0};
       left->value.member_expr.left = left_;
       left->value.member_expr.member = (const char*) id.lexeme;
@@ -420,8 +445,7 @@ Ast *parse_postfix(Parser *p) {
       // CALL
       parser_advance(p);
       Ast *left_ = left;
-      left = malloc(sizeof(Ast));
-      left->kind = AST_CALL;
+      left = new_ast(AST_CALL);
       left->value.call_expr = (CallExpr){0};
       left->value.call_expr.left = left_;
 
@@ -443,8 +467,7 @@ Ast *parse_postfix(Parser *p) {
       parser_expect(p, TOKEN_RBRACK);
 
       Ast* left_ = left;
-      left = malloc(sizeof(Ast));
-      left->kind = AST_INDEX;
+      left = new_ast(AST_INDEX);
       left->value.index_expr.left = left_;
       left->value.index_expr.index = index;
 
@@ -457,8 +480,7 @@ Ast *parse_postfix(Parser *p) {
 }
 
 Ast *new_unary_expr(Ast *operand, TokenKind operator) {
-  Ast *unary = malloc(sizeof(Ast));
-  unary->kind = AST_UNARY;
+  Ast *unary = new_ast(AST_UNARY);
   unary->value.unary_expr = (UnaryExpr){0};
   unary->value.unary_expr.operator = operator;
   unary->value.unary_expr.operand = operand;
@@ -597,8 +619,7 @@ Ast *parse_variable_decl(Parser *p) {
 
   Visibility visibility = parse_visibility(p);
   Ast *left_ = parse_or(p);
-  Ast *left = malloc(sizeof(Ast));
-  left->kind = AST_VAR_DECL;
+  Ast *left = new_ast(AST_VAR_DECL);
   left->value.variable_decl = (VariableDecl) {0};
   left->value.variable_decl.left = left_;
   left->value.variable_decl.visibility = visibility;
@@ -628,7 +649,7 @@ Ast *parse_assignment(Parser* p) {
   Ast* left = parse_or(p);
   if (parser_is(p, TOKEN_ASSIGN)) {
     Ast *left_ = left;
-    left = malloc(sizeof(Ast));
+    left = new_ast(AST_ASSIGN);
     left->kind = AST_ASSIGN;
     left->value.assign_expr = (AssignExpr) {
       left_,
@@ -653,8 +674,7 @@ Ast *parse_return(Parser *p) {
   if (!parser_is(p, TOKEN_RETURN))
     panic("TODO parse_return error");
 
-  Ast* ret = malloc(sizeof(Ast));
-  ret->kind = AST_RETURN;
+  Ast* ret = new_ast(AST_RETURN);
   ret->value.return_stmt = (ReturnStmt){0};
 
   ret->value.return_stmt.value = parse_expression(p);
@@ -664,8 +684,7 @@ Ast *parse_return(Parser *p) {
 
 Ast *parse_package_stmt(Parser *p) {
   parser_expect(p, TOKEN_PACKAGE);
-  Ast *package = malloc(sizeof(Ast));
-  package->kind = AST_PACKAGE;
+  Ast *package = new_ast(AST_PACKAGE);
   
   StringBuilder sb = {0};
   Token t = parser_expect(p, TOKEN_IDENTIFER);
@@ -695,8 +714,7 @@ Ast *parse_if_stmt(Parser *p) {
   // MAYBE not only block?
   assert(block != NULL);
 
-  Ast *if_stmt = malloc(sizeof(Ast));
-  if_stmt->kind = AST_IF;
+  Ast *if_stmt = new_ast(AST_IF);
   if_stmt->value.if_stmt = (IfStmt) {0};
   if_stmt->value.if_stmt.else_if_stmt = NULL;
   if_stmt->value.if_stmt.else_body = NULL;
@@ -760,18 +778,27 @@ Ast *parse_stmt(Parser *p) {
 Ast *parse_block(Parser *p) {
   parser_expect(p, TOKEN_LCBRACK);
 
-  Ast *block = malloc(sizeof(Ast));
-  block->kind = AST_BLOCK;
+  Ast *block = new_ast(AST_BLOCK);
   block->value.block_stmt = (BlockStmt){0};
   block->value.block_stmt.stmts = NULL;
 
-  
+
   // parse statements
+  int count = 0;
   while(parser_peek(p).kind != TOKEN_RCBRACK) {
     debug_log("parse stmt in block\n");
     Ast *stmt = parse_stmt(p);
+    if (stmt == NULL) {
+      // TODO error
+      printf("error: expected stmt");
+      break;
+    }
     parser_skip(p, TOKEN_SEMICOLON);
     arrput(block->value.block_stmt.stmts, stmt);
+    if (count++ > MAX_WHILE_LOOP) {
+      log_span(parser_peek(p).span, "error: block has to be closed with }\n");
+      break;
+    }
   }
 
   parser_expect(p, TOKEN_RCBRACK);
@@ -790,8 +817,7 @@ Ast *parse_function(Parser *p) {
     log_span(parser_peek(p).span, "Must start with func\n");
 
   
-  Ast* func = malloc(sizeof(Ast));
-  func->kind = AST_FUNC_DECL;
+  Ast* func = new_ast(AST_FUNC_DECL);
   func->value.function_decl = (FunctionDecl){0};
   func->value.function_decl.parameters = NULL;
   func->value.function_decl.visibility = visibility;
@@ -841,8 +867,7 @@ Ast *parse_struct_decl(Parser *p) {
   Token identifer = parser_expect(p, TOKEN_IDENTIFER);
   parser_expect(p, TOKEN_LCBRACK);
 
-  Ast *struc = malloc(sizeof(Ast));
-  struc->kind = AST_STRUCT_DECL;
+  Ast *struc = new_ast(AST_STRUCT_DECL);
   struc->value.struct_decl = (StructDecl){0};
   struc->value.struct_decl.name = identifer.lexeme;
   struc->value.struct_decl.members = NULL;
@@ -863,9 +888,7 @@ Ast *parse_struct_decl(Parser *p) {
 
 Package *parse_package(Parser *p) {
   Package *package = malloc(sizeof(Package));
-  package->functions = NULL;
-  package->structs = NULL;
-  package->variables = NULL;
+  package->declarations = NULL;
 
 
   Ast *package_stmt = parse_package_stmt(p);
@@ -876,16 +899,15 @@ Package *parse_package(Parser *p) {
   while (parser_peek(p).kind != TOKEN_EOF && parser_peek(p).kind != TOKEN_INVALID)  {
     if (is_function_decl(p)) {
       debug_log("parsing funcion\n");      
-      arrput(package->functions, parse_function(p)->value.function_decl);
+      arrput(package->declarations, parse_function(p));
     }
     else if (is_struct_decl(p)) {
-     arrput(package->structs, parse_struct_decl(p)->value.struct_decl); 
+     arrput(package->declarations, parse_struct_decl(p)); 
     }
     else if (is_variable_decl(p)) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
-      Ast *var = parse_variable_decl(p);
-      arrput(package->variables, var->value.variable_decl);
+      arrput(package->declarations, parse_variable_decl(p));
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing package\n");

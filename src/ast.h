@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "lexer.h"
+#include "type.h"
 
 #include <stdint.h>
 
@@ -199,15 +200,15 @@ typedef struct {
 
 typedef struct {
   PackageStmt package;
-  VariableDecl* variables;
-  FunctionDecl* functions;
-  StructDecl* structs;
+  Ast **declarations;
 } Package;
 
 
 
 typedef struct Ast {
   AstKind kind;
+  Type *type;
+
   union {
     BoolExpr bool_expr;
     ByteExpr byte_expr;
