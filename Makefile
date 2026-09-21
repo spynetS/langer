@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS = -Wall -pedantic $(shell llvm-config --cflags)
+CFLAGS = -Wall -pedantic $(shell llvm-config --cflags) # -g -fsanitize=address -fno-omit-frame-pointer
 LDFLAGS = $(shell llvm-config --ldflags)
 LIBS = $(shell llvm-config --libs)
 

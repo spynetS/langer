@@ -332,13 +332,17 @@ MU_TEST(test_sym_scope_tree) {
   Symbol *pkg = root.symbols[0];
 
   //mu_check(pkg->scope != NULL);
-  /* mu_check(pkg->scope->symbols[0]->kind == SYMBOL_TYPE); */
-  /* mu_check(pkg->scope->symbols[1]->kind == SYMBOL_FUNCTION); */
+  mu_check(pkg->scope->symbols[0]->kind == SYMBOL_TYPE);
+  mu_check(pkg->scope->symbols[1]->kind == SYMBOL_FUNCTION);
 
   Symbol *person = pkg->scope->symbols[0];
   Symbol *main = pkg->scope->symbols[1];
 
-  /* mu_check(person->scope != NULL); */
+
+  // MAYBE structs unions and enums should have a scope
+  // where their symbols are stored?
+
+  //mu_check(person->scope != NULL);
   /* mu_check(person->scope->symbols[0]->kind == SYMBOL_FIELD); */
 
   mu_check(main->scope != NULL);
@@ -346,6 +350,56 @@ MU_TEST(test_sym_scope_tree) {
   mu_check(main->scope->symbols[1]->kind == SYMBOL_VARIABLE);
 }
 
+MU_TEST(test_sym_type_checking) {
+  SymbolTable root = {0};
+
+  symbol_table_package(&root, get_package_str(
+    "package main;\n"
+    "struct Person {\n"
+    "  age: int;\n"
+    "}\n"
+    "func main(x: int): void {\n"
+    "  y: i16;\n"
+    "}"
+  ));
+
+  TypeResolver resolver = {0};
+  resolver.scope = &root;
+
+  symbol_table_resolve_types(&resolver, &root);
+
+  Symbol *pkg = root.symbols[0];
+
+  mu_check(pkg->kind == SYMBOL_PACKAGE);
+  mu_check(pkg->scope != NULL);
+
+  Symbol *person = pkg->scope->symbols[0];
+  Symbol *main = pkg->scope->symbols[1];
+
+  /* struct Person */
+  mu_check(person->kind == SYMBOL_TYPE);
+  mu_check(person->type != NULL);
+
+  /* func main */
+  mu_check(main->kind == SYMBOL_FUNCTION);
+  mu_check(main->type != NULL);
+
+  /* main(x: int): void */
+  mu_check(main->scope != NULL);
+
+  Symbol *param = main->scope->symbols[0];
+  Symbol *variable = main->scope->symbols[1];
+
+  /* x: int */
+  mu_check(param->kind == SYMBOL_PARAMETER);
+  mu_check(param->type != NULL);
+  mu_check(param->type->kind == TYPE_I32);
+
+  /* y: i16 */
+  mu_check(variable->kind == SYMBOL_VARIABLE);
+  mu_check(variable->type != NULL);
+  mu_check(variable->type->kind == TYPE_I16);
+}
 
 MU_TEST_SUITE(test_suite_symbol_table) {
   /* Variables */
@@ -368,5 +422,5 @@ MU_TEST_SUITE(test_suite_symbol_table) {
 
   /* /\* Scopes *\/ */
   MU_RUN_TEST(test_sym_scope_tree);
-
+  MU_RUN_TEST(test_sym_type_checking);
 }

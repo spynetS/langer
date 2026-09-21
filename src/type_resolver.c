@@ -41,6 +41,9 @@ Type *resolve_type(TypeResolver *resolver, Ast* atype) {
     if (sym == NULL) {
       printf("error: symbol '%s' could not be found \n", atype->value.named_type.name);
     }
+    else if (sym->type == NULL){
+      print_ast(sym->node, 0);
+    }
     assert(sym->type != NULL);
     return sym->type;
     break;
@@ -144,6 +147,5 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   if (type == NULL) return NULL;
   // setting the type in the ast
   node->type = type;
-  
   return type;
 }

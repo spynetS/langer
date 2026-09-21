@@ -51,6 +51,9 @@ typedef struct {
   Token *tokens; // stb_arr
 } Parser;
 
+Ast *new_ast(AstKind kind);
+
+
 Token parser_skip(Parser *, TokenKind);
 // Returns true if next is tokenkind
 // if it is it will advance the parser

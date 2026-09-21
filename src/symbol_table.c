@@ -13,6 +13,11 @@ Symbol *symbol_create(Ast *node) {
   Symbol *ns = malloc(sizeof(Symbol));
   ns->node = node;
   ns->type = NULL;
+  ns->scope = NULL;
+  ns->key = NULL;
+  ns->visibility = VIS_PRIVATE;
+
+
   
   switch (node->kind) {
   case AST_VAR_DECL:
@@ -31,6 +36,7 @@ Symbol *symbol_create(Ast *node) {
     ns->key = "<block with no name>";
     break;
   case AST_STRUCT_DECL:
+    ns->kind = SYMBOL_TYPE;
     ns->key = strdup(node->value.struct_decl.name);
     ns->visibility = node->value.struct_decl.visibility;
     break;
@@ -69,7 +75,9 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
     for (int i = 0; i < arrlen(node->value.function_decl.parameters); i++) {
       Symbol *sym = symbol_create(node->value.function_decl.parameters[i]);
       sym->kind = SYMBOL_PARAMETER;
-      arrins(table->symbols, 0, sym);
+      // we insert at the begning beacuse we want the
+      // parameters at the bengning
+      arrins(table->symbols,0, sym);
     }
 
     table->parent = root;
@@ -116,8 +124,10 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
   for (int i = 0; i < arrlen(package->declarations); i++) {
     Symbol *sym = symbol_define(table, package->declarations[i]);
   }
+  
   Symbol *sym = malloc(sizeof(Symbol));
   sym->scope = table;
+  sym->node = NULL;
   sym->kind = SYMBOL_PACKAGE;
   sym->key = strdup(package->package.value);
 
@@ -130,13 +140,14 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
 void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
   assert(table != NULL);
   assert(table->symbols != NULL);
-  printf("entering scope\n");
   for(int i = 0; i < arrlen(table->symbols); i ++) {
+    printf("IN LOOP");
     Symbol *sym = table->symbols[i];
-
+    
+    
     if (sym->node != NULL) {
       Ast* node = sym->node;
-      printf("-------\n");
+      printf("---resolve node in table----\n");
       print_ast(node, 0);
       printf("-------\n");
       Type *type = get_type(resolver, node);
@@ -151,6 +162,7 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       symbol_table_resolve_types(resolver, sym->scope);
     }
   }
+  printf("AFTER LOOP\n");
 }
 
 void print_symbol(Symbol *sym, int depth)

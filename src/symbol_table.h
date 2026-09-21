@@ -9,8 +9,8 @@
 
 
 typedef enum {
-    SYMBOL_VARIABLE,
     SYMBOL_FUNCTION,
+    SYMBOL_VARIABLE,
     SYMBOL_PACKAGE,
     SYMBOL_BLOCK,
     SYMBOL_TYPE,

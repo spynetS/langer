@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
   handle_args(argc, argv, &files);
 
   SymbolTable root = {0};
+  root.symbols = NULL;
 
   for (int i = 0; i < arrlen(files); i++) {
     size_t size = 0;
@@ -68,11 +69,11 @@ int main(int argc, char** argv) {
     print_package(package);
 
     symbol_table_package(&root, package);
-    printf("====================\n");
+    printf("=======START RESOLVER======\n");
     TypeResolver resolver = {0};
     resolver.scope = &root;
     symbol_table_resolve_types(&resolver, &root);
-    printf("==========\n");
+    printf("====AFTER RESOLVED====\n");
     print_symbol_table(&root, 0);
     printf("==========\n");
     print_package(package);
