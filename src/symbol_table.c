@@ -71,7 +71,7 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
     break;
   case AST_FUNC_DECL:
     if (node->value.function_decl.body == NULL) {
-      assert(0);
+      break;
     }
     table = symbol_table_block(root, &node->value.function_decl.body->value.block_stmt);
 

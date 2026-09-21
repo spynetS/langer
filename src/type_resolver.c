@@ -143,6 +143,19 @@ Type *resolve_member(TypeResolver *resolver, Ast *node) {
     return NULL;
 }
 
+void resolve_block(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_BLOCK);
+
+  if (!resolver->resolve_expr)
+    return;
+  BlockStmt block = node->value.block_stmt;
+
+  for (int i = 0; i < arrlen(block.stmts); i++) {
+    Type *type = get_type(resolver, block.stmts[i]);
+  }
+  
+}
+
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   FunctionDecl decl = node->value.function_decl;
@@ -155,13 +168,9 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
     Type *type = get_type(resolver, decl.parameters[i]);
     arrput(ftype->Function.parameters, type);
   }
-
   if (decl.body != NULL && resolver->resolve_expr) {
-    for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) {
-      Type *type = get_type(resolver, decl.body->value.block_stmt.stmts[i]);
+      resolve_block(resolver, decl.body);
     }
-  }
-
   node->type = ftype;
   return ftype;
 }
@@ -250,6 +259,15 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   case AST_INDEX: assert(0);
   case AST_CAST: assert(0);
   case AST_COMPOUND_LITERAL: assert(0);
+  case AST_IF:
+    resolve_block(resolver, node->value.if_stmt.body);
+    if (node->value.if_stmt.else_body != NULL) {
+      resolve_block(resolver, node->value.if_stmt.else_body);
+    }
+    if (node->value.if_stmt.else_if_stmt != NULL) {
+      get_type(resolver, node->value.if_stmt.else_if_stmt);
+    }
+    break;
 
   default:
     printf("======\n");
@@ -257,8 +275,9 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
     printf("======\n");
     assert(0);
   }
-  printf("SETTING TYPE %s\n", type_kind_name(type->kind));
   if (type == NULL) return NULL;
+
+  printf("SETTING TYPE %s\n", type_kind_name(type->kind));
   // setting the type in the ast
   node->type = type;
   return type;
@@ -268,7 +287,14 @@ void type_check_package(TypeResolver *resolver, Package *package) {
     for(int i = 0; i < arrlen(package->declarations); i ++ ){
       switch(package->declarations[i]->kind) {
       case AST_FUNC_DECL:
+        Symbol *func =
+            symbol_lookup(resolver->scope,
+                          package->declarations[i]->value.function_decl.name);
+        assert(func != NULL);
+        assert(func->scope != NULL);
+        resolver->scope = func->scope;
         get_type(resolver, package->declarations[i]);
+        
         break;
       default:
         break;
