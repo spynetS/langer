@@ -1,6 +1,7 @@
 #include "type_resolver.h"
 #include "ast.h"
 #include "symbol_table.h"
+#include "type.h"
 #include "utils.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -78,7 +79,17 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
   
   Type *type = new_type(TYPE_STRUCT);
   type->Struct.name = decl.name;
+  type->Struct.members = NULL;
   node->type = type;
+
+  for (int i = 0; i < arrlen(decl.members); i++) {
+    Member m = {0};
+    m.name = strdup(
+        decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
+    m.type = get_type(resolver, decl.members[i]);
+    arrput(type->Struct.members, m);
+  }
+
   return type;
 }
 
@@ -96,6 +107,32 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
 
   return sym->type->Function.return_type;
 }
+
+Type *resolve_member(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_MEMBER);
+
+  MemberAccessExpr path = node->value.member_expr;
+  Symbol *sym = symbol_lookup_path(resolver->scope, path);
+
+  if (sym == NULL) {
+    log_span(node->span, "error: Symbol not found\n");
+    assert(0);
+  }
+
+  if (sym->type->kind == TYPE_STRUCT) {
+    for (int i = 0; i < arrlen(sym->type->Struct.members); i++) {
+      Member m = sym->type->Struct.members[i];
+      if (strcmp(m.name, path.member) == 0) {
+        return m.type;
+      }
+    }
+  } else {
+    log_span(node->span, "error: Cant do member access on this symbol\n");
+  }
+
+  return NULL;
+}
+
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   FunctionDecl decl = node->value.function_decl;
@@ -109,8 +146,6 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
     arrput(ftype->Function.parameters, type);
   }
 
-  
-
   if (decl.body != NULL && resolver->resolve_expr) {
     for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) {
       Type *type = get_type(resolver, decl.body->value.block_stmt.stmts[i]);
@@ -119,6 +154,25 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   node->type = ftype;
   return ftype;
+}
+
+Type *can_cast(Type *a, Type *b) {
+  return a;
+}
+
+Type *resolve_assign(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_ASSIGN);
+
+  Type *left_type = get_type(resolver, node->value.assign_expr.left);
+
+  Type *value_type = get_type(resolver, node->value.assign_expr.value);
+  node->type = value_type;
+
+  if (can_cast(left_type, value_type) == NULL) {
+    assert(0);
+  }
+
+  return value_type;
 }
 
 Type *get_type(TypeResolver *resolver, Ast *node) {
@@ -159,12 +213,16 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   case AST_IDENTIFER: assert(0);
   case AST_BINARY: assert(0);
   case AST_UNARY: assert(0);
-  case AST_ASSIGN: assert(0);
+  case AST_ASSIGN:
+    type = resolve_assign(resolver, node);
+    break;
   case AST_DECL: assert(0);
   case AST_CALL:
     type = resolve_call(resolver, node);
     break;
-  case AST_MEMBER: assert(0);
+  case AST_MEMBER:
+    type = resolve_member(resolver, node);
+    break;
   case AST_INDEX: assert(0);
   case AST_CAST: assert(0);
   case AST_COMPOUND_LITERAL: assert(0);

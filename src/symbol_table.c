@@ -99,7 +99,7 @@ Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
 
   // If left is member we should 
   if (memexpr.left->kind == AST_MEMBER) {
-
+    assert(0);
   } else if (memexpr.left->kind == AST_IDENTIFER) {
     debug_log("Member was identifer '%s', look for symbol\n", memexpr.left->value.identifer_expr.value);
     Symbol *parent =
@@ -108,6 +108,7 @@ Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
     if (parent == NULL)
       return NULL;
 
+    if (parent->scope == NULL) return parent;
 
     Symbol *sym = symbol_lookup(parent->scope, memexpr.member);
     print_symbol(sym, 0);

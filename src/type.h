@@ -26,6 +26,10 @@ typedef enum {
 
 
 typedef struct Type Type;
+typedef struct {
+  const char *name;
+  Type *type;
+} Member;
 
 struct Type {
   TypeKind kind;
@@ -47,7 +51,7 @@ struct Type {
 
     struct {
       const char *name;
-      // TODO add members here
+      Member* members;
     } Struct;
   };
 };
