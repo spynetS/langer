@@ -86,6 +86,7 @@ void gen_package(Package *package) {
   LLVMBuilderRef builder =
     LLVMCreateBuilderInContext(context);
 
+  // Setting up the llvm generator and defining types
   LLVMGenerator lg = {0};
   lg.byte = LLVMInt8TypeInContext(context);
   lg.i16 = LLVMInt16TypeInContext(context);
@@ -94,15 +95,19 @@ void gen_package(Package *package) {
   lg.f32 = LLVMFloatTypeInContext(context);
   lg.f64 = LLVMDoubleTypeInContext(context);
 
-
   lg.context = context;
   lg.module = module;
   lg.builder = builder;
 
+  // Begin with generation the declerations in the package
+  for(int i = 0; i < arrlen(package->declarations); i ++ ){
 
-  /* for(int i = 0; i < arrlen(package->functions); i ++ ){ */
-  /*   create_function(lg, package->functions[i]); */
-  /* } */
+    switch(package->declarations[i]->kind) {
+    case AST_FUNC_DECL:
+      create_function(lg, package->declarations[i]->value.function_decl);
+    }
+
+  }
 
   char *ir =
     LLVMPrintModuleToString(module);

@@ -139,7 +139,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
 
 void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
   assert(table != NULL);
-  assert(table->symbols != NULL);
+
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     printf("IN LOOP");
     Symbol *sym = table->symbols[i];
