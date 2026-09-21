@@ -23,6 +23,9 @@ Type *resolve_type(TypeResolver *resolver, Ast* atype) {
     type->Pointer.base = resolve_type(resolver, atype->value.pointer_type.to);
     break;
 
+  case AST_TYPE_BYTE:
+    type->kind = TYPE_BYTE;
+    break;
   case AST_TYPE_I16:
     type->kind = TYPE_I16;
     break;
@@ -108,29 +111,36 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   return sym->type->Function.return_type;
 }
 
+
 Type *resolve_member(TypeResolver *resolver, Ast *node) {
-  assert(node->kind == AST_MEMBER);
+    assert(node->kind == AST_MEMBER);
 
-  MemberAccessExpr path = node->value.member_expr;
-  Symbol *sym = symbol_lookup_path(resolver->scope, path);
+    MemberAccessExpr expr = node->value.member_expr;
 
-  if (sym == NULL) {
-    log_span(node->span, "error: Symbol not found\n");
-    assert(0);
-  }
+    Type *left_type = get_type(resolver, expr.left);
 
-  if (sym->type->kind == TYPE_STRUCT) {
-    for (int i = 0; i < arrlen(sym->type->Struct.members); i++) {
-      Member m = sym->type->Struct.members[i];
-      if (strcmp(m.name, path.member) == 0) {
-        return m.type;
-      }
+    if (left_type == NULL)
+        return NULL;
+
+    if (left_type->kind != TYPE_STRUCT) {
+        log_span(node->span,
+                 "error: cannot access member '%s' on non-struct type\n",
+                 expr.member);
+        return NULL;
     }
-  } else {
-    log_span(node->span, "error: Cant do member access on this symbol\n");
-  }
 
-  return NULL;
+    for (size_t i = 0; i < arrlen(left_type->Struct.members); i++) {
+        Member *member = &left_type->Struct.members[i];
+
+        if (strcmp(member->name, expr.member) == 0)
+            return member->type;
+    }
+
+    log_span(node->span,
+             "error: struct has no member '%s'\n",
+             expr.member);
+
+    return NULL;
 }
 
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
@@ -175,6 +185,18 @@ Type *resolve_assign(TypeResolver *resolver, Ast *node) {
   return value_type;
 }
 
+Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_IDENTIFER);
+
+  Symbol *sym = symbol_lookup(resolver->scope, node->value.identifer_expr.value);
+  if (sym == NULL) {
+    log_span(node->span, "error: Symbol not found\n");
+  }
+
+  return sym->type;
+}
+
+
 Type *get_type(TypeResolver *resolver, Ast *node) {
 
   Type *type = NULL;
@@ -210,7 +232,9 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   case AST_BOOL_LITERAL:
     type = new_type(TYPE_BOOL);
     break;
-  case AST_IDENTIFER: assert(0);
+  case AST_IDENTIFER:
+    type = resolve_identifer(resolver, node);
+    break;
   case AST_BINARY: assert(0);
   case AST_UNARY: assert(0);
   case AST_ASSIGN:

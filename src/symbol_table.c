@@ -99,7 +99,16 @@ Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
 
   // If left is member we should 
   if (memexpr.left->kind == AST_MEMBER) {
-    assert(0);
+    Symbol *parent = symbol_lookup_path(table_, memexpr.left->value.member_expr);
+
+    if (parent == NULL)
+      return NULL;
+
+    if (parent->scope == NULL)
+      return NULL;
+
+    return symbol_lookup(parent->scope, memexpr.member);
+        
   } else if (memexpr.left->kind == AST_IDENTIFER) {
     debug_log("Member was identifer '%s', look for symbol\n", memexpr.left->value.identifer_expr.value);
     Symbol *parent =
@@ -117,6 +126,7 @@ Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
 
   return NULL;
 }
+
 Symbol *symbol_lookup(SymbolTable *table, const char *key) {
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     Symbol *sym = table->symbols[i];
