@@ -140,7 +140,7 @@ typedef struct {
 } PointerType;
 
 typedef struct {
-  const char* name;
+  Ast *name;
 } NamedType;
 
 typedef struct {

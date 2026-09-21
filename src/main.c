@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include "ast.h"
 #include "lexer.h"
 #include "parser.h"
 #include "llvm.h"
@@ -38,54 +40,69 @@ void handle_args(int argc, char** argv, char*** files) {
 
 int main(int argc, char** argv) {
 
-  char** files = NULL;
+  char **files = NULL;
   handle_args(argc, argv, &files);
+  Package** packages = NULL;
 
   SymbolTable root = {0};
   root.symbols = NULL;
 
+  TypeResolver resolver = {0};
+  resolver.scope = &root;
+  
   for (int i = 0; i < arrlen(files); i++) {
     size_t size = 0;
     char *input = read_file(files[i], &size);
+    printf("compiling %s...\n", files[i]);
 
-
-    Lexer lexer = {
-      0,
-      0,
-      files[i],
-      0,
-      input,
-      size
-    };
+    Lexer lexer = { 0, 0, files[i], 0, input, size};
 
     Token* token = NULL;
     lexer_tokenize(&lexer, &token);
-
   
     Parser p = {0};
     p.tokens = token;
     Package* package = parse_package(&p);
-  
     print_package(package);
 
     symbol_table_package(&root, package);
+
+    arrput(packages, package);
+    print_package(package);
+
+    /* for (size_t i = 0; i < arrlen(token); i++) { */
+    /*   free_token(&token[i]); */
+    /* } */
+    /* arrfree(token); */
+    free(input);
+  }
+  printf("===after parsing====\n");
+  print_symbol_table(&root,0);
+
+
+
+  for (int i = 0; i < arrlen(files); i++) {
+    Package *package = packages[i];
+
+    resolver.resolve_expr = false;
+
     printf("=======START RESOLVER======\n");
-    TypeResolver resolver = {0};
-    resolver.scope = &root;
-    symbol_table_resolve_types(&resolver, &root);
+    symbol_table_resolve_types(&resolver, &root);    
     printf("====AFTER RESOLVED====\n");
     print_symbol_table(&root, 0);
     printf("==========\n");
+
+    resolver.resolve_expr = true;
+
+
+    printf("====Start RESOLVED package====\n");
+    type_check_package(&resolver, package);
+    printf("==========\n");
+
     print_package(package);
     gen_package(package);
-
-
-
-    for (size_t i = 0; i < arrlen(token); i++) {
-      free_token(&token[i]);
-    }
-    arrfree(token);
-    free(input);
   }
+
   return 0;
 }
+

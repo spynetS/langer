@@ -40,6 +40,7 @@ typedef struct symbol_table {
 
 Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
+Symbol *symbol_lookup_path(SymbolTable *table, MemberAccessExpr memexpr);
 
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
 SymbolTable *symbol_table_package(SymbolTable *root, Package *package);

@@ -53,7 +53,7 @@ MU_TEST(test_decl_struct_ptr) {
   mu_check(e->value.variable_decl.type->value.pointer_type.to->kind == AST_TYPE_POINTER);
   mu_check(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_POINTER);
   mu_check(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->kind == AST_TYPE_NAME);
-  mu_check(strcmp(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->value.named_type.name, "Person") == 0);
+  mu_check(strcmp(e->value.variable_decl.type->value.pointer_type.to->value.pointer_type.to->value.pointer_type.to->value.named_type.name->value.identifer_expr.value, "Person") == 0);
 }
 
 

@@ -105,6 +105,9 @@ void gen_package(Package *package) {
     switch(package->declarations[i]->kind) {
     case AST_FUNC_DECL:
       create_function(lg, package->declarations[i]->value.function_decl);
+      break;
+    default:
+      break;
     }
 
   }

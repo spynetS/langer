@@ -401,6 +401,21 @@ MU_TEST(test_sym_type_checking) {
   mu_check(variable->type->kind == TYPE_I16);
 }
 
+
+MU_TEST(test_undefined_call) {
+  SymbolTable root = {0};
+
+  symbol_table_package(&root, get_package_str(
+    "package main;\n"
+    "func main(x: int): void {\n"
+    "  foo()\n"
+    "}"
+  ));
+
+  TypeResolver resolver = {0};
+  resolver.scope = &root;
+}
+
 MU_TEST_SUITE(test_suite_symbol_table) {
   /* Variables */
   MU_RUN_TEST(test_sym_var);
@@ -423,4 +438,5 @@ MU_TEST_SUITE(test_suite_symbol_table) {
   /* /\* Scopes *\/ */
   MU_RUN_TEST(test_sym_scope_tree);
   MU_RUN_TEST(test_sym_type_checking);
+  MU_RUN_TEST(test_undefined_call);
 }

@@ -290,7 +290,14 @@ Ast *parse_type(Parser *p) {
     break;
   case TOKEN_IDENTIFER:
     ast->kind = AST_TYPE_NAME;
-    ast->value.named_type.name = next.lexeme;
+    p->pos --;
+    if (parser_next(p).kind == TOKEN_DOT) {
+      ast->value.named_type.name = parse_postfix(p);
+    } else {
+      ast->value.named_type.name = new_ast(AST_IDENTIFER, parser_peek(p).span);
+      ast->value.named_type.name->value.identifer_expr.value = next.lexeme;
+    }
+
     break;
   case TOKEN_STAR:
     ast->kind = AST_TYPE_POINTER;
@@ -924,7 +931,7 @@ Package *parse_package(Parser *p) {
       arrput(package->declarations, parse_variable_decl(p));
     }
     else {
-      log_span(parser_peek(p).span,"unexpected token when parsing package\n");
+      log_span(parser_peek(p).span,"unexpected token when parsing package '%s'\n", parser_peek(p).lexeme);
       print_token(parser_peek(p));
       break;
     }

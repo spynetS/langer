@@ -70,6 +70,9 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
     sym->scope = table;
     break;
   case AST_FUNC_DECL:
+    if (node->value.function_decl.body == NULL) {
+      assert(0);
+    }
     table = symbol_table_block(root, &node->value.function_decl.body->value.block_stmt);
 
     for (int i = 0; i < arrlen(node->value.function_decl.parameters); i++) {
@@ -82,6 +85,7 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
 
     table->parent = root;
     sym->scope = table;
+
     break;
   default:
     break;
@@ -91,10 +95,32 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
   return sym;
 }
 
+Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
+
+  // If left is member we should 
+  if (memexpr.left->kind == AST_MEMBER) {
+
+  } else if (memexpr.left->kind == AST_IDENTIFER) {
+    debug_log("Member was identifer '%s', look for symbol\n", memexpr.left->value.identifer_expr.value);
+    Symbol *parent =
+        symbol_lookup(table_, memexpr.left->value.identifer_expr.value);
+
+    if (parent == NULL)
+      return NULL;
+
+
+    Symbol *sym = symbol_lookup(parent->scope, memexpr.member);
+    print_symbol(sym, 0);
+    return sym;
+  }
+
+  return NULL;
+}
 Symbol *symbol_lookup(SymbolTable *table, const char *key) {
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     Symbol *sym = table->symbols[i];
-    if (strcmp(sym->key, key) == 0 ){
+    if (strcmp(sym->key, key) == 0) {
+      printf("found sym\n");
       return sym;
     }
   }
@@ -111,7 +137,7 @@ SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt) {
   table->parent = root;
   for (int i = 0; i < arrlen(blockstmt->stmts); i++) {
     //    print_ast( blockstmt->stmts[i], 0);
-    Symbol *sym = symbol_define(table, blockstmt->stmts[i]);
+    symbol_define(table, blockstmt->stmts[i]);
   }
   return table;
 }
@@ -122,7 +148,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
   table->symbols = NULL;
   table->parent = root;
   for (int i = 0; i < arrlen(package->declarations); i++) {
-    Symbol *sym = symbol_define(table, package->declarations[i]);
+    symbol_define(table, package->declarations[i]);
   }
   
   Symbol *sym = malloc(sizeof(Symbol));
@@ -141,9 +167,8 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
   assert(table != NULL);
 
   for(int i = 0; i < arrlen(table->symbols); i ++) {
-    printf("IN LOOP");
+    printf("IN LOOP\n");
     Symbol *sym = table->symbols[i];
-    
     
     if (sym->node != NULL) {
       Ast* node = sym->node;
@@ -181,13 +206,15 @@ void print_symbol(Symbol *sym, int depth)
   printf("  kind: %s\n", symbol_kind_name(sym->kind));
   print_depth(depth);
   printf("  type: ");
-  if (sym->type != NULL){
+  if (sym->type != NULL) {
+    //printf("ASD: ");
     printf("%s: ",type_kind_name(sym->type->kind));
   }
   else
     printf("<none>");
   printf("\n");
   if (sym->scope) {
+
     print_depth(depth + 1);
     printf(" scope:\n");
     print_symbol_table(sym->scope, depth + 3);
@@ -196,7 +223,7 @@ void print_symbol(Symbol *sym, int depth)
   print_depth(depth);
   printf("}\n");
 }
-
+  
 void print_symbol_table(SymbolTable *scope, int depth)
 {
   if (scope == NULL)

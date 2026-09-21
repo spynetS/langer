@@ -1,5 +1,6 @@
 #include "type_resolver.h"
 #include "ast.h"
+#include "symbol_table.h"
 #include "utils.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -37,12 +38,19 @@ Type *resolve_type(TypeResolver *resolver, Ast* atype) {
     type->kind = TYPE_F64;
         break;
   case AST_TYPE_NAME:
-    Symbol* sym = symbol_lookup(resolver->scope, atype->value.named_type.name);
-    if (sym == NULL) {
-      printf("error: symbol '%s' could not be found \n", atype->value.named_type.name);
+    Ast *name = atype->value.named_type.name;
+    Symbol *sym = NULL;
+    if (name->kind == AST_IDENTIFER) {
+      sym = symbol_lookup(resolver->scope, name->value.identifer_expr.value);
+    } else {
+      print_ast(name, 0);
+      sym = symbol_lookup_path(resolver->scope, name->value.member_expr);
     }
-    else if (sym->type == NULL){
-      print_ast(sym->node, 0);
+    if (sym == NULL) {
+      log_span(name->span, "error: symbol 'TODO' could not be found \n");
+    } else if (sym->type == NULL) {
+      // if its type is null we resolve it
+      sym->type = get_type(resolver, sym->node);
     }
     assert(sym->type != NULL);
     return sym->type;
@@ -74,6 +82,20 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
   return type;
 }
 
+Type *resolve_call(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_CALL);
+
+  MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
+  Symbol *sym = symbol_lookup_path(resolver->scope, path);
+  if (sym == NULL) {
+    log_span(node->span, "error: Symbol not found\n");
+    assert(0);
+  }
+
+  print_symbol(sym,0);
+
+  return sym->type->Function.return_type;
+}
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   FunctionDecl decl = node->value.function_decl;
@@ -85,6 +107,14 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
     Type *type = get_type(resolver, decl.parameters[i]);
     arrput(ftype->Function.parameters, type);
+  }
+
+  
+
+  if (decl.body != NULL && resolver->resolve_expr) {
+    for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) {
+      Type *type = get_type(resolver, decl.body->value.block_stmt.stmts[i]);
+    }
   }
 
   node->type = ftype;
@@ -131,7 +161,9 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   case AST_UNARY: assert(0);
   case AST_ASSIGN: assert(0);
   case AST_DECL: assert(0);
-  case AST_CALL: assert(0);
+  case AST_CALL:
+    type = resolve_call(resolver, node);
+    break;
   case AST_MEMBER: assert(0);
   case AST_INDEX: assert(0);
   case AST_CAST: assert(0);
@@ -149,3 +181,17 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   node->type = type;
   return type;
 }
+
+void type_check_package(TypeResolver *resolver, Package *package) {
+    for(int i = 0; i < arrlen(package->declarations); i ++ ){
+      switch(package->declarations[i]->kind) {
+      case AST_FUNC_DECL:
+        get_type(resolver, package->declarations[i]);
+        break;
+      default:
+        break;
+      }
+    }
+
+}
+
