@@ -182,11 +182,13 @@ const char *symbol_kind_name(SymbolKind kind)
 }
 
 void log_span(SourceSpan span, const char* fmt, ...) {
+  #ifndef SILENT
   va_list args;
   va_start(args, fmt);
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
   va_end(args);
+  #endif
 }
 
 int panic(const char *err) {

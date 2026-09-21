@@ -297,7 +297,7 @@ Ast *parse_type(Parser *p) {
       ast->value.named_type.name = new_ast(AST_IDENTIFER, parser_peek(p).span);
       ast->value.named_type.name->value.identifer_expr.value = next.lexeme;
     }
-
+    p->pos ++;
     break;
   case TOKEN_STAR:
     ast->kind = AST_TYPE_POINTER;
