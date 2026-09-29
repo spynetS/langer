@@ -71,7 +71,8 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
     break;
   case AST_FUNC_DECL:
     if (node->value.function_decl.body == NULL) {
-      assert(0);
+      //assert(0);
+      break;
     }
     table = symbol_table_block(root, &node->value.function_decl.body->value.block_stmt);
 
@@ -186,7 +187,7 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       printf("---resolve node in table----\n");
       print_ast(node, 0);
       printf("-------\n");
-      Type *type = get_type(resolver, node);
+      Type *type = resolve_type(resolver, node);
       assert(type != NULL);
       sym->type = type;
     } else {

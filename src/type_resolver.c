@@ -15,12 +15,12 @@ Type *new_type(TypeKind kind) {
   type->kind = kind;
   return type;
 }
-Type *resolve_type(TypeResolver *resolver, Ast* atype) {
+Type *convert_type(TypeResolver *resolver, Ast* atype) {
   Type *type = malloc(sizeof(Type));
   switch(atype->kind) {
   case AST_TYPE_POINTER:
     type->kind = TYPE_POINTER;
-    type->Pointer.base = resolve_type(resolver, atype->value.pointer_type.to);
+    type->Pointer.base = convert_type(resolver, atype->value.pointer_type.to);
     break;
 
   case AST_TYPE_BYTE:
@@ -54,7 +54,7 @@ Type *resolve_type(TypeResolver *resolver, Ast* atype) {
       log_span(name->span, "error: symbol 'TODO' could not be found \n");
     } else if (sym->type == NULL) {
       // if its type is null we resolve it
-      sym->type = get_type(resolver, sym->node);
+      sym->type = resolve_type(resolver, sym->node);
     }
     assert(sym->type != NULL);
     return sym->type;
@@ -68,10 +68,10 @@ Type *resolve_type(TypeResolver *resolver, Ast* atype) {
 Type *resolve_var_decl(TypeResolver *resolver, Ast *node) {
   Type *type = NULL;
   if (node->value.variable_decl.type != NULL ) {
-    type =  resolve_type(resolver, node->value.variable_decl.type);
+    type =  convert_type(resolver, node->value.variable_decl.type);
   }
   else if (node->value.variable_decl.initlizer != NULL) {
-    type = get_type(resolver, node->value.variable_decl.initlizer);
+    type = resolve_type(resolver, node->value.variable_decl.initlizer);
   }
   node->type = type;
   return type;
@@ -89,7 +89,7 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
     Member m = {0};
     m.name = strdup(
         decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
-    m.type = get_type(resolver, decl.members[i]);
+    m.type = resolve_type(resolver, decl.members[i]);
     arrput(type->Struct.members, m);
   }
 
@@ -117,7 +117,7 @@ Type *resolve_member(TypeResolver *resolver, Ast *node) {
 
     MemberAccessExpr expr = node->value.member_expr;
 
-    Type *left_type = get_type(resolver, expr.left);
+    Type *left_type = resolve_type(resolver, expr.left);
 
     if (left_type == NULL)
         return NULL;
@@ -148,17 +148,17 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   FunctionDecl decl = node->value.function_decl;
   
   Type *ftype = new_type(TYPE_FUNCTION);
-  ftype->Function.return_type = resolve_type(resolver, decl.return_type);
+  ftype->Function.return_type = convert_type(resolver, decl.return_type);
   ftype->Function.parameters = NULL;
 
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
-    Type *type = get_type(resolver, decl.parameters[i]);
+    Type *type = resolve_type(resolver, decl.parameters[i]);
     arrput(ftype->Function.parameters, type);
   }
 
   if (decl.body != NULL && resolver->resolve_expr) {
     for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) {
-      Type *type = get_type(resolver, decl.body->value.block_stmt.stmts[i]);
+      Type *type = resolve_type(resolver, decl.body->value.block_stmt.stmts[i]);
     }
   }
 
@@ -173,9 +173,9 @@ Type *can_cast(Type *a, Type *b) {
 Type *resolve_assign(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_ASSIGN);
 
-  Type *left_type = get_type(resolver, node->value.assign_expr.left);
+  Type *left_type = resolve_type(resolver, node->value.assign_expr.left);
 
-  Type *value_type = get_type(resolver, node->value.assign_expr.value);
+  Type *value_type = resolve_type(resolver, node->value.assign_expr.value);
   node->type = value_type;
 
   if (can_cast(left_type, value_type) == NULL) {
@@ -197,7 +197,7 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
 }
 
 
-Type *get_type(TypeResolver *resolver, Ast *node) {
+Type *resolve_type(TypeResolver *resolver, Ast *node) {
 
   Type *type = NULL;
 
@@ -215,7 +215,7 @@ Type *get_type(TypeResolver *resolver, Ast *node) {
   case AST_ENUM_DECL: assert(0);
 
   case AST_RETURN:
-    type = get_type(resolver, node->value.return_stmt.value);
+    type = resolve_type(resolver, node->value.return_stmt.value);
     break;
   case AST_INTEGER_LITERAL:
     type = new_type(TYPE_I32);
@@ -268,7 +268,7 @@ void type_check_package(TypeResolver *resolver, Package *package) {
     for(int i = 0; i < arrlen(package->declarations); i ++ ){
       switch(package->declarations[i]->kind) {
       case AST_FUNC_DECL:
-        get_type(resolver, package->declarations[i]);
+        resolve_type(resolver, package->declarations[i]);
         break;
       default:
         break;
