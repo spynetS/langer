@@ -14,29 +14,60 @@
 #include "../include/stb_ds.h"
 #include "./llvm.h"
 
-LLVMTypeRef get_llvm_type(LLVMGenerator lg, Ast *node) {
-  switch (node->kind) {
-  case AST_TYPE_BYTE:
-    return lg.byte;
-  case AST_TYPE_I16:
-    return lg.i16;
-  case AST_TYPE_I32:
-    return lg.i32;
-  case AST_TYPE_I64:
-    return lg.i64;
-  case AST_TYPE_F32:
-    return lg.f32;
-  case AST_TYPE_F64:
-    return lg.f64;
-  case AST_TYPE_POINTER:
+/* LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Ast *node) { */
+/*   switch (node->kind) { */
+/*   case AST_TYPE_BYTE: */
+/*     return lg->byte; */
+/*   case AST_TYPE_I16: */
+/*     return lg->i16; */
+/*   case AST_TYPE_I32: */
+/*     return lg->i32; */
+/*   case AST_TYPE_I64: */
+/*     return lg->i64; */
+/*   case AST_TYPE_F32: */
+/*     return lg->f32; */
+/*   case AST_TYPE_F64: */
+/*     return lg->f64; */
+/*   case AST_TYPE_POINTER: */
+/*     panic("TODO GET LLVM POITR"); */
+/*     break; */
+/*   case AST_TYPE_ARRAY: */
+/*     panic("TODO GET LLVM ARRATYY"); */
+/*     break; */
+/*   default: */
+/*     printf("=============\n"); */
+/*     printf("%s\n", ast_kind_to_string(node->kind)); */
+/*     printf("TODO NOT AN LLVM TYPE\n"); */
+/*     printf("==============\n"); */
+/*     assert(0); */
+/*     break; */
+/*   } */
+/*   return NULL; */
+/* } */
+
+LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
+  switch (type->kind) {
+  case TYPE_BYTE:
+    return lg->byte;
+  case TYPE_I16:
+    return lg->i16;
+  case TYPE_I32:
+    return lg->i32;
+  case TYPE_I64:
+    return lg->i64;
+  case TYPE_F32:
+    return lg->f32;
+  case TYPE_F64:
+    return lg->f64;
+  case TYPE_POINTER:
     panic("TODO GET LLVM POITR");
     break;
-  case AST_TYPE_ARRAY:
+  case TYPE_ARRAY:
     panic("TODO GET LLVM ARRATYY");
     break;
   default:
     printf("=============\n");
-    printf("%s\n", ast_kind_to_string(node->kind));
+    printf("%s\n", ast_kind_to_string(type->kind));
     printf("TODO NOT AN LLVM TYPE\n");
     printf("==============\n");
     assert(0);
@@ -45,18 +76,18 @@ LLVMTypeRef get_llvm_type(LLVMGenerator lg, Ast *node) {
   return NULL;
 }
 
-LLVMValueRef create_function(LLVMGenerator lg, FunctionDecl func) {
+LLVMValueRef create_function(LLVMGenerator *lg, FunctionDecl func) {
   size_t pl = arrlen(func.parameters);
   LLVMTypeRef *params = malloc(sizeof(LLVMTypeRef) * pl);
   for (int i = 0; i < pl; i++) {
-    params[i] = get_llvm_type(lg, func.parameters[i]->value.variable_decl.type);
+    params[i] = get_llvm_type(lg, func.parameters[i]->type);
   }
-  LLVMTypeRef fn_type = LLVMFunctionType(lg.i32, params, pl, 0);
+  LLVMTypeRef fn_type = LLVMFunctionType(lg->i32, params, pl, 0);
   free(params);
 
   LLVMValueRef function =
     LLVMAddFunction(
-                    lg.module,
+                    lg->module,
                     func.name,
                     fn_type
                    );
@@ -64,7 +95,7 @@ LLVMValueRef create_function(LLVMGenerator lg, FunctionDecl func) {
   if (func.body != NULL) {
     LLVMBasicBlockRef entry =
       LLVMAppendBasicBlockInContext(
-                                    lg.context,
+                                    lg->context,
                                     function,
                                     "entry"
                                    );
@@ -73,6 +104,21 @@ LLVMValueRef create_function(LLVMGenerator lg, FunctionDecl func) {
 
   return function;
 }
+
+LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc) {
+  debug_log("LLVM creating struct decl '%s'\n", struc.name);
+  LLVMTypeRef struct_type = LLVMStructCreateNamed(lg->context, struc.name);
+
+  LLVMTypeRef field_types[arrlen(struc.members)];
+  for (size_t i = 0; i < arrlen(struc.members); i ++) {
+    LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i]->type);
+    field_types[i] = llvm_type;
+  }
+
+  LLVMStructSetBody(struct_type, field_types, arrlen(struc.members), 0);
+  return struct_type;
+}
+
 
 void gen_package(Package *package) {
   LLVMContextRef context = LLVMContextCreate();
@@ -104,7 +150,10 @@ void gen_package(Package *package) {
 
     switch(package->declarations[i]->kind) {
     case AST_FUNC_DECL:
-      create_function(lg, package->declarations[i]->value.function_decl);
+      create_function(&lg, package->declarations[i]->value.function_decl);
+      break;
+    case AST_STRUCT_DECL:
+      create_struct_decl(&lg, package->declarations[i]->value.struct_decl);
       break;
     default:
       break;
