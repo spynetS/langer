@@ -15,6 +15,7 @@ Type *new_type(TypeKind kind) {
   type->kind = kind;
   return type;
 }
+
 Type *convert_type(TypeResolver *resolver, Ast* atype) {
   Type *type = malloc(sizeof(Type));
   switch(atype->kind) {
@@ -151,7 +152,7 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
   BlockStmt block = node->value.block_stmt;
 
   for (int i = 0; i < arrlen(block.stmts); i++) {
-    Type *type = get_type(resolver, block.stmts[i]);
+    Type *type = resolve_type(resolver, block.stmts[i]);
   }
   
 }
@@ -267,7 +268,7 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
       resolve_block(resolver, node->value.if_stmt.else_body);
     }
     if (node->value.if_stmt.else_if_stmt != NULL) {
-      get_type(resolver, node->value.if_stmt.else_if_stmt);
+      convert_type(resolver, node->value.if_stmt.else_if_stmt);
     }
     break;
 
@@ -293,11 +294,11 @@ void type_check_package(TypeResolver *resolver, Package *package) {
             symbol_lookup(resolver->scope,
                           package->declarations[i]->value.function_decl.name);
         assert(func != NULL);
-        assert(func->scope != NULL);
-        resolver->scope = func->scope;
-        get_type(resolver, package->declarations[i]);
-        
-        resolve_type(resolver, package->declarations[i]);
+        if(func->scope != NULL) {
+
+           resolver->scope = func->scope;
+           resolve_type(resolver, package->declarations[i]);
+        }
         break;
       default:
         break;
