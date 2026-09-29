@@ -165,6 +165,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
   Symbol *sym = malloc(sizeof(Symbol));
   sym->scope = table;
   sym->node = NULL;
+  sym->type = NULL;
   sym->kind = SYMBOL_PACKAGE;
   sym->key = strdup(package->package.value);
 
