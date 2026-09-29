@@ -100,9 +100,13 @@ int main(int argc, char** argv) {
     printf("==========\n");
 
     print_package(package);
+    //gen_package(package);
+  }
+
+  for (int i = 0; i < arrlen(files); i++) {
+    Package *package = packages[i];
     gen_package(package);
   }
 
   return 0;
 }
-

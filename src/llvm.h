@@ -10,6 +10,11 @@
 #include "parser.h"
 
 typedef struct {
+  char *key;
+  LLVMTypeRef value;
+} LLVMTypeEntry;
+
+typedef struct {
   LLVMContextRef context;
   LLVMModuleRef module;
   LLVMBuilderRef builder;
@@ -21,6 +26,8 @@ typedef struct {
   LLVMTypeRef i64;
   LLVMTypeRef f32;
   LLVMTypeRef f64;
+
+  LLVMTypeEntry *types;
 
 } LLVMGenerator;
 
@@ -37,48 +44,48 @@ void gen_package(Package *package);
 
 
   LLVMTypeRef params[] = {
-    lg.i32,
-    lg.i32,
+  lg.i32,
+  lg.i32,
   };
 
   LLVMTypeRef fn_type =
-    LLVMFunctionType(
-                     lg.i32,
-                     params,
-                     2,
-                     0
-                    );
+  LLVMFunctionType(
+  lg.i32,
+  params,
+  2,
+  0
+  );
 
   LLVMValueRef function =
-    LLVMAddFunction(
-                    module,
-                    "main",
-                    fn_type
-                   );
+  LLVMAddFunction(
+  module,
+  "main",
+  fn_type
+  );
 
   LLVMBasicBlockRef entry =
-    LLVMAppendBasicBlockInContext(
-                                  context,
-                                  function,
-                                  "entry"
-                                 );
+  LLVMAppendBasicBlockInContext(
+  context,
+  function,
+  "entry"
+  );
 
   LLVMPositionBuilderAtEnd(builder, entry);
 
   LLVMValueRef a =
-    LLVMGetParam(function, 0);
+  LLVMGetParam(function, 0);
 
   LLVMValueRef b =
-    LLVMGetParam(function, 1);
+  LLVMGetParam(function, 1);
 
   LLVMValueRef result =
-    LLVMBuildAdd(
-                 builder,
-                 a,
-                 b,
-                 "result"
-                );
+  LLVMBuildAdd(
+  builder,
+  a,
+  b,
+  "result"
+  );
 
   LLVMBuildRet(builder, result);
 
-  */
+*/

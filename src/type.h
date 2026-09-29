@@ -49,7 +49,7 @@ struct Type {
       Type **parameters; // stb dynamic array
     } Function;
 
-    struct {
+    struct StructType {
       const char *name;
       Member* members;
     } Struct;

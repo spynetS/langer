@@ -10,40 +10,13 @@
 #include <assert.h>
 
 #include "./ast.h"
+#include "./type.h"
 #include "./utils.h"
 #include "../include/stb_ds.h"
 #include "./llvm.h"
 
-/* LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Ast *node) { */
-/*   switch (node->kind) { */
-/*   case AST_TYPE_BYTE: */
-/*     return lg->byte; */
-/*   case AST_TYPE_I16: */
-/*     return lg->i16; */
-/*   case AST_TYPE_I32: */
-/*     return lg->i32; */
-/*   case AST_TYPE_I64: */
-/*     return lg->i64; */
-/*   case AST_TYPE_F32: */
-/*     return lg->f32; */
-/*   case AST_TYPE_F64: */
-/*     return lg->f64; */
-/*   case AST_TYPE_POINTER: */
-/*     panic("TODO GET LLVM POITR"); */
-/*     break; */
-/*   case AST_TYPE_ARRAY: */
-/*     panic("TODO GET LLVM ARRATYY"); */
-/*     break; */
-/*   default: */
-/*     printf("=============\n"); */
-/*     printf("%s\n", ast_kind_to_string(node->kind)); */
-/*     printf("TODO NOT AN LLVM TYPE\n"); */
-/*     printf("==============\n"); */
-/*     assert(0); */
-/*     break; */
-/*   } */
-/*   return NULL; */
-/* } */
+LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc);
+LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
 
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
@@ -59,6 +32,15 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     return lg->f32;
   case TYPE_F64:
     return lg->f64;
+  case TYPE_STRUCT:
+    debug_log("FINDING STRUCT '%s'\n", type->Struct.name);
+    LLVMTypeRef gtype = hmget(lg->types, (char *)type->Struct.name);
+    if(gtype == NULL) {
+      // It should exist becuase type resolver hasnt crashed
+      // se we generat the struct
+      return create_struct_decl_type(lg, type->Struct);
+    }
+    return gtype;
   case TYPE_POINTER:
     panic("TODO GET LLVM POITR");
     break;
@@ -74,6 +56,25 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     break;
   }
   return NULL;
+}
+
+LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
+  for (int i = 0; i < arrlen(block.stmts); i ++) {
+    Ast* stmt = block.stmts[i];
+    switch(stmt->kind) {
+    case AST_VAR_DECL:
+      assert(stmt->type != NULL);
+      LLVMTypeRef type = get_llvm_type(lg, stmt->type);
+      LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
+
+
+      return var;
+    default:
+      assert(0);
+      break;
+    }
+  }
+
 }
 
 LLVMValueRef create_function(LLVMGenerator *lg, FunctionDecl func) {
@@ -99,23 +100,48 @@ LLVMValueRef create_function(LLVMGenerator *lg, FunctionDecl func) {
                                     function,
                                     "entry"
                                    );
+    LLVMPositionBuilderAtEnd(lg->builder, entry);
+    gen_block(lg, func.body->value.block_stmt);
 
   }
 
   return function;
 }
 
-LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc) {
-  debug_log("LLVM creating struct decl '%s'\n", struc.name);
+LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl decl) {
+  debug_log("LLVM creating struct decl '%s'\n", decl.name);
+
+  struct StructType struct_type = {0};
+  struct_type.name = decl.name;
+  struct_type.members = NULL;
+  for (int i = 0; i < arrlen(decl.members); i++) {
+    Member m = {0};
+    m.name = strdup(
+                    decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
+    m.type = decl.members[i]->type;
+    arrput(struct_type.members, m);
+  }
+
+  return create_struct_decl_type(lg, struct_type);
+}
+
+
+LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) {
+  debug_log("LLVM creating struct decl '%s' type\n", struc.name);
   LLVMTypeRef struct_type = LLVMStructCreateNamed(lg->context, struc.name);
 
   LLVMTypeRef field_types[arrlen(struc.members)];
   for (size_t i = 0; i < arrlen(struc.members); i ++) {
-    LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i]->type);
+    printf("Type: %d\n", struc.members[i].type);
+
+    LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i].type);
     field_types[i] = llvm_type;
   }
-
+  
   LLVMStructSetBody(struct_type, field_types, arrlen(struc.members), 0);
+  
+  hmput(lg->types, (char* )struc.name, struct_type);
+  
   return struct_type;
 }
 
@@ -140,6 +166,8 @@ void gen_package(Package *package) {
   lg.i64 = LLVMInt64TypeInContext(context);
   lg.f32 = LLVMFloatTypeInContext(context);
   lg.f64 = LLVMDoubleTypeInContext(context);
+
+  lg.types = NULL;
 
   lg.context = context;
   lg.module = module;
