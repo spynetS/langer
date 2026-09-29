@@ -11,7 +11,7 @@ typedef struct type_resolver {
   bool resolve_expr;
 } TypeResolver;
 
-Type *get_type(TypeResolver*, Ast*);
+Type *resolve_type(TypeResolver*, Ast*);
 
 void type_check_package(TypeResolver *resolver, Package *package);
 

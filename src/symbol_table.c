@@ -186,7 +186,7 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       printf("---resolve node in table----\n");
       print_ast(node, 0);
       printf("-------\n");
-      Type *type = get_type(resolver, node);
+      Type *type = resolve_type(resolver, node);
       assert(type != NULL);
       sym->type = type;
     } else {
