@@ -58,21 +58,24 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   return NULL;
 }
 
+LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
+  switch(stmt->kind) {
+  case AST_VAR_DECL:
+    assert(stmt->type != NULL);
+    LLVMTypeRef type = get_llvm_type(lg, stmt->type);
+    LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
+    return var;
+  default:
+    //assert(0);
+    break;
+  }
+
+}
+
 LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
   for (int i = 0; i < arrlen(block.stmts); i ++) {
     Ast* stmt = block.stmts[i];
-    switch(stmt->kind) {
-    case AST_VAR_DECL:
-      assert(stmt->type != NULL);
-      LLVMTypeRef type = get_llvm_type(lg, stmt->type);
-      LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
-
-
-      return var;
-    default:
-      assert(0);
-      break;
-    }
+    create_stmt(lg, stmt);
   }
 
 }
@@ -101,6 +104,7 @@ LLVMValueRef create_function(LLVMGenerator *lg, FunctionDecl func) {
                                     "entry"
                                    );
     LLVMPositionBuilderAtEnd(lg->builder, entry);
+
     gen_block(lg, func.body->value.block_stmt);
 
   }
