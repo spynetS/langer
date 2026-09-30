@@ -293,9 +293,13 @@ void type_check_package(TypeResolver *resolver, Package *package) {
         Symbol *func =
             symbol_lookup(resolver->scope,
                           package->declarations[i]->value.function_decl.name);
+        if(func == NULL) {
+          print_ast(package->declarations[i], 0);
+          log_span(package->declarations[i]->span, "Couldn't find symbol\n");
+        }
         assert(func != NULL);
         if(func->scope != NULL) {
-
+          
            resolver->scope = func->scope;
            resolve_type(resolver, package->declarations[i]);
         }

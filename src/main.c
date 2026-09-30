@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
-  
+  printf("### LEXER AND PARSER ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     size_t size = 0;
     char *input = read_file(files[i], &size);
@@ -80,11 +80,12 @@ int main(int argc, char** argv) {
   print_symbol_table(&root,0);
 
 
-
+  printf("### TYPE RESOLVER ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
 
     resolver.resolve_expr = false;
+    resolver.scope = &root;
 
     printf("=======START RESOLVER======\n");
     symbol_table_resolve_types(&resolver, &root);    
@@ -93,16 +94,20 @@ int main(int argc, char** argv) {
     printf("==========\n");
 
     resolver.resolve_expr = true;
+    for(size_t i = 0; i < arrlen(root.symbols); i ++) {
+      if(strcmp(root.symbols[i]->key, package->package.value) == 0)
+        resolver.scope = root.symbols[i]->scope;
+    }
 
 
-    printf("====Start RESOLVED package====\n");
+    printf("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);
     printf("==========\n");
 
     print_package(package);
     //gen_package(package);
   }
-
+  printf("### LLVM GENERATIONS ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
     gen_package(package);

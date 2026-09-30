@@ -1,6 +1,6 @@
 # bug with function declerationa and symboltable
 
-- STATUS: OPEN
+- STATUS: CLOSE
 - PRIORITY: 200
 - TAGS: BUG
 
