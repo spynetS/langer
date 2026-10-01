@@ -188,7 +188,8 @@ void log_span(SourceSpan span, const char* fmt, ...) {
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
   va_end(args);
-  #endif
+  //exit(0);
+#endif
 }
 
 int panic(const char *err) {

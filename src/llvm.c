@@ -20,6 +20,8 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
 
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
+  case TYPE_VOID:
+    return LLVMVoidType();    
   case TYPE_BYTE:
     return lg->byte;
   case TYPE_I16:
@@ -42,7 +44,7 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     }
     return gtype;
   case TYPE_POINTER:
-    panic("TODO GET LLVM POITR");
+    return LLVMPointerType(get_llvm_type(lg, type->Pointer.base), 0);
     break;
   case TYPE_ARRAY:
     panic("TODO GET LLVM ARRATYY");
@@ -77,16 +79,18 @@ LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
     Ast* stmt = block.stmts[i];
     create_stmt(lg, stmt);
   }
-
+  return NULL;
 }
 
-LLVMValueRef create_function(LLVMGenerator *lg, FunctionDecl func) {
+LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
+  FunctionDecl func = ast->value.function_decl;
+  
   size_t pl = arrlen(func.parameters);
   LLVMTypeRef *params = malloc(sizeof(LLVMTypeRef) * pl);
   for (int i = 0; i < pl; i++) {
     params[i] = get_llvm_type(lg, func.parameters[i]->type);
   }
-  LLVMTypeRef fn_type = LLVMFunctionType(lg->i32, params, pl, 0);
+  LLVMTypeRef fn_type = LLVMFunctionType(get_llvm_type(lg, ast->type->Function.return_type), params, pl, 0);
   free(params);
 
   LLVMValueRef function =
@@ -182,7 +186,7 @@ void gen_package(Package *package) {
 
     switch(package->declarations[i]->kind) {
     case AST_FUNC_DECL:
-      create_function(&lg, package->declarations[i]->value.function_decl);
+      create_function(&lg, package->declarations[i]);
       break;
     case AST_STRUCT_DECL:
       create_struct_decl(&lg, package->declarations[i]->value.struct_decl);

@@ -203,6 +203,7 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
   Symbol *sym = symbol_lookup(resolver->scope, node->value.identifer_expr.value);
   if (sym == NULL) {
     log_span(node->span, "error: Symbol not found\n");
+    assert(0);
   }
 
   return sym->type;
@@ -295,7 +296,7 @@ void type_check_package(TypeResolver *resolver, Package *package) {
                           package->declarations[i]->value.function_decl.name);
         if(func == NULL) {
           print_ast(package->declarations[i], 0);
-          log_span(package->declarations[i]->span, "Couldn't find symbol\n");
+          log_span(package->declarations[i]->span, "Couldn't find function symbol\n");
         }
         assert(func != NULL);
         if(func->scope != NULL) {

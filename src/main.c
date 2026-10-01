@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
     Package* package = parse_package(&p);
     print_package(package);
 
-    symbol_table_package(&root, package);
+    symbol_table_package(&root, package, package->package.value);
 
     arrput(packages, package);
     print_package(package);
