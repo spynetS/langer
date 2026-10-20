@@ -68,11 +68,11 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
 
 Type *resolve_var_decl(TypeResolver *resolver, Ast *node) {
   Type *type = NULL;
+  if (node->value.variable_decl.initlizer != NULL) {
+    type = resolve_type(resolver, node->value.variable_decl.initlizer);
+  }
   if (node->value.variable_decl.type != NULL ) {
     type =  convert_type(resolver, node->value.variable_decl.type);
-  }
-  else if (node->value.variable_decl.initlizer != NULL) {
-    type = resolve_type(resolver, node->value.variable_decl.initlizer);
   }
   node->type = type;
   return type;
@@ -100,16 +100,19 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
 Type *resolve_call(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_CALL);
 
+
   MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
   Symbol *sym = symbol_lookup_path(resolver->scope, path);
+
   if (sym == NULL) {
     log_span(node->span, "error: Symbol not found\n");
     assert(0);
   }
 
   print_symbol(sym,0);
-
-  return sym->type->Function.return_type;
+  assert(sym->type != NULL);
+  Type* t = sym->type->Function.return_type;
+  return t;
 }
 
 
@@ -199,7 +202,6 @@ Type *resolve_assign(TypeResolver *resolver, Ast *node) {
 
 Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_IDENTIFER);
-
   Symbol *sym = symbol_lookup(resolver->scope, node->value.identifer_expr.value);
   if (sym == NULL) {
     log_span(node->span, "error: Symbol not found\n");
@@ -211,7 +213,6 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
 
 
 Type *resolve_type(TypeResolver *resolver, Ast *node) {
-
   Type *type = NULL;
 
   switch(node->kind) {
@@ -300,7 +301,6 @@ void type_check_package(TypeResolver *resolver, Package *package) {
         }
         assert(func != NULL);
         if(func->scope != NULL) {
-          
            resolver->scope = func->scope;
            resolve_type(resolver, package->declarations[i]);
         }

@@ -153,24 +153,61 @@ SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt) {
   return table;
 }
 
+SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const char *name ) {
+    char *copy = strdup(name);
+    if (!copy) return NULL;
 
-SymbolTable *symbol_table_package(SymbolTable *root, Package *package) {
-  SymbolTable *table = malloc(sizeof(SymbolTable));
-  table->symbols = NULL;
-  table->parent = root;
-  for (int i = 0; i < arrlen(package->declarations); i++) {
-    symbol_define(table, package->declarations[i]);
-  }
-  
-  Symbol *sym = malloc(sizeof(Symbol));
-  sym->scope = table;
-  sym->node = NULL;
-  sym->type = NULL;
-  sym->kind = SYMBOL_PACKAGE;
-  sym->key = strdup(package->package.value);
+    SymbolTable *parent = root;
+    SymbolTable *table = NULL;
 
-  arrput(root->symbols, sym);
-  return table;
+    char *saveptr;
+    char *token = strtok_r(copy, ".", &saveptr);
+
+    while (token != NULL) {
+        table = malloc(sizeof(SymbolTable));
+        if (!table) {
+            free(copy);
+            return NULL;
+        }
+
+        table->symbols = NULL;
+        table->parent = parent;
+
+        Symbol *sym = malloc(sizeof(Symbol));
+        if (!sym) {
+            free(table);
+            free(copy);
+            return NULL;
+        }
+
+        sym->scope = table;
+        sym->node = NULL;
+        sym->type = NULL;
+        sym->kind = SYMBOL_PACKAGE;
+        sym->key = strdup(token);
+
+        if (!sym->key) {
+            free(sym);
+            free(table);
+            free(copy);
+            return NULL;
+        }
+
+        arrput(parent->symbols, sym);
+
+        parent = table;
+        token = strtok_r(NULL, ".", &saveptr);
+    }
+
+    free(copy);
+
+    if (!table) return NULL;
+
+    for (int i = 0; i < arrlen(package->declarations); i++) {
+        symbol_define(table, package->declarations[i]);
+    }
+
+    return table;
 }
 
 
@@ -188,6 +225,7 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       print_ast(node, 0);
       printf("-------\n");
       Type *type = resolve_type(resolver, node);
+      
       assert(type != NULL);
       sym->type = type;
     } else {

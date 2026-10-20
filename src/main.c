@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
 
+    // here we don't care about the individual expressions
     resolver.resolve_expr = false;
     resolver.scope = &root;
 
@@ -93,13 +94,14 @@ int main(int argc, char** argv) {
     print_symbol_table(&root, 0);
     printf("==========\n");
 
+    // for individual varaibles we want to check expressions? IDK why directly
     resolver.resolve_expr = true;
     for(size_t i = 0; i < arrlen(root.symbols); i ++) {
       if(strcmp(root.symbols[i]->key, package->package.value) == 0)
         resolver.scope = root.symbols[i]->scope;
     }
 
-
+    // now we want to check all types
     printf("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);
     printf("==========\n");

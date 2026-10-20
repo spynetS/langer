@@ -43,7 +43,7 @@ Symbol *symbol_lookup(SymbolTable *table, const char *key);
 Symbol *symbol_lookup_path(SymbolTable *table, MemberAccessExpr memexpr);
 
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
-SymbolTable *symbol_table_package(SymbolTable *root, Package *package);
+SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const char* name);
 
 void symbol_table_resolve_types(struct type_resolver *resolver, SymbolTable *table);
 
