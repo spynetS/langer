@@ -1,8 +1,8 @@
 # function declartions symbols have none type after resolution
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
-- TAGS: [in-progress]
+- TAGS: 
 
 No description.
 function declarations symbols show no type

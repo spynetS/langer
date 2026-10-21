@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
   char **files = NULL;
   handle_args(argc, argv, &files);
   Package** packages = NULL;
+  SymbolTable** symbol_tables = NULL;
 
   SymbolTable root = {0};
   root.symbols = NULL;
@@ -65,9 +66,10 @@ int main(int argc, char** argv) {
     Package* package = parse_package(&p);
     print_package(package);
 
-    symbol_table_package(&root, package, package->package.value);
-
+    SymbolTable *table = symbol_table_package(&root, package, package->package.value);
+    
     arrput(packages, package);
+    arrput(symbol_tables, table);
     print_package(package);
 
     /* for (size_t i = 0; i < arrlen(token); i++) { */
@@ -95,7 +97,7 @@ int main(int argc, char** argv) {
     printf("==========\n");
 
     // for individual varaibles we want to check expressions? IDK why directly
-    /*
+    
     resolver.resolve_expr = true;
     for(size_t i = 0; i < arrlen(root.symbols); i ++) {
       if(strcmp(root.symbols[i]->key, package->package.value) == 0)
@@ -106,14 +108,14 @@ int main(int argc, char** argv) {
     printf("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);
     printf("==========\n");
-    */
+
     print_package(package);
     //gen_package(package);
   }
   printf("### LLVM GENERATIONS ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
-    gen_package(package);
+    gen_package(package, symbol_tables[i]);
   }
 
   return 0;

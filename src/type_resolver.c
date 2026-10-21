@@ -43,6 +43,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     type->kind = TYPE_F64;
         break;
   case AST_TYPE_NAME:
+    // the ast node is a type
     Ast *name = atype->value.named_type.name;
     Symbol *sym = NULL;
     if (name->kind == AST_IDENTIFER) {
@@ -53,6 +54,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     }
     if (sym == NULL) {
       log_span(name->span, "error: symbol 'TODO' could not be found \n");
+      assert(false);
     } else if (sym->type == NULL) {
       // if its type is null we resolve it
       sym->type = resolve_type(resolver, sym->node);
@@ -99,7 +101,6 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
 
 Type *resolve_call(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_CALL);
-
 
   MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
   Symbol *sym = symbol_lookup_path(resolver->scope, path);

@@ -28,6 +28,9 @@ typedef struct {
   Visibility visibility;
 
   SymbolTable *scope;
+
+  
+
 } Symbol;
 
 // can be seen as the scope

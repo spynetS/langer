@@ -8,7 +8,6 @@
 
 void print_depth(int depth);
 
-
 Symbol *symbol_create(Ast *node) {
   Symbol *ns = malloc(sizeof(Symbol));
   ns->node = node;
@@ -16,8 +15,6 @@ Symbol *symbol_create(Ast *node) {
   ns->scope = NULL;
   ns->key = NULL;
   ns->visibility = VIS_PRIVATE;
-
-
   
   switch (node->kind) {
   case AST_VAR_DECL:

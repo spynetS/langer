@@ -8,9 +8,10 @@
 #include <llvm-c/ExecutionEngine.h>
 
 #include "parser.h"
+#include "symbol_table.h"
 
 typedef struct {
-  char *key;
+  const char *key;
   LLVMTypeRef value;
 } LLVMTypeEntry;
 
@@ -29,10 +30,13 @@ typedef struct {
 
   LLVMTypeEntry *types;
 
+  SymbolTable *sroot;    // root
+  SymbolTable *scurrent; // current we create
+
 } LLVMGenerator;
 
 
-void gen_package(Package *package);
+void gen_package(Package *package, SymbolTable *root);
 
 #endif
 

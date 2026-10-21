@@ -18,6 +18,15 @@
 LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc);
 LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
 
+void save_type(LLVMGenerator *lg, const char* name, LLVMTypeRef ltype){
+  hmput(lg->types, name, ltype);
+}
+
+LLVMTypeRef get_type(LLVMGenerator *lg, const char* name) {
+  return hmget(lg->types, name);
+}
+
+
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
   case TYPE_VOID:
@@ -36,7 +45,8 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     return lg->f64;
   case TYPE_STRUCT:
     debug_log("FINDING STRUCT '%s'\n", type->Struct.name);
-    LLVMTypeRef gtype = hmget(lg->types, (char *)type->Struct.name);
+    LLVMTypeRef gtype = create_struct_decl_type(lg, type->Struct);
+    //get_type(lg, type->Struct.name);
     if(gtype == NULL) {
       // It should exist becuase type resolver hasnt crashed
       // se we generat the struct
@@ -60,13 +70,26 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   return NULL;
 }
 
+LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
+  
+}
+
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   switch(stmt->kind) {
-  case AST_VAR_DECL:
+  case AST_VAR_DECL: {
     assert(stmt->type != NULL);
+    printf("here\n");
+    print_ast(stmt, 0);
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
     return var;
+  }
+  case AST_CALL: {
+    //print_ast(stmt, 0);
+    assert(stmt->type != NULL);
+    return create_call(lg, stmt->value.call_expr);
+  }
+    
   default:
     //assert(0);
     break;
@@ -84,22 +107,26 @@ LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
 
 LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
   FunctionDecl func = ast->value.function_decl;
-  
+
+  // the parameters
   size_t pl = arrlen(func.parameters);
   LLVMTypeRef *params = malloc(sizeof(LLVMTypeRef) * pl);
   for (int i = 0; i < pl; i++) {
     params[i] = get_llvm_type(lg, func.parameters[i]->type);
   }
+
+  // create the type
   LLVMTypeRef fn_type = LLVMFunctionType(get_llvm_type(lg, ast->type->Function.return_type), params, pl, 0);
   free(params);
 
+  // the function value
   LLVMValueRef function =
     LLVMAddFunction(
                     lg->module,
                     func.name,
                     fn_type
                    );
-
+  // if the function has a body we should generate it
   if (func.body != NULL) {
     LLVMBasicBlockRef entry =
       LLVMAppendBasicBlockInContext(
@@ -138,6 +165,7 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
   debug_log("LLVM creating struct decl '%s' type\n", struc.name);
   LLVMTypeRef struct_type = LLVMStructCreateNamed(lg->context, struc.name);
 
+
   LLVMTypeRef field_types[arrlen(struc.members)];
   for (size_t i = 0; i < arrlen(struc.members); i ++) {
     printf("Type: %d\n", struc.members[i].type);
@@ -145,16 +173,17 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
     LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i].type);
     field_types[i] = llvm_type;
   }
+
+
+  LLVMStructSetBody(struct_type, field_types, 0, 0);
   
-  LLVMStructSetBody(struct_type, field_types, arrlen(struc.members), 0);
-  
-  hmput(lg->types, (char* )struc.name, struct_type);
-  
+  save_type(lg, struc.name, struct_type);
+
   return struct_type;
 }
 
 
-void gen_package(Package *package) {
+void gen_package(Package *package, SymbolTable *root) {
   LLVMContextRef context = LLVMContextCreate();
 
   LLVMModuleRef module =
@@ -180,6 +209,7 @@ void gen_package(Package *package) {
   lg.context = context;
   lg.module = module;
   lg.builder = builder;
+  lg.sroot = root;
 
   // Begin with generation the declerations in the package
   for(int i = 0; i < arrlen(package->declarations); i ++ ){

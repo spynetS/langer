@@ -28,6 +28,7 @@ typedef enum {
 
 
 typedef struct Type Type;
+
 typedef struct {
   const char *name;
   Type *type;
