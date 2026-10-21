@@ -88,13 +88,14 @@ int main(int argc, char** argv) {
     resolver.resolve_expr = false;
     resolver.scope = &root;
 
-    printf("=======START RESOLVER======\n");
+    printf("=======START RESOLVER %s======\n", package->package.value);
     symbol_table_resolve_types(&resolver, &root);    
     printf("====AFTER RESOLVED====\n");
     print_symbol_table(&root, 0);
     printf("==========\n");
 
     // for individual varaibles we want to check expressions? IDK why directly
+    /*
     resolver.resolve_expr = true;
     for(size_t i = 0; i < arrlen(root.symbols); i ++) {
       if(strcmp(root.symbols[i]->key, package->package.value) == 0)
@@ -105,7 +106,7 @@ int main(int argc, char** argv) {
     printf("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);
     printf("==========\n");
-
+    */
     print_package(package);
     //gen_package(package);
   }

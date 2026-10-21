@@ -110,7 +110,11 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   }
 
   print_symbol(sym,0);
-  assert(sym->type != NULL);
+
+  if (sym->type == NULL) {
+    return new_type(TYPE_RESOLVING);
+  }
+
   Type* t = sym->type->Function.return_type;
   return t;
 }

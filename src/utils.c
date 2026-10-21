@@ -165,6 +165,8 @@ const char *type_kind_name(TypeKind kind)
 
         case TYPE_STRING:   return "string";
 
+        case TYPE_RESOLVING:   return "RESOLVING";
+
         default: return "unknown";
     }
 }

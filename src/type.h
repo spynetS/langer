@@ -22,6 +22,8 @@ typedef enum {
   TYPE_STRUCT,
   
   TYPE_STRING,
+
+  TYPE_RESOLVING, // internal compiler type, during resolving phase
 } TypeKind;
 
 
