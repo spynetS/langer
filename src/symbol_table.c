@@ -236,7 +236,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const cha
     if (!table) return NULL;
 
     for (int i = 0; i < arrlen(package->declarations); i++) {
-        Symbol* sym = symbol_define(table, package->declarations[i]);
+        symbol_define(table, package->declarations[i]);
     }
 
     return table;

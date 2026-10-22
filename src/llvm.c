@@ -19,6 +19,7 @@ LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc);
 LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
 LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func);
 LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast);
+LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt);
 
 void member_to_str(char *dst, MemberAccessExpr expr) {
   debug_log("====begin to make member access into string\n");
@@ -48,7 +49,7 @@ void member_to_str(char *dst, MemberAccessExpr expr) {
   debug_log("====done\n");
 }
 
-void save_type(LLVMGenerator *lg, const char* name, LLVMTypeRef ltype){
+void save_type(LLVMGenerator *lg, char* name, LLVMTypeRef ltype){
   hmput(lg->types, name, ltype);
 }
 
@@ -60,7 +61,7 @@ LLVMTypeRef get_type(LLVMGenerator *lg, const char* name) {
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
   case TYPE_VOID:
-    return LLVMVoidType();    
+    return LLVMVoidTypeInContext(lg->context);    
   case TYPE_BYTE:
     return lg->byte;
   case TYPE_I16:
@@ -140,15 +141,18 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   }
 
   LLVMTypeRef ftype = LLVMGlobalGetValueType(function);
-  //  size_t pl = arrlen(expr.parameters);
-  LLVMValueRef args[0];
-
-  char cname[256];
-  if (return_type->kind != TYPE_VOID) {
-    sprintf(cname, "val");
-  } else {
-    sprintf(cname, "");
+  size_t pl = arrlen(expr.parameters);
+  LLVMValueRef args[pl];
+  for(size_t i = 0; i < pl; i ++ ) {
+    args[i] = create_stmt(lg, expr.parameters[i]);
   }
+  
+
+  char cname[6];
+  cname[0] = '\0';
+  if (return_type->kind != TYPE_VOID) {
+    snprintf(cname, 5, "val");
+  } 
 
   LLVMValueRef result =
     LLVMBuildCall2(
@@ -156,7 +160,7 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
                    ftype,
                    function,
                    args,
-                   0,
+                   pl,
                    cname
                   );
 
@@ -166,6 +170,13 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   print_ast(stmt, 0);
   switch(stmt->kind) {
+  case AST_STRING_LITERAL:
+    String str = stmt->value.string_expr.value;
+    return LLVMBuildGlobalStringPtr(
+                             lg->builder,
+                             str.data,
+                             "str"
+                            );
   case AST_RETURN:
     // TODO maybe create llvm return here?
     return create_stmt(lg, stmt->value.return_stmt.value);
@@ -194,7 +205,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
     //assert(0);
     break;
   }
-
+  return NULL;
 }
 
 LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
@@ -282,8 +293,6 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
 
   LLVMTypeRef field_types[arrlen(struc.members)];
   for (size_t i = 0; i < arrlen(struc.members); i ++) {
-    printf("Type: %d\n", struc.members[i].type);
-
     LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i].type);
     field_types[i] = llvm_type;
   }

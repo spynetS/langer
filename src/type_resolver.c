@@ -171,7 +171,7 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
   BlockStmt block = node->value.block_stmt;
 
   for (int i = 0; i < arrlen(block.stmts); i++) {
-    Type *type = resolve_type(resolver, block.stmts[i]);
+    resolve_type(resolver, block.stmts[i]);
   }
   
 }
@@ -206,11 +206,12 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   ftype->Function.name = malloc(sizeof(256));
 
   if (decl.is_extern == false){
-    char name[256];
+    // FIXME not hardcode?
+    char name[516];
     get_package_name(resolver, name);
-    sprintf(ftype->Function.name, "%s.%s", name, decl.name);
+    snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
   } else {
-    sprintf(ftype->Function.name, "%s", decl.name);
+    snprintf(ftype->Function.name, 516, "%s", decl.name);
 
   }
 

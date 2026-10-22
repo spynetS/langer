@@ -112,7 +112,7 @@ typedef struct {
 } StringExpr;
 
 typedef struct {
-  const char* value;
+  char* value;
 } IdentiferExpr;
 
 typedef struct {
@@ -132,7 +132,7 @@ typedef struct {
 } ReturnStmt;
 
 typedef struct {
-  const char* value;
+  char* value;
 } PackageStmt;
 
 typedef struct {
@@ -160,7 +160,7 @@ typedef struct {
 
 typedef struct {
   Ast *left;
-  const char *member;
+  char *member;
 } MemberAccessExpr;
 
 typedef struct {
@@ -172,14 +172,14 @@ typedef struct {
 
 
 typedef struct {
-  const char* name;
+  char* name;
   Ast** members;
   Visibility visibility;
 } StructDecl;
 
 
 typedef struct {
-  const char* name;
+  char* name;
   Ast** parameters;
   Ast* return_type;
   Ast* body;

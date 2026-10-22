@@ -148,9 +148,10 @@ void print_ast(Ast *ast, int depth) {
       ast_print_type(ast->value.variable_decl.type, depth+1);
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
-    if (ast->value.variable_decl.initlizer != NULL)
+    if (ast->value.variable_decl.initlizer != NULL){
       printf("initlizer ");
       print_ast(ast->value.variable_decl.initlizer, depth+1);
+    }
     break;
   case AST_ASSIGN:
     debug_log("Variable Assign\n");
@@ -448,7 +449,7 @@ Ast *parse_postfix(Parser *p) {
 
       left->value.member_expr = (MemberAccessExpr){0};
       left->value.member_expr.left = left_;
-      left->value.member_expr.member = (const char*) id.lexeme;
+      left->value.member_expr.member = id.lexeme;
       parser_skip(p, TOKEN_SEMICOLON);
     } else if (token.kind == TOKEN_LPAR) {
       // CALL
@@ -852,7 +853,7 @@ Ast *parse_function(Parser *p) {
 
   parser_advance(p);
 
-  func->value.function_decl.name = (const char*)parser_expect(p, TOKEN_IDENTIFER).lexeme;
+  func->value.function_decl.name = parser_expect(p, TOKEN_IDENTIFER).lexeme;
   parser_expect(p, TOKEN_LPAR);
   if (parser_peek(p).kind != TOKEN_RPAR) {
     do{

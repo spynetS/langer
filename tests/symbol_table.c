@@ -51,7 +51,7 @@ MU_TEST(test_sym_var) {
     "a: i16;\n"
     "b := 10;\n"
     "c: f64;\n"
-  ));
+                                             ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -77,7 +77,7 @@ MU_TEST(test_sym_var_inferred_types) {
     "a := 10;\n"
     "b := 10.0;\n"
     "c := true;\n"
-  ));
+                                             ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -99,7 +99,7 @@ MU_TEST(test_sym_struct) {
     "  age: int;\n"
     "height: f64;\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -128,7 +128,7 @@ MU_TEST(test_sym_func) {
     "func main(a: int, b: i16): f64 {\n"
     "  c: int = 10;\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -158,7 +158,7 @@ MU_TEST(test_sym_functest_sym_func_parameters) {
     "package main;\n"
     "func add(a: int, b: i16): i64 {\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -197,7 +197,7 @@ MU_TEST(test_sym_func_body) {
     "  a: i16;\n"
     "  b: f64;\n"
     "  }\n"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -222,7 +222,7 @@ MU_TEST(test_sym_pointer) {
   symbol_table_package(&root, get_package_str(
     "package main;\n"
     "a: *int;\n"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -241,7 +241,7 @@ MU_TEST(test_sym_array) {
   symbol_table_package(&root, get_package_str(
     "package main;\n"
     "a: [10]int;\n"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -261,7 +261,7 @@ MU_TEST(test_sym_pointer_array) {
   symbol_table_package(&root, get_package_str(
     "package main;\n"
     "a: [10]*i16;\n"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -286,7 +286,7 @@ MU_TEST(test_sym_named_struct_reference) {
     "}\n"
     "func foo(p: Person): Person {\n"
     "}\n"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -321,7 +321,7 @@ MU_TEST(test_sym_scope_tree) {
     "func main(x: int): void {\n"
     "  y: i16;\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -361,7 +361,7 @@ MU_TEST(test_sym_type_checking) {
     "func main(x: int): void {\n"
     "  y: i16;\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
@@ -410,7 +410,7 @@ MU_TEST(test_undefined_call) {
     "func main(x: int): void {\n"
     "  foo()\n"
     "}"
-  ));
+  ),"package main");
 
   TypeResolver resolver = {0};
   resolver.scope = &root;

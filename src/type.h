@@ -30,7 +30,7 @@ typedef enum {
 typedef struct Type Type;
 
 typedef struct {
-  const char *name;
+  char *name;
   Type *type;
 } Member;
 
@@ -48,13 +48,13 @@ struct Type {
     } Array;
 
     struct FunctionType{
-      const char *name;
+      char *name;
       Type *return_type;
       Type **parameters; // stb dynamic array
     } Function;
 
     struct StructType {
-      const char *name;
+      char *name;
       Member* members;
     } Struct;
   };

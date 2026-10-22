@@ -38,6 +38,7 @@ typedef struct symbol_table {
 } SymbolTable; 
 
 
+struct type_resolver;
 
 Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
