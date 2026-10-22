@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
       if(strcmp(root.symbols[i]->key, package->package.value) == 0)
         resolver.scope = root.symbols[i]->scope;
     }
-
+    resolver.scope = &root;
     // now we want to check all types
     printf("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);

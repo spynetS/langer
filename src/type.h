@@ -47,7 +47,8 @@ struct Type {
       size_t length;
     } Array;
 
-    struct {
+    struct FunctionType{
+      const char *name;
       Type *return_type;
       Type **parameters; // stb dynamic array
     } Function;

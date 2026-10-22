@@ -91,7 +91,7 @@ Symbol *symbol_define(SymbolTable *root, Ast *node) {
   arrput(root->symbols, sym);
   return sym;
 }
-
+// ai
 Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
 
   // If left is member we should 
@@ -122,6 +122,40 @@ Symbol *symbol_lookup_path(SymbolTable *table_, MemberAccessExpr memexpr) {
   }
 
   return NULL;
+}
+
+//ai
+Symbol *symbol_lookup_path_str(SymbolTable *table, const char *name) {
+    char *path = strdup(name);
+    if (path == NULL)
+        return NULL;
+
+    char *token = strtok(path, ".");
+    Symbol *sym = NULL;
+    SymbolTable *scope = table;
+
+    while (token != NULL) {
+        sym = symbol_lookup(scope, token);
+
+        if (sym == NULL) {
+            free(path);
+            return NULL;
+        }
+
+        token = strtok(NULL, ".");
+
+        if (token != NULL) {
+            if (sym->scope == NULL) {
+                free(path);
+                return NULL;
+            }
+
+            scope = sym->scope;
+        }
+    }
+
+    free(path);
+    return sym;
 }
 
 Symbol *symbol_lookup(SymbolTable *table, const char *key) {
@@ -178,6 +212,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const cha
         }
 
         sym->scope = table;
+        table->owner = sym;
         sym->node = NULL;
         sym->type = NULL;
         sym->kind = SYMBOL_PACKAGE;
@@ -201,7 +236,7 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const cha
     if (!table) return NULL;
 
     for (int i = 0; i < arrlen(package->declarations); i++) {
-        symbol_define(table, package->declarations[i]);
+        Symbol* sym = symbol_define(table, package->declarations[i]);
     }
 
     return table;
@@ -229,9 +264,10 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       sym->type = NULL;
     }
     if (sym->scope != NULL) {
-      // FIXME MAYBE  reset the scope when done?
+      SymbolTable *old = resolver->scope;
       resolver->scope = sym->scope;
       symbol_table_resolve_types(resolver, sym->scope);
+      resolver->scope = old;
     }
   }
   printf("AFTER LOOP\n");

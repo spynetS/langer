@@ -35,13 +35,13 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     break;
   case AST_TYPE_I64:
     type->kind = TYPE_I64;
-        break;
+    break;
   case AST_TYPE_F32:
     type->kind = TYPE_F32;
-        break;
+    break;
   case AST_TYPE_F64:
     type->kind = TYPE_F64;
-        break;
+    break;
   case AST_TYPE_NAME:
     // the ast node is a type
     Ast *name = atype->value.named_type.name;
@@ -91,7 +91,7 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
   for (int i = 0; i < arrlen(decl.members); i++) {
     Member m = {0};
     m.name = strdup(
-        decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
+                    decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
     m.type = resolve_type(resolver, decl.members[i]);
     arrput(type->Struct.members, m);
   }
@@ -101,9 +101,20 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
 
 Type *resolve_call(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_CALL);
+  Symbol *sym = NULL;
+  if(node->value.call_expr.left->kind == AST_MEMBER) {
+    MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
+    sym = symbol_lookup_path(resolver->scope, path);
+  } else if (node->value.call_expr.left->kind == AST_IDENTIFER) {
+    char* name = node->value.call_expr.left->value.identifer_expr.value;
+    sym = symbol_lookup(resolver->scope, name);
+  } else {
+    log_span(node->span, "error: Something wrong with call expression\n");
+    assert(false);
+  }
+  
+  
 
-  MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
-  Symbol *sym = symbol_lookup_path(resolver->scope, path);
 
   if (sym == NULL) {
     log_span(node->span, "error: Symbol not found\n");
@@ -122,34 +133,34 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
 
 
 Type *resolve_member(TypeResolver *resolver, Ast *node) {
-    assert(node->kind == AST_MEMBER);
+  assert(node->kind == AST_MEMBER);
 
-    MemberAccessExpr expr = node->value.member_expr;
+  MemberAccessExpr expr = node->value.member_expr;
 
-    Type *left_type = resolve_type(resolver, expr.left);
+  Type *left_type = resolve_type(resolver, expr.left);
 
-    if (left_type == NULL)
-        return NULL;
-
-    if (left_type->kind != TYPE_STRUCT) {
-        log_span(node->span,
-                 "error: cannot access member '%s' on non-struct type\n",
-                 expr.member);
-        return NULL;
-    }
-
-    for (size_t i = 0; i < arrlen(left_type->Struct.members); i++) {
-        Member *member = &left_type->Struct.members[i];
-
-        if (strcmp(member->name, expr.member) == 0)
-            return member->type;
-    }
-
-    log_span(node->span,
-             "error: struct has no member '%s'\n",
-             expr.member);
-
+  if (left_type == NULL)
     return NULL;
+
+  if (left_type->kind != TYPE_STRUCT) {
+    log_span(node->span,
+             "error: cannot access member '%s' on non-struct type\n",
+             expr.member);
+    return NULL;
+  }
+
+  for (size_t i = 0; i < arrlen(left_type->Struct.members); i++) {
+    Member *member = &left_type->Struct.members[i];
+
+    if (strcmp(member->name, expr.member) == 0)
+      return member->type;
+  }
+
+  log_span(node->span,
+           "error: struct has no member '%s'\n",
+           expr.member);
+
+  return NULL;
 }
 
 void resolve_block(TypeResolver *resolver, Ast *node) {
@@ -165,23 +176,55 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
   
 }
 
-Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
+void get_package_name(TypeResolver* resolver, char *dst) {
 
+  assert(resolver->scope != NULL);
+  assert(resolver->scope->symbols != NULL);
+  assert(resolver->scope->owner != NULL);
+
+  SymbolTable *t = resolver->scope;
+  snprintf(dst, 256, "%s", t->owner->key);
+  t = t->parent;
+
+  while(t != NULL && t->owner != NULL) {
+    char tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s.%s", t->owner->key, dst);
+    snprintf(dst, 256, "%s", tmp);
+    t = t->parent;
+  }
+  
+}
+
+Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
+  //assert(resolver->resolve_expr == false);
   FunctionDecl decl = node->value.function_decl;
   
   Type *ftype = new_type(TYPE_FUNCTION);
   ftype->Function.return_type = convert_type(resolver, decl.return_type);
   ftype->Function.parameters = NULL;
 
+  ftype->Function.name = malloc(sizeof(256));
+
+  if (decl.is_extern == false){
+    char name[256];
+    get_package_name(resolver, name);
+    sprintf(ftype->Function.name, "%s.%s", name, decl.name);
+  } else {
+    sprintf(ftype->Function.name, "%s", decl.name);
+
+  }
+
+  
+  
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
     Type *type = resolve_type(resolver, decl.parameters[i]);
     arrput(ftype->Function.parameters, type);
   }
   if (decl.body != NULL && resolver->resolve_expr) {
-      resolve_block(resolver, decl.body);
-      /* for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) { */
-      /*   Type *type = resolve_type(resolver, decl.body->value.block_stmt.stmts[i]); */
-      }
+    resolve_block(resolver, decl.body);
+    /* for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) { */
+    /*   Type *type = resolve_type(resolver, decl.body->value.block_stmt.stmts[i]); */
+  }
   node->type = ftype;
   return ftype;
 }
@@ -294,26 +337,35 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
 }
 
 void type_check_package(TypeResolver *resolver, Package *package) {
-    for(int i = 0; i < arrlen(package->declarations); i ++ ){
-      switch(package->declarations[i]->kind) {
-      case AST_FUNC_DECL:
-        Symbol *func =
-            symbol_lookup(resolver->scope,
-                          package->declarations[i]->value.function_decl.name);
-        if(func == NULL) {
-          print_ast(package->declarations[i], 0);
-          log_span(package->declarations[i]->span, "Couldn't find function symbol\n");
-        }
-        assert(func != NULL);
-        if(func->scope != NULL) {
-           resolver->scope = func->scope;
-           resolve_type(resolver, package->declarations[i]);
-        }
+
+  for(int i = 0; i < arrlen(package->declarations); i ++ ){
+    switch(package->declarations[i]->kind) {
+    case AST_FUNC_DECL:
+
+      // FIXME we should maybe type check this
+      if (package->declarations[i]->value.function_decl.is_extern)
         break;
-      default:
-        break;
+      Symbol *func =
+        symbol_lookup_path_str(resolver->scope,
+                      package->declarations[i]->type->Function.name);
+      if(func == NULL) {
+        print_ast(package->declarations[i], 0);
+        log_span(package->declarations[i]->span, "Couldn't find function symbol\n");
       }
+
+      print_symbol_table(resolver->scope, 0);
+      assert(func != NULL);
+      if(func->scope != NULL) {
+        SymbolTable *old = resolver->scope;
+        resolver->scope = func->scope->parent;
+        resolve_type(resolver, package->declarations[i]);
+        resolver->scope = old;
+      }
+      break;
+    default:
+      break;
     }
+  }
 
 }
 

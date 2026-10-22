@@ -17,6 +17,36 @@
 
 LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc);
 LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
+LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func);
+LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast);
+
+void member_to_str(char *dst, MemberAccessExpr expr) {
+  debug_log("====begin to make member access into string\n");
+
+  snprintf(dst, 256, "%s", expr.member);
+  
+  Ast* left = expr.left;
+  while(left != NULL && left->kind == AST_MEMBER) {
+
+    char tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s.%s",
+             left->value.member_expr.member, dst);
+    snprintf(dst, 256, "%s", tmp);
+
+    left = left->value.member_expr.left;
+  }
+
+  if (left != NULL && left->kind == AST_IDENTIFER) {
+    char tmp[256];
+    snprintf(tmp, sizeof(tmp), "%s.%s",
+             left->value.identifer_expr.value, dst);
+    snprintf(dst, 256, "%s", tmp);
+  }
+
+  printf("%s\n", dst);
+
+  debug_log("====done\n");
+}
 
 void save_type(LLVMGenerator *lg, const char* name, LLVMTypeRef ltype){
   hmput(lg->types, name, ltype);
@@ -71,21 +101,91 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
 }
 
 LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
-  
+
+  char name[256];
+  Type* return_type = NULL;
+
+  if(expr.left->kind == AST_MEMBER) {
+    Symbol *sym = symbol_lookup_path(lg->sroot, expr.left->value.member_expr);
+    assert(sym != NULL);
+    assert(sym->kind == SYMBOL_FUNCTION);
+    snprintf(name, sizeof(name), "%s", sym->type->Function.name);
+    return_type = sym->type->Function.return_type;
+  } else if (expr.left->kind == AST_IDENTIFER) {
+    // becuase the name can be without package prefix
+    // foo(), instead of main.foo()
+    // we need to find the symvol and use that name
+    Symbol *sym = symbol_lookup(lg->sroot, expr.left->value.identifer_expr.value);
+    assert(sym != NULL);
+    assert(sym->kind == SYMBOL_FUNCTION);
+    snprintf(name, sizeof(name), "%s", sym->type->Function.name);
+    return_type = sym->type->Function.return_type;
+  } else {
+    assert(false);
+  }
+
+  LLVMValueRef function = LLVMGetNamedFunction(lg->module, name);
+
+  if(function == NULL){
+    Symbol *sym = symbol_lookup_path(lg->sroot, expr.left->value.member_expr);
+    assert(sym != NULL);
+    assert(sym->kind == SYMBOL_FUNCTION);
+    return_type = sym->type->Function.return_type;
+    LLVMTypeRef fn_type = create_function_type(lg, sym->type->Function);
+    function = LLVMAddFunction(
+                               lg->module,
+                               name,
+                               fn_type
+                              );
+  }
+
+  LLVMTypeRef ftype = LLVMGlobalGetValueType(function);
+  //  size_t pl = arrlen(expr.parameters);
+  LLVMValueRef args[0];
+
+  char cname[256];
+  if (return_type->kind != TYPE_VOID) {
+    sprintf(cname, "val");
+  } else {
+    sprintf(cname, "");
+  }
+
+  LLVMValueRef result =
+    LLVMBuildCall2(
+                   lg->builder,
+                   ftype,
+                   function,
+                   args,
+                   0,
+                   cname
+                  );
+
+  return result;
 }
 
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
+  print_ast(stmt, 0);
   switch(stmt->kind) {
+  case AST_RETURN:
+    // TODO maybe create llvm return here?
+    return create_stmt(lg, stmt->value.return_stmt.value);
+  case AST_INTEGER_LITERAL:
+    return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
     printf("here\n");
     print_ast(stmt, 0);
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
+
+    if(stmt->value.variable_decl.initlizer != NULL) {
+      LLVMValueRef value = create_stmt(lg, stmt->value.variable_decl.initlizer);
+      return LLVMBuildStore(lg->builder, value, var);
+    }
+
     return var;
   }
   case AST_CALL: {
-    //print_ast(stmt, 0);
     assert(stmt->type != NULL);
     return create_call(lg, stmt->value.call_expr);
   }
@@ -100,25 +200,36 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
 LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
   for (int i = 0; i < arrlen(block.stmts); i ++) {
     Ast* stmt = block.stmts[i];
-    create_stmt(lg, stmt);
+    LLVMValueRef val = create_stmt(lg, stmt);
+    if (stmt->kind == AST_RETURN)
+      return val;
   }
   return NULL;
 }
 
-LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
-  FunctionDecl func = ast->value.function_decl;
+LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func) {
 
   // the parameters
   size_t pl = arrlen(func.parameters);
   LLVMTypeRef *params = malloc(sizeof(LLVMTypeRef) * pl);
   for (int i = 0; i < pl; i++) {
-    params[i] = get_llvm_type(lg, func.parameters[i]->type);
+    params[i] = get_llvm_type(lg, func.parameters[i]);
   }
 
   // create the type
-  LLVMTypeRef fn_type = LLVMFunctionType(get_llvm_type(lg, ast->type->Function.return_type), params, pl, 0);
+  LLVMTypeRef fn_type = LLVMFunctionType(get_llvm_type(lg, func.return_type), params, pl, 0);
   free(params);
+  
+  save_type(lg, func.name, fn_type);
+  return fn_type;
+}
 
+LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
+  struct FunctionType func = ast->type->Function;
+  assert(func.name != NULL);
+  
+  assert(func.return_type != NULL);
+  LLVMTypeRef fn_type = create_function_type(lg, func);
   // the function value
   LLVMValueRef function =
     LLVMAddFunction(
@@ -127,7 +238,7 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
                     fn_type
                    );
   // if the function has a body we should generate it
-  if (func.body != NULL) {
+  if (ast->value.function_decl.body != NULL) {
     LLVMBasicBlockRef entry =
       LLVMAppendBasicBlockInContext(
                                     lg->context,
@@ -136,8 +247,12 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
                                    );
     LLVMPositionBuilderAtEnd(lg->builder, entry);
 
-    gen_block(lg, func.body->value.block_stmt);
-
+    LLVMValueRef ret = gen_block(lg, ast->value.function_decl.body->value.block_stmt);
+    if(ret != NULL) {
+      LLVMBuildRet(lg->builder, ret);
+    } else {
+      LLVMBuildRetVoid(lg->builder);
+    }
   }
 
   return function;
@@ -151,8 +266,7 @@ LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl decl) {
   struct_type.members = NULL;
   for (int i = 0; i < arrlen(decl.members); i++) {
     Member m = {0};
-    m.name = strdup(
-                    decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
+    m.name = strdup(decl.members[i]->value.variable_decl.left->value.identifer_expr.value);
     m.type = decl.members[i]->type;
     arrput(struct_type.members, m);
   }
@@ -175,13 +289,59 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
   }
 
 
-  LLVMStructSetBody(struct_type, field_types, 0, 0);
+  LLVMStructSetBody(struct_type, field_types, arrlen(struc.members), 0);
   
   save_type(lg, struc.name, struct_type);
 
   return struct_type;
 }
 
+
+void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
+    LLVMTypeRef i32 = LLVMInt32TypeInContext(lg->context);
+
+    // int main()
+    LLVMTypeRef main_type = LLVMFunctionType(
+        i32,
+        NULL,
+        0,
+        false
+    );
+
+    LLVMValueRef entry = LLVMAddFunction(
+        lg->module,
+        "main",
+        main_type
+    );
+
+    LLVMBasicBlockRef entry_block =
+        LLVMAppendBasicBlockInContext(
+            lg->context,
+            entry,
+            "entry"
+        );
+
+    LLVMPositionBuilderAtEnd(lg->builder, entry_block);
+
+    // Call your language's main function.
+    LLVMTypeRef user_main_type =
+        LLVMGlobalGetValueType(user_main);
+
+    LLVMBuildCall2(
+        lg->builder,
+        user_main_type,
+        user_main,
+        NULL,
+        0,
+        ""
+    );
+
+    // Return success to the operating system.
+    LLVMBuildRet(
+        lg->builder,
+        LLVMConstInt(i32, 0, false)
+    );
+}
 
 void gen_package(Package *package, SymbolTable *root) {
   LLVMContextRef context = LLVMContextCreate();
@@ -216,7 +376,11 @@ void gen_package(Package *package, SymbolTable *root) {
 
     switch(package->declarations[i]->kind) {
     case AST_FUNC_DECL:
-      create_function(&lg, package->declarations[i]);
+      LLVMValueRef func = create_function(&lg, package->declarations[i]);
+      if(strcmp(package->declarations[i]->value.function_decl.name, "main") == 0) {
+        create_entry_point(&lg, func);
+      }
+
       break;
     case AST_STRUCT_DECL:
       create_struct_decl(&lg, package->declarations[i]->value.struct_decl);
@@ -224,8 +388,8 @@ void gen_package(Package *package, SymbolTable *root) {
     default:
       break;
     }
-
   }
+
 
   char *ir =
     LLVMPrintModuleToString(module);

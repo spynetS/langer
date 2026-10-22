@@ -179,6 +179,7 @@ const char *symbol_kind_name(SymbolKind kind)
         case SYMBOL_TYPE:      return "type";
         case SYMBOL_PARAMETER: return "parameter";
         case SYMBOL_FIELD:     return "field";
+        case SYMBOL_PACKAGE:   return "package";
         default:               return "unknown";
     }
 }

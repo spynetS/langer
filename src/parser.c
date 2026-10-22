@@ -149,6 +149,7 @@ void print_ast(Ast *ast, int depth) {
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
     if (ast->value.variable_decl.initlizer != NULL)
+      printf("initlizer ");
       print_ast(ast->value.variable_decl.initlizer, depth+1);
     break;
   case AST_ASSIGN:

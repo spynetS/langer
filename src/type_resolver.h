@@ -8,7 +8,7 @@
 
 typedef struct type_resolver {
   struct symbol_table *scope;
-  bool resolve_expr;
+  bool resolve_expr; //if we should resolve normal expressions or only declarations
 } TypeResolver;
 
 Type *resolve_type(TypeResolver*, Ast*);

@@ -20,23 +20,21 @@ typedef enum {
 
 typedef struct symbol_table SymbolTable;
 
-typedef struct {
+typedef struct symbol {
   SymbolKind kind;
   const char *key;
   Type *type;
   Ast *node;
   Visibility visibility;
-
   SymbolTable *scope;
-
-  
-
 } Symbol;
 
 // can be seen as the scope
 typedef struct symbol_table {
   struct symbol_table *parent;
   Symbol **symbols; //stb dynamic array
+  Symbol *owner;
+  
 } SymbolTable; 
 
 
@@ -44,6 +42,7 @@ typedef struct symbol_table {
 Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
 Symbol *symbol_lookup_path(SymbolTable *table, MemberAccessExpr memexpr);
+Symbol *symbol_lookup_path_str(SymbolTable *table, const char *name);
 
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
 SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const char* name);

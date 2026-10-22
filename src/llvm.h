@@ -11,7 +11,7 @@
 #include "symbol_table.h"
 
 typedef struct {
-  const char *key;
+  char *key;
   LLVMTypeRef value;
 } LLVMTypeEntry;
 
