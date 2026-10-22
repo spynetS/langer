@@ -19,11 +19,13 @@ Type *new_type(TypeKind kind) {
 Type *convert_type(TypeResolver *resolver, Ast* atype) {
   Type *type = malloc(sizeof(Type));
   switch(atype->kind) {
+  case AST_TYPE_VOID:
+    type->kind = TYPE_VOID;
+    break;
   case AST_TYPE_POINTER:
     type->kind = TYPE_POINTER;
     type->Pointer.base = convert_type(resolver, atype->value.pointer_type.to);
     break;
-
   case AST_TYPE_BYTE:
     type->kind = TYPE_BYTE;
     break;
@@ -176,13 +178,13 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
   
 }
 
-void get_package_name(TypeResolver* resolver, char *dst) {
+void get_package_name(SymbolTable *scope, char *dst) {
+  print_symbol_table(scope, 0);
+  assert(scope != NULL);
+  assert(scope->symbols != NULL);
+  assert(scope->owner != NULL);
 
-  assert(resolver->scope != NULL);
-  assert(resolver->scope->symbols != NULL);
-  assert(resolver->scope->owner != NULL);
-
-  SymbolTable *t = resolver->scope;
+  SymbolTable *t = scope;
   snprintf(dst, 256, "%s", t->owner->key);
   t = t->parent;
 
@@ -196,25 +198,27 @@ void get_package_name(TypeResolver* resolver, char *dst) {
 }
 
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
-  //assert(resolver->resolve_expr == false);
   FunctionDecl decl = node->value.function_decl;
   
-  Type *ftype = new_type(TYPE_FUNCTION);
-  ftype->Function.return_type = convert_type(resolver, decl.return_type);
-  ftype->Function.parameters = NULL;
+    Type *ftype = new_type(TYPE_FUNCTION);
+    ftype->Function.return_type = convert_type(resolver, decl.return_type);
+    ftype->Function.parameters = NULL;
 
-  ftype->Function.name = malloc(sizeof(256));
+    ftype->Function.name = malloc(sizeof(256));
 
-  if (decl.is_extern == false){
-    // FIXME not hardcode?
-    char name[516];
-    get_package_name(resolver, name);
-    snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
-  } else {
-    snprintf(ftype->Function.name, 516, "%s", decl.name);
-
-  }
-
+    if (decl.is_extern == false){
+      // FIXME not hardcode?
+      char name[516];
+      printf("%s\n", decl.name);
+      // if we resolve expretsions the resolve scope are inside the function
+      // and therefore we need  to step back a step to retrive the package name
+      // FIXME by making the get pcakage to this if necessary?
+      SymbolTable *scope =  resolver->resolve_expr == false ? resolver->scope : resolver->scope->parent;
+      get_package_name(scope, name);
+      snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
+    } else {
+      snprintf(ftype->Function.name, 516, "%s", decl.name);
+    }
   
   
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
@@ -257,6 +261,7 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
     assert(0);
   }
 
+  print_symbol(sym, 0);
   return sym->type;
 }
 
@@ -266,12 +271,14 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
 
   switch(node->kind) {
   case AST_VAR_DECL:
+    if (resolver->resolve_expr == true) break;
     type = resolve_var_decl(resolver, node);
     break;
   case AST_FUNC_DECL:
     type = resolve_func_decl(resolver, node);
     break;
   case AST_STRUCT_DECL:
+    if (resolver->resolve_expr == true) break;
     type = resolve_struct_decl(resolver, node);
     break;
   case AST_UNION_DECL: assert(0);
@@ -358,7 +365,7 @@ void type_check_package(TypeResolver *resolver, Package *package) {
       assert(func != NULL);
       if(func->scope != NULL) {
         SymbolTable *old = resolver->scope;
-        resolver->scope = func->scope->parent;
+        resolver->scope = func->scope;
         resolve_type(resolver, package->declarations[i]);
         resolver->scope = old;
       }

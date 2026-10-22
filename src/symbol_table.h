@@ -44,6 +44,7 @@ Symbol *symbol_define(SymbolTable *table, Ast *node);
 Symbol *symbol_lookup(SymbolTable *table, const char *key);
 Symbol *symbol_lookup_path(SymbolTable *table, MemberAccessExpr memexpr);
 Symbol *symbol_lookup_path_str(SymbolTable *table, const char *name);
+Symbol *symbol_lookup_package(SymbolTable *table, const char *key, SymbolTable *scope);
 
 SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt);
 SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const char* name);

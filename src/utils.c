@@ -86,8 +86,7 @@ const char *token_kind_to_string(TokenKind kind)
   return "UNKNOWN_TOKEN";
 }
 
-const char *ast_kind_to_string(AstKind kind)
-{
+const char *ast_kind_to_string(AstKind kind) {
     switch (kind) {
         // Declarations
         case AST_INVALID:          return "INVALID";

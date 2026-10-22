@@ -16,6 +16,12 @@ typedef struct {
 } LLVMTypeEntry;
 
 typedef struct {
+  char *key;
+  LLVMValueRef value;
+} LLVMValueEntry;
+
+
+typedef struct {
   LLVMContextRef context;
   LLVMModuleRef module;
   LLVMBuilderRef builder;
@@ -29,6 +35,7 @@ typedef struct {
   LLVMTypeRef f64;
 
   LLVMTypeEntry *types;
+  LLVMValueEntry *values;
 
   SymbolTable *sroot;    // root
   SymbolTable *scurrent; // current we create

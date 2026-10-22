@@ -158,6 +158,7 @@ Symbol *symbol_lookup_path_str(SymbolTable *table, const char *name) {
     return sym;
 }
 
+
 Symbol *symbol_lookup(SymbolTable *table, const char *key) {
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     Symbol *sym = table->symbols[i];

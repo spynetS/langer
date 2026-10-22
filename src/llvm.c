@@ -50,13 +50,12 @@ void member_to_str(char *dst, MemberAccessExpr expr) {
 }
 
 void save_type(LLVMGenerator *lg, char* name, LLVMTypeRef ltype){
-  hmput(lg->types, name, ltype);
+  shput(lg->types, name, ltype);
 }
 
 LLVMTypeRef get_type(LLVMGenerator *lg, const char* name) {
-  return hmget(lg->types, name);
+  return shget(lg->types, name);
 }
-
 
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
@@ -177,6 +176,21 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
                              str.data,
                              "str"
                             );
+  case AST_IDENTIFER:{
+    char *name = stmt->value.identifer_expr.value;
+    LLVMTypeRef type = get_type(lg, name);
+    LLVMValueRef ptr = shget(lg->values, name);
+
+    assert(ptr != NULL);
+    assert(type != NULL);
+
+    return LLVMBuildLoad2(
+        lg->builder,
+        type,  // The variable's LLVM type
+        ptr,
+        name
+    );
+  }
   case AST_RETURN:
     // TODO maybe create llvm return here?
     return create_stmt(lg, stmt->value.return_stmt.value);
@@ -184,20 +198,32 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
     return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
-    printf("here\n");
-    print_ast(stmt, 0);
+
+    
+    char *name =
+        stmt->value.variable_decl.left->value.identifer_expr.value;
+
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
-    LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, "var");
+    LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, name);
+
+
+    if(stmt->value.variable_decl.left->kind == AST_IDENTIFER){
+      save_type(lg, name, type);
+      shput(lg->values, name, var);
+    } else {assert(0);};
+
 
     if(stmt->value.variable_decl.initlizer != NULL) {
       LLVMValueRef value = create_stmt(lg, stmt->value.variable_decl.initlizer);
       return LLVMBuildStore(lg->builder, value, var);
     }
 
+
+
     return var;
   }
   case AST_CALL: {
-    assert(stmt->type != NULL);
+    //assert(stmt->type != NULL);
     return create_call(lg, stmt->value.call_expr);
   }
     
@@ -211,10 +237,12 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
 LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
   for (int i = 0; i < arrlen(block.stmts); i ++) {
     Ast* stmt = block.stmts[i];
+    print_ast(stmt,4);
     LLVMValueRef val = create_stmt(lg, stmt);
     if (stmt->kind == AST_RETURN)
       return val;
   }
+  assert(0);
   return NULL;
 }
 
@@ -336,19 +364,19 @@ void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
     LLVMTypeRef user_main_type =
         LLVMGlobalGetValueType(user_main);
 
-    LLVMBuildCall2(
+    LLVMValueRef ret = LLVMBuildCall2(
         lg->builder,
         user_main_type,
         user_main,
         NULL,
         0,
-        ""
+        "ret"
     );
 
     // Return success to the operating system.
     LLVMBuildRet(
         lg->builder,
-        LLVMConstInt(i32, 0, false)
+        ret
     );
 }
 
@@ -374,6 +402,10 @@ void gen_package(Package *package, SymbolTable *root) {
   lg.f64 = LLVMDoubleTypeInContext(context);
 
   lg.types = NULL;
+  lg.values = NULL;
+
+  sh_new_arena(lg.values);   // or sh_new_strdup(lg.values);
+  sh_new_arena(lg.types);
 
   lg.context = context;
   lg.module = module;
@@ -402,8 +434,14 @@ void gen_package(Package *package, SymbolTable *root) {
 
   char *ir =
     LLVMPrintModuleToString(module);
-
   printf("%s\n", ir);
+
+  char *error = NULL;
+
+  if (LLVMPrintModuleToFile(module, "main.ll", &error)) {
+    fprintf(stderr, "Failed to write LLVM IR: %s\n", error);
+    LLVMDisposeMessage(error);
+  }
 
   LLVMDisposeMessage(ir);
   LLVMDisposeBuilder(builder);
