@@ -173,6 +173,7 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
   BlockStmt block = node->value.block_stmt;
 
   for (int i = 0; i < arrlen(block.stmts); i++) {
+    print_ast(block.stmts[i],0);
     resolve_type(resolver, block.stmts[i]);
   }
   
@@ -204,7 +205,7 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
     ftype->Function.return_type = convert_type(resolver, decl.return_type);
     ftype->Function.parameters = NULL;
 
-    ftype->Function.name = malloc(sizeof(256));
+    ftype->Function.name = malloc(256);
 
     if (decl.is_extern == false){
       // FIXME not hardcode?
@@ -234,8 +235,18 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   return ftype;
 }
 
-Type *can_cast(Type *a, Type *b) {
-  return a;
+Type *common_type(Type *a, Type *b) {
+  if (a != NULL && b == NULL) return a;
+  else if (a == NULL && b != NULL) return b;
+  assert(!(a == NULL && b == NULL));
+
+  if (a->kind == b->kind) return a;
+
+  switch(a->kind) {
+  }
+
+  
+  return NULL;
 }
 
 Type *resolve_assign(TypeResolver *resolver, Ast *node) {
@@ -246,13 +257,31 @@ Type *resolve_assign(TypeResolver *resolver, Ast *node) {
   Type *value_type = resolve_type(resolver, node->value.assign_expr.value);
   node->type = value_type;
 
-  if (can_cast(left_type, value_type) == NULL) {
+  if (common_type(left_type, value_type) == NULL) {
     assert(0);
   }
 
   return value_type;
 }
 
+Type *resolve_binary(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_BINARY);
+  BinaryExpr expr = node->value.binary_expr;
+
+  expr.left->type = resolve_type(resolver, expr.left);
+  expr.right->type = resolve_type(resolver, expr.right);
+
+  assert(expr.left->type != NULL);
+
+  Type* type = common_type(expr.left->type, expr.right->type);
+
+  if (type == NULL) {
+    log_span(expr.left->span, "Cant cast\n");
+    assert(0);
+  }
+
+  return type;
+}
 Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_IDENTIFER);
   Symbol *sym = symbol_lookup(resolver->scope, node->value.identifer_expr.value);
@@ -305,7 +334,9 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   case AST_IDENTIFER:
     type = resolve_identifer(resolver, node);
     break;
-  case AST_BINARY: assert(0);
+  case AST_BINARY:
+    type = resolve_binary(resolver, node);
+    break;
   case AST_UNARY: assert(0);
   case AST_ASSIGN:
     type = resolve_assign(resolver, node);

@@ -13,6 +13,7 @@
 #include "./type.h"
 #include "./utils.h"
 #include "../include/stb_ds.h"
+#include "lexer.h"
 #include "./llvm.h"
 
 LLVMTypeRef create_struct_decl(LLVMGenerator *lg, StructDecl struc);
@@ -166,10 +167,72 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   return result;
 }
 
+LLVMValueRef create_assign(LLVMGenerator *lg, AssignExpr expr) {
+
+  if (expr.left->kind == AST_IDENTIFER) {
+      LLVMValueRef ptr = shget(lg->values, expr.left->value.identifer_expr.value);
+      assert(ptr != NULL);
+      LLVMValueRef value = create_stmt(lg, expr.value);
+      return LLVMBuildStore(lg->builder, value, ptr);
+  }
+  assert(0);
+  return NULL;
+}
+
+LLVMValueRef build_add(LLVMGenerator *lg, LLVMValueRef left, LLVMValueRef right, bool f) {
+  return f ? LLVMBuildAdd(lg->builder, left, right, "tmp") : LLVMBuildFAdd(lg->builder, left, right, "tmp");
+}
+
+LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
+
+  LLVMValueRef left  = create_stmt(lg, expr.left);
+  LLVMValueRef right = create_stmt(lg, expr.right);
+
+  bool floating = false;
+
+  switch (expr.operator) {
+  case TOKEN_PLUS:
+    return !floating ? LLVMBuildAdd(lg->builder, left, right, "tmp") : LLVMBuildFAdd(lg->builder, left, right, "tmp");
+  case TOKEN_MINUS:
+    return !floating ? LLVMBuildSub(lg->builder, left, right, "tmp") : LLVMBuildFSub(lg->builder, left, right, "tmp");
+  case TOKEN_STAR:
+    return !floating ? LLVMBuildMul(lg->builder, left, right, "tmp") : LLVMBuildFMul(lg->builder, left, right, "tmp");
+  case TOKEN_SLASH:
+    return !floating ? LLVMBuildSDiv(lg->builder, left, right, "tmp") : LLVMBuildFDiv(lg->builder, left, right, "tmp");
+  default:
+    assert(0);
+  }
+
+  return NULL;
+}
+
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
-  print_ast(stmt, 0);
+  print_ast(stmt, 0); 
   switch(stmt->kind) {
-  case AST_STRING_LITERAL:
+  case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
+  case AST_ENUM_DECL        : assert(0); // TODO
+  case AST_UNION_DECL       : assert(0); // TODO
+  case AST_BLOCK            : assert(0); // TODO
+  case AST_IF               : assert(0); // TODO
+  case AST_WHILE            : assert(0); // TODO
+  case AST_FOR              : assert(0); // TODO
+  case AST_EXPR_STMT        : assert(0); // TODO
+  case AST_CHAR_LITERAL     : assert(0); // TODO
+  case AST_BOOL_LITERAL     : assert(0); // TODO
+  case AST_UNARY            : assert(0); // TODO
+  case AST_DECL             : assert(0); // TODO
+  case AST_INDEX            : assert(0); // TODO
+  case AST_CAST             : assert(0); // TODO
+  case AST_COMPOUND_LITERAL : assert(0); // TODO
+  case AST_MEMBER           : assert(0); // TODO
+  case AST_CALL             : return create_call(lg, stmt->value.call_expr);
+  case AST_RETURN           : return create_stmt(lg, stmt->value.return_stmt.value);
+  case AST_BINARY           : return create_binary(lg, stmt->value.binary_expr);
+  case AST_INTEGER_LITERAL  : return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
+  case AST_FLOAT_LITERAL    : return LLVMConstReal(lg->f32, (double)stmt->value.float_expr.value);
+
+
+  case AST_STRING_LITERAL   :
     String str = stmt->value.string_expr.value;
     return LLVMBuildGlobalStringPtr(
                              lg->builder,
@@ -191,16 +254,10 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
         name
     );
   }
-  case AST_RETURN:
-    // TODO maybe create llvm return here?
-    return create_stmt(lg, stmt->value.return_stmt.value);
-  case AST_INTEGER_LITERAL:
-    return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
 
-    
-    char *name =
+        char *name =
         stmt->value.variable_decl.left->value.identifer_expr.value;
 
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
@@ -218,18 +275,10 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
       return LLVMBuildStore(lg->builder, value, var);
     }
 
-
-
     return var;
   }
-  case AST_CALL: {
-    //assert(stmt->type != NULL);
-    return create_call(lg, stmt->value.call_expr);
-  }
-    
   default:
-    //assert(0);
-    break;
+    assert(0);
   }
   return NULL;
 }
