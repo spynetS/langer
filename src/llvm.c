@@ -21,6 +21,7 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc);
 LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func);
 LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast);
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt);
+LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr);
 
 void member_to_str(char *dst, MemberAccessExpr expr) {
   debug_log("====begin to make member access into string\n");
@@ -175,6 +176,10 @@ LLVMValueRef create_assign(LLVMGenerator *lg, AssignExpr expr) {
       assert(ptr != NULL);
       LLVMValueRef value = create_stmt(lg, expr.value);
       return LLVMBuildStore(lg->builder, value, ptr);
+  } else if (expr.left->kind == AST_MEMBER) {
+    LLVMValueRef ptr = generate_lvalue(lg, expr.left);
+    LLVMValueRef value = create_stmt(lg, expr.value);
+    return LLVMBuildStore(lg->builder, value, ptr);
   }
   assert(0);
   return NULL;
@@ -220,10 +225,58 @@ LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
   return NULL;
 }
 
+int get_struct_member_index(Type *pt, const char *member) {
+  Member *members = NULL;
+  switch(pt->kind) {
+  case TYPE_STRUCT:
+    members = pt->Struct.members;
+    break;
+  }
+
+  for(size_t i = 0; i < arrlen(members); i ++) {
+    if(strcmp(members[i].name, member) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+LLVMValueRef create_member_access(LLVMGenerator *lg, MemberAccessExpr expr) {
+  LLVMValueRef parent = generate_lvalue(lg, expr.left);
+  Type *parent_type = expr.left->type;
+  const char *member = expr.member;
+
+  int index = get_struct_member_index(parent_type, member);
+  assert(index >= 0);
+
+  LLVMTypeRef llvm_type = get_llvm_type(lg, expr.left->type);
+
+  return LLVMBuildStructGEP2(
+                             lg->builder,
+                             llvm_type,
+                             parent,
+                             index,
+                             member
+                            );
+
+}
+
+LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
+  switch(expr->kind) {
+  case AST_MEMBER: return create_member_access(lg, expr->value.member_expr);
+  case AST_IDENTIFER:{
+    char *name = expr->value.identifer_expr.value;
+    LLVMValueRef ptr = shget(lg->values, name);
+
+    assert(ptr != NULL);
+    return ptr;
+  }
+  }
+}
+
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   print_ast(stmt, 0); 
   switch(stmt->kind) {
-  case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_ENUM_DECL        : assert(0); // TODO
   case AST_UNION_DECL       : assert(0); // TODO
   case AST_BLOCK            : assert(0); // TODO
@@ -238,21 +291,20 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_INDEX            : assert(0); // TODO
   case AST_CAST             : assert(0); // TODO
   case AST_COMPOUND_LITERAL : assert(0); // TODO
-  case AST_MEMBER           : assert(0); // TODO
+  case AST_MEMBER           :
+    return LLVMBuildLoad2(
+                          lg->builder,
+                          get_llvm_type(lg, stmt->type),
+                          create_member_access(lg, stmt->value.member_expr),
+                          "member"
+                         );
+    
   case AST_CALL             : return create_call(lg, stmt->value.call_expr);
   case AST_RETURN           : return create_stmt(lg, stmt->value.return_stmt.value);
   case AST_BINARY           : return create_binary(lg, stmt->value.binary_expr);
   case AST_INTEGER_LITERAL  : return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
   case AST_FLOAT_LITERAL    : return LLVMConstReal(lg->f32, (double)stmt->value.float_expr.value);
-
-
-  case AST_STRING_LITERAL   :
-    String str = stmt->value.string_expr.value;
-    return LLVMBuildGlobalStringPtr(
-                             lg->builder,
-                             str.data,
-                             "str"
-                            );
+  case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_IDENTIFER:{
     char *name = stmt->value.identifer_expr.value;
     LLVMTypeRef type = get_type(lg, name);
@@ -262,12 +314,21 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
     assert(type != NULL);
 
     return LLVMBuildLoad2(
-        lg->builder,
-        type,  // The variable's LLVM type
-        ptr,
-        name
-    );
+                          lg->builder,
+                          type,  // The variable's LLVM type
+                          ptr,
+                          name
+                         );
   }
+
+  case AST_STRING_LITERAL   :
+    String str = stmt->value.string_expr.value;
+    return LLVMBuildGlobalStringPtr(
+                             lg->builder,
+                             str.data,
+                             "str"
+                            );
+
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
 
