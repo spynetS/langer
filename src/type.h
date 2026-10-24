@@ -51,6 +51,7 @@ struct Type {
       char *name;
       Type *return_type;
       Type **parameters; // stb dynamic array
+      bool is_variadic;
     } Function;
 
     struct StructType {

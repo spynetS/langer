@@ -115,15 +115,21 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     assert(false);
   }
   
-  
+  size_t pl = arrlen(node->value.call_expr.parameters);
 
+  if(!sym->type->Function.is_variadic && arrlen(sym->type->Function.parameters) != pl) {
+    log_span(node->span, "error: function call parameters length mismatch\n");
+    assert(0);
+  }
+
+  for(size_t i = 0; i < pl; i ++){
+    resolve_type(resolver, node->value.call_expr.parameters[i]);
+  }
 
   if (sym == NULL) {
     log_span(node->span, "error: Symbol not found\n");
     assert(0);
   }
-
-  print_symbol(sym,0);
 
   if (sym->type == NULL) {
     return new_type(TYPE_RESOLVING);

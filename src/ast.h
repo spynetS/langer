@@ -185,6 +185,7 @@ typedef struct {
   Ast* body;
   bool is_extern; // If it is not defined in langer
   Visibility visibility;
+  bool is_variadic;
 } FunctionDecl;
 
 typedef struct {
