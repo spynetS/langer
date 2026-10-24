@@ -163,7 +163,6 @@ Symbol *symbol_lookup(SymbolTable *table, const char *key) {
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     Symbol *sym = table->symbols[i];
     if (strcmp(sym->key, key) == 0) {
-      printf("found sym\n");
       return sym;
     }
   }
@@ -249,14 +248,14 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
   assert(table != NULL);
 
   for(int i = 0; i < arrlen(table->symbols); i ++) {
-    printf("IN LOOP\n");
+    debug_log("IN LOOP\n");
     Symbol *sym = table->symbols[i];
     
     if (sym->node != NULL) {
       Ast* node = sym->node;
-      printf("---resolve node in table----\n");
+      debug_log("---resolve node in table----\n");
       print_ast(node, 0);
-      printf("-------\n");
+      debug_log("-------\n");
       Type *type = resolve_type(resolver, node);
       
       assert(type != NULL);
@@ -271,41 +270,41 @@ void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
       resolver->scope = old;
     }
   }
-  printf("AFTER LOOP\n");
+  debug_log("AFTER LOOP\n");
 }
 
 void print_symbol(Symbol *sym, int depth)
 {
   if (!sym) {
-    printf("<null symbol>\n");
+    debug_log("<null symbol>\n");
     return;
   }
   print_depth(depth);
-  printf("Symbol {\n");
+  debug_log("Symbol {\n");
   print_depth(depth);
-  printf("  visi: %s\n", sym->visibility == VIS_PRIVATE ? "private" : "public");
+  debug_log("  visi: %s\n", sym->visibility == VIS_PRIVATE ? "private" : "public");
   print_depth(depth);
-  printf("  name: %s\n", sym->key);
+  debug_log("  name: %s\n", sym->key);
   print_depth(depth);
-  printf("  kind: %s\n", symbol_kind_name(sym->kind));
+  debug_log("  kind: %s\n", symbol_kind_name(sym->kind));
   print_depth(depth);
-  printf("  type: ");
+  debug_log("  type: ");
   if (sym->type != NULL) {
-    //printf("ASD: ");
-    printf("%s: ",type_kind_name(sym->type->kind));
+    //debug_log("ASD: ");
+    debug_log("%s: ",type_kind_name(sym->type->kind));
   }
   else
-    printf("<none>");
-  printf("\n");
+    debug_log("<none>");
+  debug_log("\n");
   if (sym->scope) {
 
     print_depth(depth + 1);
-    printf(" scope:\n");
+    debug_log(" scope:\n");
     print_symbol_table(sym->scope, depth + 3);
   }
-  printf("\n");
+  debug_log("\n");
   print_depth(depth);
-  printf("}\n");
+  debug_log("}\n");
 }
   
 void print_symbol_table(SymbolTable *scope, int depth)
@@ -314,7 +313,7 @@ void print_symbol_table(SymbolTable *scope, int depth)
     return;
 
   print_depth(depth);
-  printf("SymbolTable {\n");
+  debug_log("SymbolTable {\n");
 
   for (size_t i = 0; i < arrlen(scope->symbols); i++) {
     Symbol *sym = scope->symbols[i];
@@ -322,5 +321,5 @@ void print_symbol_table(SymbolTable *scope, int depth)
   }
 
   print_depth(depth);
-  printf("}\n");
+  debug_log("}\n");
 }

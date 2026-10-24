@@ -11,7 +11,7 @@ run: langer
 	./langer
 
 langer: $(COMPILER_FILES) ./src/main.c
-	$(CC) $(CFLAGS) $(COMPILER_FILES) $(INCLUDE_FILES) -o langer $(LDFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) $(COMPILER_FILES) $(INCLUDE_FILES) -DSILENT -o langer $(LDFLAGS) $(LIBS)
 
 test: test-bin
 	./test

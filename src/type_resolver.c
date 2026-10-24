@@ -8,7 +8,8 @@
 #include <string.h>
 #include "../include/stb_ds.h"
 
-
+// implemented in parser.c
+Ast *new_ast(AstKind kind, SourceSpan span);
 
 Type *new_type(TypeKind kind) {
   Type *type = malloc(sizeof(Type));
@@ -186,7 +187,6 @@ void resolve_block(TypeResolver *resolver, Ast *node) {
 }
 
 void get_package_name(SymbolTable *scope, char *dst) {
-  print_symbol_table(scope, 0);
   assert(scope != NULL);
   assert(scope->symbols != NULL);
   assert(scope->owner != NULL);
@@ -206,53 +206,92 @@ void get_package_name(SymbolTable *scope, char *dst) {
 
 Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   FunctionDecl decl = node->value.function_decl;
+  debug_log("===resolving function decl %s\n", decl.name);
   
-    Type *ftype = new_type(TYPE_FUNCTION);
-    ftype->Function.return_type = convert_type(resolver, decl.return_type);
-    ftype->Function.parameters = NULL;
+  Type *ftype = new_type(TYPE_FUNCTION);
+  ftype->Function.return_type = convert_type(resolver, decl.return_type);
+  ftype->Function.parameters = NULL;
 
-    ftype->Function.name = malloc(256);
+  ftype->Function.name = malloc(256);
 
-    if (decl.is_extern == false){
-      // FIXME not hardcode?
-      char name[516];
-      printf("%s\n", decl.name);
-      // if we resolve expretsions the resolve scope are inside the function
-      // and therefore we need  to step back a step to retrive the package name
-      // FIXME by making the get pcakage to this if necessary?
-      SymbolTable *scope =  resolver->resolve_expr == false ? resolver->scope : resolver->scope->parent;
-      get_package_name(scope, name);
-      snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
-    } else {
-      snprintf(ftype->Function.name, 516, "%s", decl.name);
-    }
-  
-  
+  if (decl.is_extern == false){
+    // FIXME not hardcode?
+    char name[516];
+    debug_log("%s\n", decl.name);
+    // if we resolve expretsions the resolve scope are inside the function
+    // and therefore we need  to step back a step to retrive the package name
+    // FIXME by making the get pcakage to this if necessary?
+    SymbolTable *scope =  resolver->resolve_expr == false ? resolver->scope : resolver->scope->parent;
+    get_package_name(scope, name);
+    snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
+  } else {
+    snprintf(ftype->Function.name, 516, "%s", decl.name);
+  }
+  debug_log("start parameters\n");
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
     Type *type = resolve_type(resolver, decl.parameters[i]);
     arrput(ftype->Function.parameters, type);
   }
+  debug_log("end parameters\n");
   if (decl.body != NULL && resolver->resolve_expr) {
     resolve_block(resolver, decl.body);
     /* for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) { */
     /*   Type *type = resolve_type(resolver, decl.body->value.block_stmt.stmts[i]); */
   }
   node->type = ftype;
+  debug_log("====end resolving function decl %s\n", decl.name);
   return ftype;
 }
 
-Type *common_type(Type *a, Type *b) {
-  if (a != NULL && b == NULL) return a;
-  else if (a == NULL && b != NULL) return b;
-  assert(!(a == NULL && b == NULL));
-
-  if (a->kind == b->kind) return a;
-
+bool is_numeric(Type *a) {
   switch(a->kind) {
+  case TYPE_BYTE:
+  case TYPE_I16:
+  case TYPE_I32:
+  case TYPE_I64:
+  case TYPE_F32:
+  case TYPE_F64:
+    return true;
+  default: return false;
+  }
+}
+
+bool is_double(Type *a) {
+  switch(a->kind) {
+  case TYPE_F64:
+    return true;
+  default: return false;
+  }
+}
+
+bool is_int(Type *a) {
+  switch(a->kind) {
+  case TYPE_I16:
+  case TYPE_I32:
+  case TYPE_I64:
+    return true;
+  default: return false;
+  }  
+}
+
+Type *common_type(Type *a, Type *b) {
+  assert(a != NULL);
+  assert(b != NULL);
+
+  if (a->kind == b->kind) {
+    return a;
   }
 
+  if(is_numeric(a) && is_numeric(b)) {
+    if(a->kind == TYPE_F64 || b->kind == TYPE_F64) {
+      return new_type(TYPE_F64);
+    }
+    if(a->kind == TYPE_F32 || b->kind == TYPE_F32) {
+      return new_type(TYPE_F32);
+    }
+  }
   
-  return NULL;
+  return a;
 }
 
 Type *resolve_assign(TypeResolver *resolver, Ast *node) {
@@ -270,21 +309,37 @@ Type *resolve_assign(TypeResolver *resolver, Ast *node) {
   return value_type;
 }
 
+Ast* implicit_cast(Ast* node, Type* t) {
+  assert(node != NULL);
+  // if it already is the type we dont need to do anything
+  if(node->type != NULL && node->type->kind == t->kind) return node;
+  
+  Ast * new = new_ast(AST_CAST, node->span);
+  new->value.cast_expr.expression = node;
+  new->value.cast_expr.cast_type = t;
+  new->type = t;
+  return new;
+}
+
 Type *resolve_binary(TypeResolver *resolver, Ast *node) {
+  debug_log("resolving binary\n");
   assert(node->kind == AST_BINARY);
-  BinaryExpr expr = node->value.binary_expr;
+  BinaryExpr *expr = &node->value.binary_expr;
 
-  expr.left->type = resolve_type(resolver, expr.left);
-  expr.right->type = resolve_type(resolver, expr.right);
+  expr->left->type = resolve_type(resolver, expr->left);
+  expr->right->type = resolve_type(resolver, expr->right);
 
-  assert(expr.left->type != NULL);
+  assert(expr->left->type != NULL);
 
-  Type* type = common_type(expr.left->type, expr.right->type);
+  Type* type = common_type(expr->left->type, expr->right->type);
 
   if (type == NULL) {
-    log_span(expr.left->span, "Cant cast\n");
+    log_span(expr->left->span, "Cant cast\n");
     assert(0);
   }
+
+  expr->left = implicit_cast(expr->left, type);
+  expr->right = implicit_cast(expr->right, type);
 
   return type;
 }
@@ -296,7 +351,6 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
     assert(0);
   }
 
-  print_symbol(sym, 0);
   return sym->type;
 }
 
@@ -375,7 +429,7 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   }
   if (type == NULL) return NULL;
 
-  printf("SETTING TYPE %s\n", type_kind_name(type->kind));
+  debug_log("SETTING TYPE %s\n", type_kind_name(type->kind));
   // setting the type in the ast
   node->type = type;
   return type;
@@ -397,8 +451,7 @@ void type_check_package(TypeResolver *resolver, Package *package) {
         print_ast(package->declarations[i], 0);
         log_span(package->declarations[i]->span, "Couldn't find function symbol\n");
       }
-
-      print_symbol_table(resolver->scope, 0);
+      
       assert(func != NULL);
       if(func->scope != NULL) {
         SymbolTable *old = resolver->scope;
@@ -411,6 +464,4 @@ void type_check_package(TypeResolver *resolver, Package *package) {
       break;
     }
   }
-
 }
-

@@ -200,7 +200,7 @@ void print_ast(Ast *ast, int depth) {
   case AST_CAST:
     debug_log("Cast\n");
     print_ast(ast->value.cast_expr.expression, depth+1);
-    ast_print_type(ast->value.cast_expr.cast_type, depth+1);
+    //ast_print_type(ast->value.cast_expr.cast_type, depth+1);
     break;
   default:
     debug_log("\n");
@@ -419,7 +419,9 @@ Ast *parse_primary(Parser *p) {
   case TOKEN_LPAR: // casting
     debug_log("Primary casting %s\n", token.lexeme);
     ast->kind = AST_CAST;
-    ast->value.cast_expr.cast_type = parse_type(p);
+    // TODO add the type
+    assert(0);
+    //ast->value.cast_expr.cast_type = parse_type(p);
     parser_skip(p, TOKEN_RPAR);
     
     ast->value.cast_expr.expression = parse_or(p);
@@ -835,24 +837,26 @@ Ast *parse_function(Parser *p) {
   parser_skip(p, TOKEN_PRIVATE);
   parser_skip(p, TOKEN_PUBLIC);
 
+
   if (parser_peek(p).kind != TOKEN_FUNC && parser_peek(p).kind != TOKEN_EXTERN)
     log_span(parser_peek(p).span, "Must start with func\n");
-
   
   Ast* func = new_ast(AST_FUNC_DECL, parser_peek(p).span);
   func->value.function_decl = (FunctionDecl){0};
   func->value.function_decl.parameters = NULL;
   func->value.function_decl.visibility = visibility;
-  
+
   // if its extern we have to advance extra
-  if (parser_peek(p).kind == TOKEN_EXTERN){
+  if (parser_peek(p).kind == TOKEN_EXTERN) {
+    parser_advance(p);
+    debug_log("IS EXTERN\n");
     parser_expect(p, TOKEN_FUNC);
     func->value.function_decl.is_extern = true;
+  } else {
+    parser_advance(p);
   }
 
-
-  parser_advance(p);
-
+  
   func->value.function_decl.name = parser_expect(p, TOKEN_IDENTIFER).lexeme;
   parser_expect(p, TOKEN_LPAR);
   if (parser_peek(p).kind != TOKEN_RPAR) {

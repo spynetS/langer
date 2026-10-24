@@ -45,7 +45,7 @@ void member_to_str(char *dst, MemberAccessExpr expr) {
     snprintf(dst, 256, "%s", tmp);
   }
 
-  printf("%s\n", dst);
+  debug_log("%s\n", dst);
 
   debug_log("====done\n");
 }
@@ -86,6 +86,9 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     return gtype;
   case TYPE_POINTER:
     return LLVMPointerType(get_llvm_type(lg, type->Pointer.base), 0);
+    break;
+  case TYPE_FUNCTION:
+    panic("TODO LLVM FUNCTION TYPE");
     break;
   case TYPE_ARRAY:
     panic("TODO GET LLVM ARRATYY");
@@ -146,7 +149,6 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   for(size_t i = 0; i < pl; i ++ ) {
     args[i] = create_stmt(lg, expr.parameters[i]);
   }
-  
 
   char cname[6];
   cname[0] = '\0';
@@ -163,7 +165,6 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
                    pl,
                    cname
                   );
-
   return result;
 }
 
@@ -188,7 +189,20 @@ LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
   LLVMValueRef left  = create_stmt(lg, expr.left);
   LLVMValueRef right = create_stmt(lg, expr.right);
 
-  bool floating = false;
+  // figure out if we need to do float operations
+  bool lf = false;
+  bool rf = false;
+  switch(expr.left->type->kind){
+  case TYPE_F32:
+  case TYPE_F64:
+    lf = true;
+  }
+  switch(expr.right->type->kind){
+  case TYPE_F32:
+  case TYPE_F64:
+    rf = true;
+  }
+  bool floating = rf || lf;
 
   switch (expr.operator) {
   case TOKEN_PLUS:

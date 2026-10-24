@@ -30,7 +30,7 @@ void print_package(Package *package) {
 void handle_args(int argc, char** argv, char*** files) {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-h") == 0) {
-      printf("Hello world!\n");
+      debug_log("Hello world!\n");
       exit(0);
     } else {
       arrput(*files, argv[i]);
@@ -50,11 +50,11 @@ int main(int argc, char** argv) {
 
   TypeResolver resolver = {0};
   resolver.scope = &root;
-  printf("### LEXER AND PARSER ###\n");
+  debug_log("### LEXER AND PARSER ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     size_t size = 0;
     char *input = read_file(files[i], &size);
-    printf("compiling %s...\n", files[i]);
+    debug_log("compiling %s...\n", files[i]);
 
     Lexer lexer = { 0, 0, files[i], 0, input, size};
 
@@ -78,11 +78,11 @@ int main(int argc, char** argv) {
     /* arrfree(token); */
     free(input);
   }
-  printf("===after parsing====\n");
+  debug_log("===after parsing====\n");
   print_symbol_table(&root,0);
 
 
-  printf("### TYPE RESOLVER ###\n");
+  debug_log("### TYPE RESOLVER ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
 
@@ -90,11 +90,11 @@ int main(int argc, char** argv) {
     resolver.resolve_expr = false;
     resolver.scope = &root;
 
-    printf("=======START RESOLVER %s======\n", package->package.value);
+    debug_log("=======START RESOLVER %s======\n", package->package.value);
     symbol_table_resolve_types(&resolver, &root);    
-    printf("====AFTER RESOLVED====\n");
+    debug_log("====AFTER RESOLVED====\n");
     print_symbol_table(&root, 0);
-    printf("==========\n");
+    debug_log("==========\n");
 
     // for individual varaibles we want to check expressions? IDK why directly
     
@@ -105,14 +105,14 @@ int main(int argc, char** argv) {
     }
     resolver.scope = &root;
     // now we want to check all types
-    printf("====Start RESOLVED package '%s'====\n", package->package.value);
+    debug_log("====Start RESOLVED package '%s'====\n", package->package.value);
     type_check_package(&resolver, package);
-    printf("==========\n");
+    debug_log("==========\n");
 
     print_package(package);
     //gen_package(package);
   }
-  printf("### LLVM GENERATIONS ###\n");
+  debug_log("### LLVM GENERATIONS ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
     gen_package(package, symbol_tables[i]);

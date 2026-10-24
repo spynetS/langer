@@ -103,7 +103,7 @@ typedef struct {
 
 typedef struct {
   Ast *expression;
-  Ast *cast_type;
+  Type *cast_type;
 } CastExpr;
 
 
