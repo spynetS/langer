@@ -60,6 +60,7 @@ LLVMTypeRef get_type(LLVMGenerator *lg, const char* name) {
 }
 
 LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
+  assert(type != NULL);
   switch (type->kind) {
   case TYPE_VOID:
     return LLVMVoidTypeInContext(lg->context);    
@@ -77,13 +78,13 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     return lg->f64;
   case TYPE_STRUCT:
     debug_log("FINDING STRUCT '%s'\n", type->Struct.name);
-    LLVMTypeRef gtype = create_struct_decl_type(lg, type->Struct);
-    //get_type(lg, type->Struct.name);
+    LLVMTypeRef gtype = get_type(lg, type->Struct.name);
     if(gtype == NULL) {
       // It should exist becuase type resolver hasnt crashed
       // se we generat the struct
       return create_struct_decl_type(lg, type->Struct);
     }
+    
     return gtype;
   case TYPE_POINTER:
     return LLVMPointerType(get_llvm_type(lg, type->Pointer.base), 0);
@@ -388,6 +389,7 @@ LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func) {
 }
 
 LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
+  assert(ast->type != NULL);
   struct FunctionType func = ast->type->Function;
   assert(func.name != NULL);
   
@@ -442,7 +444,6 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
   debug_log("LLVM creating struct decl '%s' type\n", struc.name);
   LLVMTypeRef struct_type = LLVMStructCreateNamed(lg->context, struc.name);
 
-
   LLVMTypeRef field_types[arrlen(struc.members)];
   for (size_t i = 0; i < arrlen(struc.members); i ++) {
     LLVMTypeRef llvm_type = get_llvm_type(lg, struc.members[i].type);
@@ -453,7 +454,6 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
   LLVMStructSetBody(struct_type, field_types, arrlen(struc.members), 0);
   
   save_type(lg, struc.name, struct_type);
-
   return struct_type;
 }
 
@@ -558,11 +558,16 @@ void gen_package(Package *package, SymbolTable *root) {
 
   char *ir =
     LLVMPrintModuleToString(module);
-  printf("%s\n", ir);
+  debug_log("%s\n", ir);
 
   char *error = NULL;
 
-  if (LLVMPrintModuleToFile(module, "main.ll", &error)) {
+  size_t ns = strlen(package->package.value)+sizeof(".ll");
+  char *name = malloc(ns);
+  snprintf(name, ns, "%s.ll", package->package.value);
+
+  printf("---> %s\n", name);
+  if (LLVMPrintModuleToFile(module, name, &error)) {
     fprintf(stderr, "Failed to write LLVM IR: %s\n", error);
     LLVMDisposeMessage(error);
   }

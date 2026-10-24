@@ -45,6 +45,10 @@ lib_src = files(
 
 main_src = files('src/main.c')
 
+if get_option('buildtype') == 'release'
+  common_c_args += ['-DSILENT']
+endif
+
 # ------------------------------------------------------------ Compiler
 langer = executable('langer',
   main_src + lib_src,
@@ -52,6 +56,8 @@ langer = executable('langer',
   link_args: common_link_args,
   install: false,
 )
+
+
 
 # --------------------------------------------------------------- Tests
 # Equivalent of the Makefile's `test` (silent) and `verbose` targets.

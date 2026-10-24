@@ -228,10 +228,13 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
     snprintf(ftype->Function.name, 516, "%s", decl.name);
   }
   debug_log("start parameters\n");
+  
   for(int i = 0; i < arrlen(decl.parameters); i ++) {
     Type *type = resolve_type(resolver, decl.parameters[i]);
+    assert(type != NULL);
     arrput(ftype->Function.parameters, type);
   }
+  
   debug_log("end parameters\n");
   if (decl.body != NULL && resolver->resolve_expr) {
     resolve_block(resolver, decl.body);
@@ -360,7 +363,6 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
 
   switch(node->kind) {
   case AST_VAR_DECL:
-    if (resolver->resolve_expr == true) break;
     type = resolve_var_decl(resolver, node);
     break;
   case AST_FUNC_DECL:
