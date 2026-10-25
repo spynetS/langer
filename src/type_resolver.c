@@ -115,7 +115,11 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     log_span(node->span, "error: Something wrong with call expression\n");
     assert(false);
   }
-  
+
+  if(sym == NULL) {
+    log_span(node->span, "error: Symbol not found\n");
+    assert(false);
+  }
   size_t pl = arrlen(node->value.call_expr.parameters);
 
   if(!sym->type->Function.is_variadic && arrlen(sym->type->Function.parameters) != pl) {
