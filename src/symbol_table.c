@@ -184,7 +184,11 @@ SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt) {
   return table;
 }
 
-SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const char *name ) {
+SymbolTable *symbol_table_package(
+    SymbolTable *root,
+    Package *package,
+    const char *name
+) {
     char *copy = strdup(name);
     if (!copy) return NULL;
 
@@ -195,37 +199,48 @@ SymbolTable *symbol_table_package(SymbolTable *root, Package *package, const cha
     char *token = strtok_r(copy, ".", &saveptr);
 
     while (token != NULL) {
-        table = malloc(sizeof(SymbolTable));
-        if (!table) {
-            free(copy);
-            return NULL;
+        // Check whether this package already exists in this scope.
+        Symbol *sym = symbol_lookup(parent, token);
+
+        if (sym != NULL) {
+            if (sym->kind != SYMBOL_PACKAGE || sym->scope == NULL) {
+                free(copy);
+                return NULL; // Name already exists but isn't a package.
+            }
+
+            // Reuse the existing package's scope.
+            table = sym->scope;
+        } else {
+            // Create a new package scope.
+            table = calloc(1, sizeof(SymbolTable));
+            if (!table) {
+                free(copy);
+                return NULL;
+            }
+
+            table->parent = parent;
+
+            sym = calloc(1, sizeof(Symbol));
+            if (!sym) {
+                free(table);
+                free(copy);
+                return NULL;
+            }
+
+            sym->scope = table;
+            table->owner = sym;
+            sym->kind = SYMBOL_PACKAGE;
+            sym->key = strdup(token);
+
+            if (!sym->key) {
+                free(sym);
+                free(table);
+                free(copy);
+                return NULL;
+            }
+
+            arrput(parent->symbols, sym);
         }
-
-        table->symbols = NULL;
-        table->parent = parent;
-
-        Symbol *sym = malloc(sizeof(Symbol));
-        if (!sym) {
-            free(table);
-            free(copy);
-            return NULL;
-        }
-
-        sym->scope = table;
-        table->owner = sym;
-        sym->node = NULL;
-        sym->type = NULL;
-        sym->kind = SYMBOL_PACKAGE;
-        sym->key = strdup(token);
-
-        if (!sym->key) {
-            free(sym);
-            free(table);
-            free(copy);
-            return NULL;
-        }
-
-        arrput(parent->symbols, sym);
 
         parent = table;
         token = strtok_r(NULL, ".", &saveptr);
