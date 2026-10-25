@@ -454,10 +454,12 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   case AST_IF:
     resolve_type(resolver, node->value.if_stmt.condition);
     resolve_block(resolver, node->value.if_stmt.body);
+    
     if (node->value.if_stmt.else_body != NULL) {
       resolve_block(resolver, node->value.if_stmt.else_body);
     }
     if (node->value.if_stmt.else_if_stmt != NULL) {
+      resolve_type(resolver, node->value.if_stmt.else_if_stmt);
       convert_type(resolver, node->value.if_stmt.else_if_stmt);
     }
     break;

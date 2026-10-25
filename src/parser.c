@@ -185,10 +185,16 @@ void print_ast(Ast *ast, int depth) {
     print_ast(ast->value.if_stmt.condition, depth+1);
     if (ast->value.if_stmt.body != NULL)
       print_ast(ast->value.if_stmt.body, depth+1);
-    if (ast->value.if_stmt.else_if_stmt != NULL)
+    if (ast->value.if_stmt.else_if_stmt != NULL) {
+      print_depth(depth);
+      printf("else if \n");
       print_ast(ast->value.if_stmt.else_if_stmt, depth+1);
-    if (ast->value.if_stmt.else_body != NULL)
+    }
+    if (ast->value.if_stmt.else_body != NULL) {
+      print_depth(depth);
+      printf("else \n");
       print_ast(ast->value.if_stmt.else_body, depth+1);
+    }
     break;
   case AST_BINARY:
     debug_log("Binary\n");

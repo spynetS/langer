@@ -338,7 +338,7 @@ LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
   }
 }
 
-LLVMValueRef create_if(LLVMGenerator *lg, IfStmt stmt) {
+LLVMBasicBlockRef create_if(LLVMGenerator *lg, IfStmt stmt) {
 
   LLVMContextRef c = lg->context;
   LLVMValueRef fn = lg->current_function;
@@ -349,7 +349,11 @@ LLVMValueRef create_if(LLVMGenerator *lg, IfStmt stmt) {
   LLVMBasicBlockRef body_bb =
     LLVMAppendBasicBlockInContext(c,fn, "if.body");
 
-  // TODO add else ifs
+  LLVMBasicBlockRef elif_bb;
+  if (stmt.else_if_stmt != NULL) {
+    assert(stmt.else_if_stmt->kind == AST_IF);
+    elif_bb = create_if(lg, stmt.else_if_stmt->value.if_stmt);
+  }
   
   LLVMBasicBlockRef else_bb =
     LLVMAppendBasicBlockInContext(c,fn, "if.else");
@@ -368,7 +372,12 @@ LLVMValueRef create_if(LLVMGenerator *lg, IfStmt stmt) {
   create_stmt(lg, stmt.body);
 
   // go to end
-  LLVMBuildBr(lg->builder, end_bb);
+  if (stmt.else_if_stmt != NULL) {
+    LLVMBuildBr(lg->builder, elif_bb);
+  } else {
+    LLVMBuildBr(lg->builder, end_bb);
+  }
+
 
   LLVMPositionBuilderAtEnd(lg->builder, else_bb);
   if(stmt.else_body != NULL) create_stmt(lg, stmt.else_body);
@@ -377,7 +386,7 @@ LLVMValueRef create_if(LLVMGenerator *lg, IfStmt stmt) {
  
 
   LLVMPositionBuilderAtEnd(lg->builder, end_bb);
-  return NULL;
+  return body_bb;
 }
 
 
@@ -387,7 +396,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_ENUM_DECL        : assert(0); // TODO
   case AST_UNION_DECL       : assert(0); // TODO
   case AST_BLOCK            : return gen_block(lg, stmt->value.block_stmt);
-  case AST_IF               : return create_if(lg, stmt->value.if_stmt);
+  case AST_IF               : create_if(lg, stmt->value.if_stmt); return NULL;
   case AST_WHILE            : assert(0); // TODO
   case AST_FOR              : assert(0); // TODO
   case AST_EXPR_STMT        : assert(0); // TODO
