@@ -40,6 +40,8 @@ typedef struct {
   SymbolTable *sroot;    // root
   SymbolTable *scurrent; // current we create
 
+  LLVMValueRef current_function;
+
 } LLVMGenerator;
 
 

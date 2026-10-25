@@ -22,6 +22,7 @@ LLVMTypeRef create_function_type(LLVMGenerator *lg, struct FunctionType func);
 LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast);
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt);
 LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr);
+LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block);
 
 void remove_around_qoutes(char **str) {
   if((*str)[0] == '"' || (*str)[0] == '\'') (*str)++;
@@ -224,10 +225,20 @@ LLVMValueRef build_add(LLVMGenerator *lg, LLVMValueRef left, LLVMValueRef right,
   return f ? LLVMBuildAdd(lg->builder, left, right, "tmp") : LLVMBuildFAdd(lg->builder, left, right, "tmp");
 }
 
+
+
 LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
+  assert(expr.left != NULL);
+  assert(expr.right != NULL);
+
+  assert(expr.left->type != NULL);
+  assert(expr.right->type != NULL);
+  
 
   LLVMValueRef left  = create_stmt(lg, expr.left);
   LLVMValueRef right = create_stmt(lg, expr.right);
+
+  LLVMBuilderRef b = lg->builder;
 
   // figure out if we need to do float operations
   bool lf = false;
@@ -246,16 +257,32 @@ LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
 
   switch (expr.operator) {
   case TOKEN_PLUS:
-    return !floating ? LLVMBuildAdd(lg->builder, left, right, "tmp") : LLVMBuildFAdd(lg->builder, left, right, "tmp");
+    return !floating ? LLVMBuildAdd(b, left, right, "tmp") : LLVMBuildFAdd(b, left, right, "tmp");
   case TOKEN_MINUS:
-    return !floating ? LLVMBuildSub(lg->builder, left, right, "tmp") : LLVMBuildFSub(lg->builder, left, right, "tmp");
+    return !floating ? LLVMBuildSub(b, left, right, "tmp") : LLVMBuildFSub(b, left, right, "tmp");
   case TOKEN_STAR:
-    return !floating ? LLVMBuildMul(lg->builder, left, right, "tmp") : LLVMBuildFMul(lg->builder, left, right, "tmp");
+    return !floating ? LLVMBuildMul(b, left, right, "tmp") : LLVMBuildFMul(b, left, right, "tmp");
   case TOKEN_SLASH:
-    return !floating ? LLVMBuildSDiv(lg->builder, left, right, "tmp") : LLVMBuildFDiv(lg->builder, left, right, "tmp");
+    return !floating ? LLVMBuildSDiv(b, left, right, "tmp") : LLVMBuildFDiv(b, left, right, "tmp");
+
+  case TOKEN_LESS:
+    return (!floating) ? LLVMBuildICmp(b, LLVMIntSLT, left, right, "cond") : LLVMBuildFCmp(b, LLVMRealOLT, left, right, "cond");
+  case TOKEN_GREATER:
+    return (!floating) ? LLVMBuildICmp(b, LLVMIntSGT, left, right, "cond") : LLVMBuildFCmp(b, LLVMRealOGT, left, right, "cond");
+  case TOKEN_LE:
+    return (!floating) ? LLVMBuildICmp(b, LLVMIntSLE, left, right, "cond") : LLVMBuildFCmp(b, LLVMRealOLE, left, right, "cond");
+  case TOKEN_GE:
+    return (!floating) ? LLVMBuildICmp(b, LLVMIntSGE, left, right, "cond") : LLVMBuildFCmp(b, LLVMRealOGE, left, right, "cond");
+  case TOKEN_EQUAL:
+    return (!floating) ? LLVMBuildICmp(b, LLVMIntEQ, left, right, "cond") : LLVMBuildFCmp(b, LLVMRealOEQ, left, right, "cond");
+
+
   default:
     assert(0);
   }
+
+
+
 
   return NULL;
 }
@@ -311,18 +338,61 @@ LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
   }
 }
 
+LLVMValueRef create_if(LLVMGenerator *lg, IfStmt stmt) {
+
+  LLVMContextRef c = lg->context;
+  LLVMValueRef fn = lg->current_function;
+
+  LLVMBasicBlockRef cond_bb =
+    LLVMAppendBasicBlockInContext(c,fn, "if.cond");
+
+  LLVMBasicBlockRef body_bb =
+    LLVMAppendBasicBlockInContext(c,fn, "if.body");
+
+  // TODO add else ifs
+  
+  LLVMBasicBlockRef else_bb =
+    LLVMAppendBasicBlockInContext(c,fn, "if.else");
+
+  LLVMBasicBlockRef end_bb =
+    LLVMAppendBasicBlockInContext(c,fn, "if.end");
+
+  LLVMBuildBr(lg->builder, cond_bb);
+  LLVMPositionBuilderAtEnd(lg->builder, cond_bb);
+  
+  LLVMValueRef cond = create_stmt(lg, stmt.condition);
+  LLVMBuildCondBr(lg->builder, cond, body_bb, else_bb);
+
+  // go to body end
+  LLVMPositionBuilderAtEnd(lg->builder, body_bb);
+  create_stmt(lg, stmt.body);
+
+  // go to end
+  LLVMBuildBr(lg->builder, end_bb);
+
+  LLVMPositionBuilderAtEnd(lg->builder, else_bb);
+  if(stmt.else_body != NULL) create_stmt(lg, stmt.else_body);
+
+  LLVMBuildBr(lg->builder, end_bb);
+ 
+
+  LLVMPositionBuilderAtEnd(lg->builder, end_bb);
+  return NULL;
+}
+
+
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   print_ast(stmt, 0); 
   switch(stmt->kind) {
   case AST_ENUM_DECL        : assert(0); // TODO
   case AST_UNION_DECL       : assert(0); // TODO
-  case AST_BLOCK            : assert(0); // TODO
-  case AST_IF               : assert(0); // TODO
+  case AST_BLOCK            : return gen_block(lg, stmt->value.block_stmt);
+  case AST_IF               : return create_if(lg, stmt->value.if_stmt);
   case AST_WHILE            : assert(0); // TODO
   case AST_FOR              : assert(0); // TODO
   case AST_EXPR_STMT        : assert(0); // TODO
   case AST_CHAR_LITERAL     : assert(0); // TODO
-  case AST_BOOL_LITERAL     : assert(0); // TODO
+  case AST_BOOL_LITERAL     : return LLVMConstInt(LLVMInt1TypeInContext(lg->context), stmt->value.bool_expr.value ? 1 : 0, 0);
   case AST_UNARY            : assert(0); // TODO
   case AST_DECL             : assert(0); // TODO
   case AST_INDEX            : assert(0); // TODO
@@ -440,6 +510,9 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
                     func.name,
                     fn_type
                    );
+
+  // setting current function
+  lg->current_function = function;
 
   // if the function has a body we should generate it
   if (ast->value.function_decl.body != NULL) {
@@ -599,6 +672,7 @@ void gen_package(Package *package, SymbolTable *root) {
     switch(package->declarations[i]->kind) {
     case AST_FUNC_DECL:
       LLVMValueRef func = create_function(&lg, package->declarations[i]);
+      lg.current_function = NULL;
       if(strcmp(package->declarations[i]->value.function_decl.name, "main") == 0) {
         create_entry_point(&lg, func);
       }
