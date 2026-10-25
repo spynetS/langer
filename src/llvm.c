@@ -107,7 +107,7 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
 }
 
 LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
-
+  // TODO clean this up
   char name[256];
   Type* return_type = NULL;
 
@@ -149,9 +149,10 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   size_t pl = arrlen(expr.parameters);
   LLVMValueRef args[pl];
   for(size_t i = 0; i < pl; i ++ ) {
+    
     args[i] = create_stmt(lg, expr.parameters[i]);
   }
-
+  
   char cname[6];
   cname[0] = '\0';
   if (return_type->kind != TYPE_VOID) {
@@ -266,6 +267,8 @@ LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
   switch(expr->kind) {
   case AST_MEMBER: return create_member_access(lg, expr->value.member_expr);
   case AST_IDENTIFER:{
+    assert(expr == NULL);
+    assert(expr->kind == AST_IDENTIFER);
     char *name = expr->value.identifer_expr.value;
     LLVMValueRef ptr = shget(lg->values, name);
 
@@ -367,7 +370,6 @@ LLVMValueRef gen_block(LLVMGenerator *lg, BlockStmt block) {
     if (stmt->kind == AST_RETURN)
       return val;
   }
-  assert(0);
   return NULL;
 }
 
@@ -402,6 +404,7 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
                     func.name,
                     fn_type
                    );
+
   // if the function has a body we should generate it
   if (ast->value.function_decl.body != NULL) {
     LLVMBasicBlockRef entry =
@@ -411,6 +414,24 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast) {
                                     "entry"
                                    );
     LLVMPositionBuilderAtEnd(lg->builder, entry);
+
+    // give the parameters names
+    size_t pl = arrlen(func.parameters);
+    for (int i = 0; i < pl; i++) {
+      LLVMValueRef a = LLVMGetParam(function, i);
+      Ast* param = ast->value.function_decl.parameters[i];
+      assert(param->kind == AST_VAR_DECL);
+      assert(param->value.variable_decl.left->kind == AST_IDENTIFER);
+
+      char *name = param->value.variable_decl.left->value.identifer_expr.value;
+      LLVMSetValueName2(a, name, 1);
+      LLVMTypeRef type = get_llvm_type(lg, func.parameters[i]);
+      LLVMValueRef ptr = LLVMBuildAlloca(lg->builder, type, name);
+      LLVMBuildStore(lg->builder, a, ptr);
+
+      shput(lg->values, name, ptr);
+      save_type(lg, name, type);
+    }
 
     LLVMValueRef ret = gen_block(lg, ast->value.function_decl.body->value.block_stmt);
     if(ret != NULL) {
