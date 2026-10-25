@@ -416,17 +416,10 @@ Ast *parse_primary(Parser *p) {
       token.lexeme
     };
     return ast;
-  case TOKEN_LPAR: // casting
-    debug_log("Primary casting %s\n", token.lexeme);
-    ast->kind = AST_CAST;
-    // TODO add the type
-    assert(0);
-    //ast->value.cast_expr.cast_type = parse_type(p);
-    parser_skip(p, TOKEN_RPAR);
-    
-    ast->value.cast_expr.expression = parse_or(p);
-
-    return ast;
+  case TOKEN_LPAR:
+    Ast *expr = parse_expression(p);
+    parser_expect(p, TOKEN_RPAR);
+    return expr;
   default:
     debug_log("Primary error\n");
     log_span(token.span, "Primary error\n");
@@ -456,6 +449,21 @@ Ast *parse_postfix(Parser *p) {
     } else if (token.kind == TOKEN_LPAR) {
       // CALL
       Token t = parser_advance(p);
+
+      if(left->kind == AST_IDENTIFER &&
+         strcmp(left->value.identifer_expr.value, "cast") == 0){
+        debug_log("Primary casting %s\n", token.lexeme);
+        Ast* ast = new_ast(AST_CAST, left->span);
+
+        Type* type = convert_type(NULL, parse_type(p));
+        assert(type != NULL);
+        ast->value.cast_expr.cast_type = type;
+        parser_skip(p, TOKEN_RPAR);
+        // TODO free left?
+        ast->value.cast_expr.expression = parse_or(p);
+        return ast;
+      }
+
       Ast *left_ = left;
       left = new_ast(AST_CALL, t.span);
       left->value.call_expr = (CallExpr){0};

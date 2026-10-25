@@ -12,7 +12,8 @@ typedef struct type_resolver {
 } TypeResolver;
 
 Type *resolve_type(TypeResolver*, Ast*);
-
 void type_check_package(TypeResolver *resolver, Package *package);
+Type *convert_type(TypeResolver *resolver, Ast* atype);
+
 
 #endif

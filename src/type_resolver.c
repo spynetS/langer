@@ -46,6 +46,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     type->kind = TYPE_F64;
     break;
   case AST_TYPE_NAME:
+    if (resolver == NULL) return new_type(TYPE_RESOLVING);
     // the ast node is a type
     Ast *name = atype->value.named_type.name;
     Symbol *sym = NULL;
@@ -76,10 +77,13 @@ Type *resolve_var_decl(TypeResolver *resolver, Ast *node) {
   Type *type = NULL;
   if (node->value.variable_decl.initlizer != NULL) {
     type = resolve_type(resolver, node->value.variable_decl.initlizer);
+    assert(type != NULL);
   }
   if (node->value.variable_decl.type != NULL ) {
     type =  convert_type(resolver, node->value.variable_decl.type);
+      assert(type != NULL);
   }
+    assert(type != NULL);
   node->type = type;
   return type;
 }
@@ -368,6 +372,29 @@ Type *resolve_identifer(TypeResolver *resolver, Ast *node) {
   return sym->type;
 }
 
+bool can_cast(TypeResolver *resolver, Type* a, Type* b) {
+  if (is_numeric(a) && is_numeric(b)) {
+    return true;
+  }
+  return false;
+}
+
+Type *resolve_cast(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_CAST);
+  CastExpr expr = node->value.cast_expr;
+
+  expr.expression->type = resolve_type(resolver, expr.expression);
+
+  if (!can_cast(resolver, expr.cast_type, expr.expression->type)) {
+    log_span(node->span,
+             "error: can't cast '%s' to '%s'\n",
+             type_kind_name(expr.expression->type->kind),
+             type_kind_name(expr.cast_type->kind));
+    assert(0);
+  }
+
+  return expr.cast_type;
+}
 
 Type *resolve_type(TypeResolver *resolver, Ast *node) {
   Type *type = NULL;
@@ -422,7 +449,7 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
     type = resolve_member(resolver, node);
     break;
   case AST_INDEX: assert(0);
-  case AST_CAST: assert(0);
+  case AST_CAST: type = resolve_cast(resolver, node); break;
   case AST_COMPOUND_LITERAL: assert(0);
   case AST_IF:
     resolve_block(resolver, node->value.if_stmt.body);
