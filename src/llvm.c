@@ -264,10 +264,10 @@ LLVMValueRef create_member_access(LLVMGenerator *lg, MemberAccessExpr expr) {
 }
 
 LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
+  assert(expr != NULL);
   switch(expr->kind) {
   case AST_MEMBER: return create_member_access(lg, expr->value.member_expr);
   case AST_IDENTIFER:{
-    assert(expr == NULL);
     assert(expr->kind == AST_IDENTIFER);
     char *name = expr->value.identifer_expr.value;
     LLVMValueRef ptr = shget(lg->values, name);
