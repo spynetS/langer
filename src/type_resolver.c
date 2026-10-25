@@ -50,6 +50,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     Ast *name = atype->value.named_type.name;
     Symbol *sym = NULL;
     if (name->kind == AST_IDENTIFER) {
+      debug_log("IDENTIFER \n");
       sym = symbol_lookup(resolver->scope, name->value.identifer_expr.value);
     } else {
       print_ast(name, 0);
@@ -108,18 +109,24 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   if(node->value.call_expr.left->kind == AST_MEMBER) {
     MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
     sym = symbol_lookup_path(resolver->scope, path);
+    if(sym == NULL) {
+      log_span(node->span, "error: Symbol '%s' not found\n", path.member);
+      assert(false);
+    }
+
   } else if (node->value.call_expr.left->kind == AST_IDENTIFER) {
     char* name = node->value.call_expr.left->value.identifer_expr.value;
     sym = symbol_lookup(resolver->scope, name);
+    if(sym == NULL) {
+      log_span(node->span, "error: Symbol '%s' not found\n", name);
+      assert(false);
+    }
+
   } else {
     log_span(node->span, "error: Something wrong with call expression\n");
     assert(false);
   }
 
-  if(sym == NULL) {
-    log_span(node->span, "error: Symbol not found\n");
-    assert(false);
-  }
   size_t pl = arrlen(node->value.call_expr.parameters);
 
   if(!sym->type->Function.is_variadic && arrlen(sym->type->Function.parameters) != pl) {
