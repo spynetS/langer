@@ -11,7 +11,7 @@
 #define STB_DS_IMPLEMENTATION
 #include "../include/stb_ds.h"
 #include "utils.h"
-
+#include "../include/sb.h"
 
 
 // lexer
@@ -36,6 +36,25 @@ void handle_args(int argc, char** argv, char*** files) {
       arrput(*files, argv[i]);
     }
   }
+}
+
+int compile_backend(char** files) {
+  StringBuilder	*builder = sb_create();
+  sb_appendf(builder, "clang ");
+  for(int i = 0; i < arrlen(files); i++) {
+    sb_appendf(builder, "%s ", files[i]);
+  }
+  sb_appendf(builder, "-o main");
+
+  int status = system(sb_concat(builder));
+
+  if (status == -1) {
+    perror("system");
+    return 1;
+  }
+
+  sb_free(builder);
+  return 0;
 }
 
 int main(int argc, char** argv) {
@@ -110,13 +129,18 @@ int main(int argc, char** argv) {
     debug_log("==========\n");
 
     print_package(package);
-    //gen_package(package);
   }
+
+  char **irl_files = NULL;
+  
   debug_log("### LLVM GENERATIONS ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
-    gen_package(package, symbol_tables[i]);
+    char *file_name = gen_package(package, symbol_tables[i]);
+    arrput(irl_files, file_name);
   }
+
+  int status = compile_backend(irl_files);
 
   return 0;
 }

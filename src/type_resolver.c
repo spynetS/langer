@@ -10,6 +10,7 @@
 
 // implemented in parser.c
 Ast *new_ast(AstKind kind, SourceSpan span);
+Type *common_type(Type *a, Type *b);
 
 Type *new_type(TypeKind kind) {
   Type *type = malloc(sizeof(Type));
@@ -139,7 +140,15 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   }
 
   for(size_t i = 0; i < pl; i ++){
-    resolve_type(resolver, node->value.call_expr.parameters[i]);
+    Type *a = resolve_type(resolver, node->value.call_expr.parameters[i]);
+    Type *b = sym->type->Function.parameters[i];
+
+    Type *common = common_type(a, b);
+    if(common == NULL) {
+      log_span(node->span, "error: Expected '%s' got '%s' \n", type_kind_name(b->kind), type_kind_name(a->kind));
+      assert(0);
+    }
+
   }
 
   if (sym == NULL) {
@@ -307,6 +316,11 @@ Type *common_type(Type *a, Type *b) {
     if(a->kind == TYPE_F32 || b->kind == TYPE_F32) {
       return new_type(TYPE_F32);
     }
+  }
+  else if ((a->kind == TYPE_POINTER && b->kind == TYPE_STRING )) return a;
+  else if ((b->kind == TYPE_POINTER && a->kind == TYPE_STRING )) return b;
+  else {
+    return NULL;
   }
   
   return a;

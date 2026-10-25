@@ -643,7 +643,7 @@ void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
     );
 }
 
-void gen_package(Package *package, SymbolTable *root) {
+char *gen_package(Package *package, SymbolTable *root) {
   LLVMContextRef context = LLVMContextCreate();
 
   LLVMModuleRef module =
@@ -717,4 +717,5 @@ void gen_package(Package *package, SymbolTable *root) {
   LLVMDisposeModule(module);
   LLVMContextDispose(context);
 
+  return name;
 }

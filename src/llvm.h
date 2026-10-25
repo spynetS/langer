@@ -45,7 +45,7 @@ typedef struct {
 } LLVMGenerator;
 
 
-void gen_package(Package *package, SymbolTable *root);
+char *gen_package(Package *package, SymbolTable *root);
 
 #endif
 

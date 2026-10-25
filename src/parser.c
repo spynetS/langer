@@ -149,7 +149,7 @@ void print_ast(Ast *ast, int depth) {
     if (ast->value.variable_decl.left != NULL)
       print_ast(ast->value.variable_decl.left, depth+1);
     if (ast->value.variable_decl.initlizer != NULL){
-      printf("initlizer ");
+      debug_log("initlizer ");
       print_ast(ast->value.variable_decl.initlizer, depth+1);
     }
     break;
@@ -187,12 +187,12 @@ void print_ast(Ast *ast, int depth) {
       print_ast(ast->value.if_stmt.body, depth+1);
     if (ast->value.if_stmt.else_if_stmt != NULL) {
       print_depth(depth);
-      printf("else if \n");
+      debug_log("else if \n");
       print_ast(ast->value.if_stmt.else_if_stmt, depth+1);
     }
     if (ast->value.if_stmt.else_body != NULL) {
       print_depth(depth);
-      printf("else \n");
+      debug_log("else \n");
       print_ast(ast->value.if_stmt.else_body, depth+1);
     }
     break;
