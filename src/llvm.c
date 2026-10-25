@@ -23,6 +23,39 @@ LLVMValueRef create_function(LLVMGenerator *lg, Ast *ast);
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt);
 LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr);
 
+void remove_around_qoutes(char **str) {
+  if((*str)[0] == '"' || (*str)[0] == '\'') (*str)++;
+  if((*str)[strlen((*str))-1] == '"' || (*str)[strlen((*str))-1] == '\'') (*str)[strlen((*str))-1] = '\0';
+}
+
+void replace_escape_chars(char *str) {
+  
+    int r = 0, w = 0;
+
+    while (str[r] != '\0') {
+        if (str[r] == '\\') {
+            r++;
+
+            switch (str[r]) {
+            case 'n': str[w++] = '\n'; break;
+            case 't': str[w++] = '\t'; break;
+            case 'r': str[w++] = '\r'; break;
+            case '0': str[w++] = '\0'; break;
+            case '\\': str[w++] = '\\'; break;
+            case '"': str[w++] = '"'; break;
+            case '\'': str[w++] = '\''; break;
+            default: str[w++] = str[r]; break;
+            }
+
+            r++;
+        } else {
+            str[w++] = str[r++];
+        }
+    }
+
+    str[w] = '\0';
+}
+
 void member_to_str(char *dst, MemberAccessExpr expr) {
   debug_log("====begin to make member access into string\n");
 
@@ -327,6 +360,9 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
 
   case AST_STRING_LITERAL   :
     String str = stmt->value.string_expr.value;
+    remove_around_qoutes(&str.data);
+    replace_escape_chars(str.data);
+
     return LLVMBuildGlobalStringPtr(
                              lg->builder,
                              str.data,
