@@ -11,6 +11,7 @@
 // implemented in parser.c
 Ast *new_ast(AstKind kind, SourceSpan span);
 Type *common_type(Type *a, Type *b);
+Ast* implicit_cast(Ast* node, Type* t);
 
 Type *new_type(TypeKind kind) {
   Type *type = malloc(sizeof(Type));
@@ -110,6 +111,7 @@ Type *resolve_struct_decl (TypeResolver *resolver, Ast *node) {
 
 Type *resolve_call(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_CALL);
+  
   Symbol *sym = NULL;
   if(node->value.call_expr.left->kind == AST_MEMBER) {
     MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
@@ -131,9 +133,19 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     log_span(node->span, "error: Something wrong with call expression\n");
     assert(false);
   }
+  
+  if (sym == NULL) {
+    log_span(node->span, "error: Symbol not found\n");
+    assert(0);
+  }
 
+  
+
+  if (sym->type == NULL) {
+    return new_type(TYPE_RESOLVING);
+  }
+    
   size_t pl = arrlen(node->value.call_expr.parameters);
-
   if(!sym->type->Function.is_variadic && arrlen(sym->type->Function.parameters) != pl) {
     log_span(node->span, "error: function call parameters length mismatch\n");
     assert(0);
@@ -148,16 +160,6 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
       log_span(node->span, "error: Expected '%s' got '%s' \n", type_kind_name(b->kind), type_kind_name(a->kind));
       assert(0);
     }
-
-  }
-
-  if (sym == NULL) {
-    log_span(node->span, "error: Symbol not found\n");
-    assert(0);
-  }
-
-  if (sym->type == NULL) {
-    return new_type(TYPE_RESOLVING);
   }
 
   Type* t = sym->type->Function.return_type;
@@ -260,10 +262,8 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   }
   
   debug_log("end parameters\n");
-  if (decl.body != NULL && resolver->resolve_expr) {
+  if (decl.body != NULL && resolver->resolve_expr == true) {
     resolve_block(resolver, decl.body);
-    /* for (int i = 0; i < arrlen(decl.body->value.block_stmt.stmts); i++) { */
-    /*   Type *type = resolve_type(resolver, decl.body->value.block_stmt.stmts[i]); */
   }
   node->type = ftype;
   debug_log("====end resolving function decl %s\n", decl.name);
@@ -293,12 +293,33 @@ bool is_double(Type *a) {
 
 bool is_int(Type *a) {
   switch(a->kind) {
+  case TYPE_BYTE:
   case TYPE_I16:
   case TYPE_I32:
   case TYPE_I64:
     return true;
   default: return false;
   }  
+}
+
+int integer_width(Type *type) {
+    switch (type->kind) {
+    case TYPE_BYTE:  return 8;
+    case TYPE_I16: return 16;
+    case TYPE_I32: return 32;
+    case TYPE_I64: return 64;
+    default:       return 0;
+    }
+}
+
+Type *common_integer_type(Type *a, Type *b) {
+    int wa = integer_width(a);
+    int wb = integer_width(b);
+
+    if (wa == 0 || wb == 0)
+        return NULL;
+
+    return wa >= wb ? a : b;
 }
 
 Type *common_type(Type *a, Type *b) {
@@ -310,12 +331,17 @@ Type *common_type(Type *a, Type *b) {
   }
 
   if(is_numeric(a) && is_numeric(b)) {
+
+    if (is_int(a) && is_int(b))
+      return common_integer_type(a, b);
+
     if(a->kind == TYPE_F64 || b->kind == TYPE_F64) {
       return new_type(TYPE_F64);
     }
     if(a->kind == TYPE_F32 || b->kind == TYPE_F32) {
       return new_type(TYPE_F32);
     }
+    assert(0 && "TODO");
   }
   else if ((a->kind == TYPE_POINTER && b->kind == TYPE_STRING )) return a;
   else if ((b->kind == TYPE_POINTER && a->kind == TYPE_STRING )) return b;
@@ -330,15 +356,20 @@ Type *resolve_assign(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_ASSIGN);
 
   Type *left_type = resolve_type(resolver, node->value.assign_expr.left);
-
-  Type *value_type = resolve_type(resolver, node->value.assign_expr.value);
-  node->type = value_type;
-
+  Type *value_type = resolve_type(resolver, node->value.assign_expr.value);  
+  
   if (common_type(left_type, value_type) == NULL) {
+    log_span(node->span, "error: Can't assign type '%s' to type '%s' \n",
+             type_kind_name(left_type->kind),
+            type_kind_name(value_type->kind));
     assert(0);
   }
 
-  return value_type;
+  //node->value.assign_expr.value = implicit_cast(node->value.assign_expr.value, left_type); 
+  node->value.assign_expr.value->type = left_type;
+  node->type = left_type;
+
+  return left_type;
 }
 
 Ast* implicit_cast(Ast* node, Type* t) {
@@ -393,7 +424,29 @@ bool can_cast(TypeResolver *resolver, Type* a, Type* b) {
   return false;
 }
 
-Type *resolve_cast(TypeResolver *resolver, Ast *node) {
+Type *resolve_index(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_INDEX);
+  IndexExpr expr = node->value.index_expr;
+  Type *lt = resolve_type(resolver, expr.left);
+  assert(lt != NULL);
+
+  Type *it = resolve_type(resolver, expr.index);
+  assert(it != NULL);
+
+  switch(lt->kind) {
+  case TYPE_POINTER:
+    assert(lt->Pointer.base != NULL);
+    return lt->Pointer.base;
+  case TYPE_ARRAY:
+    assert(0 && "ARRAY");
+  case TYPE_STRUCT:
+    assert(0 && "STRUCT");
+  default:
+    assert(0 && "NOT IMPLEMENTED YET");
+  }
+  assert(0);
+}
+Type *resolve_cast(TypeResolver *resolver, Ast *node) {  
   assert(node->kind == AST_CAST);
   CastExpr expr = node->value.cast_expr;
 
@@ -462,7 +515,7 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   case AST_MEMBER:
     type = resolve_member(resolver, node);
     break;
-  case AST_INDEX: assert(0);
+  case AST_INDEX: type = resolve_index(resolver, node); break;
   case AST_CAST: type = resolve_cast(resolver, node); break;
   case AST_COMPOUND_LITERAL: assert(0);
   case AST_IF:

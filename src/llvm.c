@@ -122,7 +122,6 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     return gtype;
   case TYPE_POINTER:
     return LLVMPointerType(get_llvm_type(lg, type->Pointer.base), 0);
-    break;
   case TYPE_FUNCTION:
     panic("TODO LLVM FUNCTION TYPE");
     break;
@@ -213,6 +212,10 @@ LLVMValueRef create_assign(LLVMGenerator *lg, AssignExpr expr) {
       LLVMValueRef value = create_stmt(lg, expr.value);
       return LLVMBuildStore(lg->builder, value, ptr);
   } else if (expr.left->kind == AST_MEMBER) {
+    LLVMValueRef ptr = generate_lvalue(lg, expr.left);
+    LLVMValueRef value = create_stmt(lg, expr.value);
+    return LLVMBuildStore(lg->builder, value, ptr);
+  } else if (expr.left->kind == AST_INDEX) {
     LLVMValueRef ptr = generate_lvalue(lg, expr.left);
     LLVMValueRef value = create_stmt(lg, expr.value);
     return LLVMBuildStore(lg->builder, value, ptr);
@@ -320,7 +323,25 @@ LLVMValueRef create_member_access(LLVMGenerator *lg, MemberAccessExpr expr) {
                              index,
                              member
                             );
+}
 
+LLVMValueRef create_index_expr(LLVMGenerator *lg, IndexExpr expr) {
+  LLVMValueRef ptr = create_stmt(lg, expr.left);
+  LLVMTypeRef llvm_type = NULL;
+  if (expr.left->type->kind == TYPE_POINTER)
+    llvm_type = get_llvm_type(lg, expr.left->type->Pointer.base);
+  else {
+    assert(0 && "wrong type");
+  }
+    
+  LLVMValueRef index = create_stmt(lg, expr.index);
+
+  return LLVMBuildGEP2(lg->builder,
+                       llvm_type,
+                       ptr,
+                       &index,
+                       1,
+                       "index");
 }
 
 LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
@@ -335,6 +356,8 @@ LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
     assert(ptr != NULL);
     return ptr;
   }
+  case AST_INDEX: return create_index_expr(lg, expr->value.index_expr);
+    
   }
 }
 
@@ -389,6 +412,19 @@ LLVMBasicBlockRef create_if(LLVMGenerator *lg, IfStmt stmt) {
   return body_bb;
 }
 
+LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
+  assert(stmt != NULL);
+  assert(stmt->kind == AST_INTEGER_LITERAL);
+  assert(stmt->type != NULL);
+  
+  switch(stmt->type->kind) {
+  case TYPE_BYTE: return LLVMConstInt(lg->byte, stmt->value.int_expr.value, false);
+  case TYPE_I16:  return LLVMConstInt(lg->i16,  stmt->value.int_expr.value, false);
+  case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.int_expr.value, false);
+  case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.int_expr.value, false);
+  }
+  assert(0 && "Wrong type");
+}
 
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   print_ast(stmt, 0); 
@@ -418,7 +454,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_CALL             : return create_call(lg, stmt->value.call_expr);
   case AST_RETURN           : return create_stmt(lg, stmt->value.return_stmt.value);
   case AST_BINARY           : return create_binary(lg, stmt->value.binary_expr);
-  case AST_INTEGER_LITERAL  : return LLVMConstInt(lg->i32, stmt->value.int_expr.value, false);
+  case AST_INTEGER_LITERAL  : return create_int_literal(lg, stmt);
   case AST_FLOAT_LITERAL    : return LLVMConstReal(lg->f32, (double)stmt->value.float_expr.value);
   case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_IDENTIFER:{
