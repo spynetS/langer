@@ -415,6 +415,31 @@ LLVMBasicBlockRef create_if(LLVMGenerator *lg, IfStmt stmt) {
   return body_bb;
 }
 
+void create_while(LLVMGenerator *lg, WhileStmt stmt) {
+  LLVMContextRef c = lg->context;
+  LLVMValueRef fn = lg->current_function;
+
+  LLVMBasicBlockRef cond_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.cond");
+  LLVMBasicBlockRef body_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.body");
+  LLVMBasicBlockRef end_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.end");
+
+  LLVMBuildBr(lg->builder, cond_bb);
+  LLVMPositionBuilderAtEnd(lg->builder, cond_bb);
+
+  LLVMValueRef cond = create_stmt(lg, stmt.condition);
+
+  LLVMBuildCondBr(lg->builder, cond, body_bb, end_bb);
+
+  LLVMPositionBuilderAtEnd(lg->builder, body_bb);
+  create_stmt(lg, stmt.block);
+
+  LLVMBuildBr(lg->builder, cond_bb);
+  LLVMPositionBuilderAtEnd(lg->builder, end_bb);
+}
+
 LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
   assert(stmt != NULL);
   assert(stmt->kind == AST_INTEGER_LITERAL);
@@ -425,6 +450,29 @@ LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
   case TYPE_I16:  return LLVMConstInt(lg->i16,  stmt->value.int_expr.value, false);
   case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.int_expr.value, false);
   case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.int_expr.value, false);
+
+  case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.int_expr.value);
+  case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.int_expr.value);
+
+  }
+  printf("%s\n", type_kind_name(stmt->type->kind));
+  assert(0 && "Wrong type");
+}
+
+LLVMValueRef create_float_literal(LLVMGenerator *lg, Ast *stmt) {
+  assert(stmt != NULL);
+  assert(stmt->kind == AST_FLOAT_LITERAL);
+  assert(stmt->type != NULL);
+  
+  switch(stmt->type->kind) {
+  case TYPE_BYTE: return LLVMConstInt(lg->byte, stmt->value.float_expr.value, false);
+  case TYPE_I16:  return LLVMConstInt(lg->i16,  stmt->value.float_expr.value, false);
+  case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.float_expr.value, false);
+  case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.float_expr.value, false);
+
+
+  case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.float_expr.value);
+  case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.float_expr.value);
   }
   assert(0 && "Wrong type");
 }
@@ -436,7 +484,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_UNION_DECL       : assert(0); // TODO
   case AST_BLOCK            : return gen_block(lg, stmt->value.block_stmt);
   case AST_IF               : create_if(lg, stmt->value.if_stmt); return NULL;
-  case AST_WHILE            : assert(0); // TODO
+  case AST_WHILE            : create_while(lg, stmt->value.while_stmt); return NULL;
   case AST_FOR              : assert(0); // TODO
   case AST_EXPR_STMT        : assert(0); // TODO
   case AST_CHAR_LITERAL     : assert(0); // TODO
@@ -458,7 +506,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_RETURN           : return create_stmt(lg, stmt->value.return_stmt.value);
   case AST_BINARY           : return create_binary(lg, stmt->value.binary_expr);
   case AST_INTEGER_LITERAL  : return create_int_literal(lg, stmt);
-  case AST_FLOAT_LITERAL    : return LLVMConstReal(lg->f32, (double)stmt->value.float_expr.value);
+  case AST_FLOAT_LITERAL    : return create_float_literal(lg, stmt);
   case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_IDENTIFER:{
     char *name = stmt->value.identifer_expr.value;
@@ -692,7 +740,7 @@ char *gen_package(Package *package, SymbolTable *root) {
                                       package->package.value,
                                       context
                                      );
-
+  LLVMSetTarget(module, LLVMGetDefaultTargetTriple());
   LLVMBuilderRef builder =
     LLVMCreateBuilderInContext(context);
 

@@ -377,13 +377,21 @@ Ast *parse_primary(Parser *p) {
     };
     return ast;
 
-  case TOKEN_FLOAT_LITERAL:
+  case TOKEN_FLOAT_LITERAL: {
     debug_log("Primary float\n");
+
     ast->kind = AST_FLOAT_LITERAL;
-    ast->value.float_expr = (FloatExpr){
-      atof(token.lexeme)
-    };
+
+    char *end;
+    double value = strtod(token.lexeme, &end);
+
+    if (end == token.lexeme || *end != '\0') {
+      // Report invalid floating-point literal.
+    }
+
+    ast->value.float_expr = (FloatExpr){ value };
     return ast;
+  }
   case TOKEN_FALSE:
     debug_log("Primary bool %s\n", token.lexeme);
     ast->kind = AST_BOOL_LITERAL;
@@ -742,6 +750,20 @@ Ast *parse_package_stmt(Parser *p) {
   return package;
 }
 
+Ast *parse_while_stmt(Parser *p) {
+  Token wt = parser_expect(p, TOKEN_WHILE);
+  Ast *condition = parse_or(p);
+
+  Ast *block = parse_stmt(p);
+  assert(block != NULL);
+
+  Ast *while_stmt = new_ast(AST_WHILE, span_combine(wt.span, block->span));
+  while_stmt->value.while_stmt = (WhileStmt){0};
+  while_stmt->value.while_stmt.condition = condition;
+  while_stmt->value.while_stmt.block = block;
+  return while_stmt;
+}
+
 Ast *parse_if_stmt(Parser *p) {
   Token ift = parser_expect(p, TOKEN_IF);
       
@@ -798,7 +820,7 @@ Ast *parse_stmt(Parser *p) {
   }
   else if (parser_peek(p).kind == TOKEN_WHILE) {
     printf("TODO while parsing\n");
-    assert(0);
+    return parse_while_stmt(p);
   }
   else if (parser_peek(p).kind == TOKEN_RETURN) {
     return parse_return(p);

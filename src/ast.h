@@ -82,7 +82,7 @@ typedef struct {
 } IntExpr;
 
 typedef struct {
-  float value;
+  double value;
 } FloatExpr;
 
 typedef struct {
@@ -172,32 +172,39 @@ typedef struct {
 
 
 typedef struct {
-  char* name;
-  Ast** members;
+  char *name;
+  Ast **members;
   Visibility visibility;
 } StructDecl;
 
 
 typedef struct {
-  char* name;
-  Ast** parameters;
-  Ast* return_type;
-  Ast* body;
+  char *name;
+  Ast **parameters;
+  Ast *return_type;
+  Ast *body;
   bool is_extern; // If it is not defined in langer
   Visibility visibility;
   bool is_variadic;
 } FunctionDecl;
 
 typedef struct {
-  Ast** stmts;
+  Ast **stmts;
 } BlockStmt;
 
 typedef struct {
-  Ast* condition;
-  Ast* body;
-  Ast* else_if_stmt;
-  Ast* else_body;
+  Ast *condition;
+  Ast *body;
+  Ast *else_if_stmt;
+  Ast *else_body;
 } IfStmt;
+
+typedef struct {
+  Ast *condition;
+  Ast *block;
+} WhileStmt;
+
+
 
 typedef struct {
   PackageStmt package;
@@ -231,6 +238,7 @@ typedef struct Ast {
     PackageStmt package_stmt;
     BlockStmt block_stmt;
     IfStmt if_stmt;
+    WhileStmt while_stmt;
 
     VariableDecl variable_decl;
     FunctionDecl function_decl;

@@ -81,15 +81,33 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
 
 Type *resolve_var_decl(TypeResolver *resolver, Ast *node) {
   Type *type = NULL;
-  if (node->value.variable_decl.initlizer != NULL) {
-    type = resolve_type(resolver, node->value.variable_decl.initlizer);
-    assert(type != NULL);
-  }
+
   if (node->value.variable_decl.type != NULL ) {
     type =  convert_type(resolver, node->value.variable_decl.type);
-      assert(type != NULL);
-  }
     assert(type != NULL);
+  }
+
+  if (node->value.variable_decl.initlizer != NULL) {
+    Type *initilizer_type = resolve_type(resolver, node->value.variable_decl.initlizer);
+    if (type == NULL) {
+      type = initilizer_type;
+    } else {
+      assert(initilizer_type != NULL);
+      Type *common = common_type(type, initilizer_type);
+
+      if (common == NULL) {
+        log_span(node->value.variable_decl.initlizer->span, "error: Can't assign type '%s' to type '%s' \n",
+                 type_kind_name(initilizer_type->kind),
+                 type_kind_name(type->kind));
+        assert(0);
+      }
+
+      node->value.variable_decl.initlizer->type = common;
+
+      type = common;
+    }
+  }
+  assert(type != NULL);
   node->type = type;
   return type;
 }
@@ -146,6 +164,7 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   
 
   if (sym->type == NULL) {
+    assert(0);
     return new_type(TYPE_RESOLVING);
   }
     
@@ -159,17 +178,30 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     Type *a = resolve_type(resolver, node->value.call_expr.parameters[i]);
     Type *b = sym->type->Function.parameters[i];
 
+
     Type *common = common_type(a, b);
     if(common == NULL) {
       log_span(node->span, "error: Expected '%s' got '%s' \n", type_kind_name(b->kind), type_kind_name(a->kind));
       assert(0);
     }
+    node->value.call_expr.parameters[i]->type = common;
+    printf("%s %s \n",node->value.call_expr.left, type_kind_name(node->value.call_expr.parameters[i]->type->kind));
   }
 
   Type* t = sym->type->Function.return_type;
   return t;
 }
 
+Type *resolve_while(TypeResolver *resolver, Ast *node) {
+  assert(node->kind == AST_WHILE);
+
+  WhileStmt stmt = node->value.while_stmt;
+
+  resolve_type(resolver, stmt.condition);
+  resolve_type(resolver, stmt.block);
+
+  return new_type(TYPE_RESOLVING);
+}
 
 Type *resolve_member(TypeResolver *resolver, Ast *node) {
   assert(node->kind == AST_MEMBER);
@@ -557,6 +589,8 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   case AST_TYPE_POINTER: return convert_type(resolver, node);
   case AST_TYPE_ARRAY: return convert_type(resolver, node);
 
+  case AST_BLOCK: resolve_block(resolver, node, NULL); return new_type(TYPE_RESOLVING);
+  case AST_WHILE: return resolve_while(resolver, node);
 
   default:
     printf("======\n");

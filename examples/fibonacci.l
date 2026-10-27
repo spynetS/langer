@@ -1,22 +1,21 @@
 package main;
 
-func printf(fmt: string, d: double): void;
+extern func printf(fmt: *byte, d: double): void;
 
 func main(): int {
   n : int = 100;
-  i : int;
+  i : int = 1;
 
-  t1 : double = 0
-  t2 : double = 1
-  nextTerm : double = 0
-  i = 1
-  // while i <= n {
+  t1 := 1.0
+  t2 := 1.0
+  nextTerm :f64= 0.0
+  while (i <= n) {
        printf("%f\n", t1)
        nextTerm = t1+t2
        t1=t2
        t2=nextTerm;
        i = i + 1;
-  // }
+  }
 
   return 0;
 }
