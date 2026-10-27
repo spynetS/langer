@@ -98,6 +98,8 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
   case TYPE_VOID:
     return LLVMVoidTypeInContext(lg->context);    
+  case TYPE_BOOL:
+    return lg->bool_t;
   case TYPE_BYTE:
     return lg->byte;
   case TYPE_I16:
@@ -130,7 +132,7 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     break;
   default:
     printf("=============\n");
-    printf("%s\n", ast_kind_to_string(type->kind));
+    printf("%s\n", type_kind_name(type->kind));
     printf("TODO NOT AN LLVM TYPE\n");
     printf("==============\n");
     assert(0);
@@ -693,6 +695,7 @@ char *gen_package(Package *package, SymbolTable *root) {
 
   // Setting up the llvm generator and defining types
   LLVMGenerator lg = {0};
+  lg.bool_t = LLVMInt1TypeInContext(context);
   lg.byte = LLVMInt8TypeInContext(context);
   lg.i16 = LLVMInt16TypeInContext(context);
   lg.i32 = LLVMInt32TypeInContext(context);

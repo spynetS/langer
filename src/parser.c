@@ -441,12 +441,14 @@ Ast *parse_postfix(Parser *p) {
   Ast *left = parse_primary(p);
   while (1) {
     Token token = parser_peek(p);
-    print_token(token);
     if (token.kind == TOKEN_DOT) {
       parser_advance(p);
       Token id = parser_expect(p, TOKEN_IDENTIFER);
       Ast *left_ = left;
-      left = new_ast(AST_MEMBER, id.span);
+
+      left = new_ast(AST_MEMBER, span_combine(left->span, id.span));
+      //left = new_ast(AST_MEMBER, left->span);
+
 
       left->value.member_expr = (MemberAccessExpr){0};
       left->value.member_expr.left = left_;
@@ -704,16 +706,15 @@ Ast *parse_expression(Parser *p) {
 }
 
 Ast *parse_return(Parser *p) {
+  Ast* ret = new_ast(AST_RETURN, parser_peek(p).span);
+
   if (!parser_is(p, TOKEN_RETURN))
     panic("TODO parse_return error");
 
-  Ast* ret = new_ast(AST_RETURN, parser_peek(p).span);
   ret->value.return_stmt = (ReturnStmt){0};
-
   ret->value.return_stmt.value = parse_expression(p);
 
-  ret->span = span_combine(ret->span, parser_peek(p).span);
-
+  ret->span = span_combine(ret->span, ret->value.return_stmt.value->span);
   return ret;
 }
 

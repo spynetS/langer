@@ -22,6 +22,9 @@ Type *new_type(TypeKind kind) {
 Type *convert_type(TypeResolver *resolver, Ast* atype) {
   Type *type = malloc(sizeof(Type));
   switch(atype->kind) {
+  case AST_TYPE_BOOL:
+    type->kind = TYPE_BOOL;
+    break;
   case AST_TYPE_VOID:
     type->kind = TYPE_VOID;
     break;
@@ -70,6 +73,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     return sym->type;
     break;
   default:
+    assert(0);
     break;
   }
   return type;
@@ -117,7 +121,7 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     MemberAccessExpr path = node->value.call_expr.left->value.member_expr;
     sym = symbol_lookup_path(resolver->scope, path);
     if(sym == NULL) {
-      log_span(node->span, "error: Symbol '%s' not found\n", path.member);
+      log_span(node->value.call_expr.left->span, "error: Symbol '%s' not found\n", path.member);
       assert(false);
     }
 
@@ -198,18 +202,24 @@ Type *resolve_member(TypeResolver *resolver, Ast *node) {
   return NULL;
 }
 
-void resolve_block(TypeResolver *resolver, Ast *node) {
+void resolve_block(TypeResolver *resolver, Ast *node, Type *return_type) {
   assert(node->kind == AST_BLOCK);
 
   if (!resolver->resolve_expr)
     return;
   BlockStmt block = node->value.block_stmt;
-
   for (int i = 0; i < arrlen(block.stmts); i++) {
-    print_ast(block.stmts[i],0);
-    resolve_type(resolver, block.stmts[i]);
+    Type *type = resolve_type(resolver, block.stmts[i]);
+    if (block.stmts[i]->kind == AST_RETURN && return_type != NULL) {
+      if (return_type->kind != type->kind) {
+        log_span(block.stmts[i]->value.return_stmt.value->span,
+                 "error: wrong return type, expected '%s' got '%s'\n",
+                 type_kind_name(return_type->kind),
+                type_kind_name(type->kind));
+        assert(0);
+      }
+    }
   }
-  
 }
 
 void get_package_name(SymbolTable *scope, char *dst) {
@@ -263,8 +273,13 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
   
   debug_log("end parameters\n");
   if (decl.body != NULL && resolver->resolve_expr == true) {
-    resolve_block(resolver, decl.body);
+    Type *return_type = resolve_type(resolver, decl.return_type);
+    assert(return_type != NULL);
+    resolve_block(resolver, decl.body, return_type);
   }
+
+  
+  
   node->type = ftype;
   debug_log("====end resolving function decl %s\n", decl.name);
   return ftype;
@@ -479,7 +494,6 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
     break;
   case AST_UNION_DECL: assert(0);
   case AST_ENUM_DECL: assert(0);
-
   case AST_RETURN:
     type = resolve_type(resolver, node->value.return_stmt.value);
     break;
@@ -520,16 +534,29 @@ Type *resolve_type(TypeResolver *resolver, Ast *node) {
   case AST_COMPOUND_LITERAL: assert(0);
   case AST_IF:
     resolve_type(resolver, node->value.if_stmt.condition);
-    resolve_block(resolver, node->value.if_stmt.body);
+    resolve_block(resolver, node->value.if_stmt.body, NULL);
     
     if (node->value.if_stmt.else_body != NULL) {
-      resolve_block(resolver, node->value.if_stmt.else_body);
+      resolve_block(resolver, node->value.if_stmt.else_body, NULL);
     }
     if (node->value.if_stmt.else_if_stmt != NULL) {
       resolve_type(resolver, node->value.if_stmt.else_if_stmt);
       convert_type(resolver, node->value.if_stmt.else_if_stmt);
     }
     break;
+    // types
+  case AST_TYPE_VOID: return convert_type(resolver, node);
+  case AST_TYPE_BOOL: return convert_type(resolver, node);
+  case AST_TYPE_BYTE: return convert_type(resolver, node);
+  case AST_TYPE_I16: return convert_type(resolver, node);
+  case AST_TYPE_I32: return convert_type(resolver, node);
+  case AST_TYPE_I64: return convert_type(resolver, node);
+  case AST_TYPE_F32: return convert_type(resolver, node);
+  case AST_TYPE_F64: return convert_type(resolver, node);
+  case AST_TYPE_NAME: return convert_type(resolver, node);
+  case AST_TYPE_POINTER: return convert_type(resolver, node);
+  case AST_TYPE_ARRAY: return convert_type(resolver, node);
+
 
   default:
     printf("======\n");

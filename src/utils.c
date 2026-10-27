@@ -212,20 +212,20 @@ void log_span(SourceSpan span, const char* fmt, ...) {
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
   va_end(args);
-
+    printf("\n");
+  
   if (line != NULL) {
     printf("%s", line);
-    size_t length = span.end.column - span.start.column;
-    for(int i = 0; i < span.start.column; i ++){
+    for(int i = 0; i < span.start.column-1; i ++){
       printf(" ");
     }
-    for(int i = 0; i < length; i ++){
+    for(int i = span.start.column; i < span.end.column; i ++){
       printf("^");
     }
 
     printf("\n");
+    free(line);
   }
-
 }
 
 int panic(const char *err) {
