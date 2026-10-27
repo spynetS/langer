@@ -132,6 +132,10 @@ typedef struct {
 } ReturnStmt;
 
 typedef struct {
+  char *value; // std.mem.alloc;
+} ImportStmt;
+
+typedef struct {
   char* value;
 } PackageStmt;
 
@@ -202,7 +206,9 @@ typedef struct {
 typedef struct {
   PackageStmt package;
   Ast **declarations;
+  ImportStmt *imports;// stb array
 } Package;
+
 
 
 
@@ -229,6 +235,7 @@ typedef struct Ast {
 
     ReturnStmt return_stmt;
     PackageStmt package_stmt;
+    ImportStmt import_stmt;
     BlockStmt block_stmt;
     IfStmt if_stmt;
 

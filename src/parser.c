@@ -717,6 +717,27 @@ Ast *parse_return(Parser *p) {
   return ret;
 }
 
+Ast *parse_import_stmt(Parser *p) {
+  Token it = parser_expect(p, TOKEN_IMPORT);
+  Ast *import = new_ast(AST_IMPORT, it.span);
+
+  StringBuilder sb = {0};
+  Token t = parser_expect(p, TOKEN_IDENTIFER);
+  if (t.kind == TOKEN_INVALID) import->kind = AST_INVALID;
+  
+  sb_append(&sb, t.lexeme);
+  while (parser_advance(p).kind == TOKEN_DOT) {
+    sb_append(&sb, ".");
+    t = parser_expect(p, TOKEN_IDENTIFER);
+    sb_append(&sb, t.lexeme);
+    if (t.kind == TOKEN_INVALID) import->kind = AST_INVALID;
+  }
+  import->value.import_stmt.value = sb_concat(&sb);
+
+  import->span = span_combine(import->span, parser_peek(p).span);
+  return import;
+}
+
 Ast *parse_package_stmt(Parser *p) {
   Token pt = parser_expect(p, TOKEN_PACKAGE);
   Ast *package = new_ast(AST_PACKAGE, pt.span);
@@ -732,7 +753,6 @@ Ast *parse_package_stmt(Parser *p) {
     t = parser_expect(p, TOKEN_IDENTIFER);
     sb_append(&sb, t.lexeme);
     if (t.kind == TOKEN_INVALID) package->kind = AST_INVALID;
-    
   }
   package->value.package_stmt.value = sb_concat(&sb);
 
@@ -808,6 +828,9 @@ Ast *parse_stmt(Parser *p) {
   }
   else if (parser_peek(p).kind != TOKEN_EOF) {
     return parse_expression(p);
+  }
+  else if (parser_peek(p).kind != TOKEN_IMPORT) {
+    return parse_import_stmt(p);
   }
   
   return 0;
@@ -930,7 +953,7 @@ Ast *parse_struct_decl(Parser *p) {
 Package *parse_package(Parser *p) {
   Package *package = malloc(sizeof(Package));
   package->declarations = NULL;
-
+  package->imports = NULL;
 
   Ast *package_stmt = parse_package_stmt(p);
   if (package == NULL) log_span(parser_peek(p).span, "NO PACKAGE FOUND");
@@ -949,6 +972,14 @@ Package *parse_package(Parser *p) {
       debug_log("parsing var\n");
       print_token(parser_next(p));
       arrput(package->declarations, parse_variable_decl(p));
+    }
+    else if (parser_peek(p).kind == TOKEN_IMPORT) {
+      debug_log("parsing import\n");
+      print_token(parser_next(p));
+      Ast *import = parse_import_stmt(p);
+      assert(import != NULL);
+      assert(import->kind == AST_IMPORT);
+      arrput(package->imports, import->value.import_stmt);
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing package '%s'\n", parser_peek(p).lexeme);
