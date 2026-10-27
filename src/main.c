@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "ast.h"
 #include "lexer.h"
 #include "parser.h"
@@ -14,12 +16,8 @@
 #include "../include/sb.h"
 
 
-// lexer
-// parser
-// resolver
-// checker
-// generator
-
+char *std_path = "./std";
+  
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);
   for(int i = 0; i < arrlen(package->declarations); i ++) {
@@ -39,7 +37,7 @@ void handle_args(int argc, char** argv, char*** files) {
 }
 
 int compile_backend(char** files) {
-  StringBuilder	*builder = sb_create();
+  StringBuilder *builder = sb_create();
   sb_appendf(builder, "clang ");
   for(int i = 0; i < arrlen(files); i++) {
     sb_appendf(builder, "%s ", files[i]);
@@ -57,9 +55,50 @@ int compile_backend(char** files) {
   return 0;
 }
 
+void append_files(const char *folder_path,
+                  const char *extension,
+                  char ***files) {
+    DIR *dir = opendir(folder_path);
+    if (!dir)
+        return;
+
+    struct dirent *entry;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/%s",
+                 folder_path, entry->d_name);
+
+        struct stat st;
+        if (stat(path, &st) != 0)
+            continue;
+
+        if (S_ISDIR(st.st_mode)) {
+            append_files(path, extension, files);
+        } else if (S_ISREG(st.st_mode)) {
+            size_t path_len = strlen(path);
+            size_t ext_len = strlen(extension);
+
+            if (path_len >= ext_len &&
+                strcmp(path + path_len - ext_len, extension) == 0) {
+                arrput(*files, strdup(path));
+            }
+        }
+    }
+
+    closedir(dir);
+}
+
 int main(int argc, char** argv) {
 
   char **files = NULL;
+
+  append_files(std_path, ".l", &files);
+
   handle_args(argc, argv, &files);
   Package** packages = NULL;
   SymbolTable** symbol_tables = NULL;
@@ -141,6 +180,5 @@ int main(int argc, char** argv) {
   }
 
   int status = compile_backend(irl_files);
-
-  return 0;
+  return status;
 }
