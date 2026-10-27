@@ -183,13 +183,49 @@ const char *symbol_kind_name(SymbolKind kind)
     }
 }
 
+char *get_line(SourcePos pos) {
+ 
+    FILE *file = fopen(pos.file, "r");
+    if (!file) {
+        perror("fopen");
+        exit(0);
+    }
+
+    char *line = NULL;
+    size_t capacity = 256*2;
+    ssize_t length;
+
+    for (int i = 1; i <= pos.line; i++) {
+      if (getline(&line, &capacity, file) == -1) {
+        break; // EOF or read error
+      }
+    }
+    fclose(file);
+    return line;
+}
+
 void log_span(SourceSpan span, const char* fmt, ...) {
+  char* line = get_line(span.start);
+
   va_list args;
   va_start(args, fmt);
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
   va_end(args);
-  //exit(0);
+
+  if (line != NULL) {
+    printf("%s", line);
+    size_t length = span.end.column - span.start.column;
+    for(int i = 0; i < span.start.column; i ++){
+      printf(" ");
+    }
+    for(int i = 0; i < length; i ++){
+      printf("^");
+    }
+
+    printf("\n");
+  }
+
 }
 
 int panic(const char *err) {
