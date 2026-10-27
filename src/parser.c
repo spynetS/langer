@@ -887,9 +887,15 @@ Ast *parse_function(Parser *p) {
   parser_expect(p, TOKEN_RPAR);
 
   // MAYBE be optional with return type
-  parser_expect(p, TOKEN_COLON);
-  Ast* ret_type = parse_type(p);
-  func->value.function_decl.return_type = ret_type;
+  if (parser_is(p, TOKEN_COLON)) {
+    Ast* ret_type = parse_type(p);
+    func->value.function_decl.return_type = ret_type;
+  } else {
+    log_span(parser_peek(p).span, "warning: no type specified, default void\n");
+    SourceSpan span = {0};
+    Ast* ret_type = new_ast(AST_TYPE_VOID, span);
+    func->value.function_decl.return_type = ret_type;
+  }
 
   if (parser_peek(p).kind == TOKEN_LCBRACK) {
     Ast *block = parse_block(p);

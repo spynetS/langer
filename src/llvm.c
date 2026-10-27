@@ -1,3 +1,4 @@
+
 #include <llvm-c/Core.h>
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Target.h>
@@ -635,7 +636,7 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
 }
 
 
-void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
+void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main, bool should_return) {
     LLVMTypeRef i32 = LLVMInt32TypeInContext(lg->context);
 
     // int main()
@@ -671,14 +672,16 @@ void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
         user_main,
         NULL,
         0,
-        "ret"
+        should_return ? "ret" : ""
     );
 
     // Return success to the operating system.
-    LLVMBuildRet(
-        lg->builder,
-        ret
-    );
+    if (should_return) {
+      LLVMBuildRet(lg->builder, ret);
+    } else {
+      LLVMValueRef default_return = LLVMConstInt(LLVMInt32TypeInContext(lg->context), 0, 0);
+      LLVMBuildRet(lg->builder, default_return);
+    }
 }
 
 char *gen_package(Package *package, SymbolTable *root) {
@@ -721,8 +724,11 @@ char *gen_package(Package *package, SymbolTable *root) {
     case AST_FUNC_DECL:
       LLVMValueRef func = create_function(&lg, package->declarations[i]);
       lg.current_function = NULL;
-      if(strcmp(package->declarations[i]->value.function_decl.name, "main") == 0) {
-        create_entry_point(&lg, func);
+      if (strcmp(package->declarations[i]->value.function_decl.name, "main") ==
+          0) {
+        bool should_return = false;
+        //package->declarations[i]->value.function_decl.return_type->kind == TYPE_I32
+        create_entry_point(&lg, func, should_return);
       }
 
       break;
