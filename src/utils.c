@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
 
 const char *token_kind_to_string(TokenKind kind)
 {
@@ -204,8 +206,13 @@ char *get_line(SourcePos pos) {
     return line;
 }
 
+
 void log_span(SourceSpan span, const char* fmt, ...) {
-  char* line = get_line(span.start);
+  char *line = get_line(span.start);
+  char *trimmed = line;
+  // remove newline
+  if (trimmed[strlen(line)] == '\0')
+    trimmed[strlen(line)-1] = '\0';
 
   va_list args;
   va_start(args, fmt);
@@ -215,9 +222,13 @@ void log_span(SourceSpan span, const char* fmt, ...) {
     printf("\n");
   
   if (line != NULL) {
-    printf("%s", line);
+    printf("%s\n", trimmed);
     for(int i = 0; i < span.start.column-1; i ++){
-      printf(" ");
+      // if the char is tab we need to write a tab
+      if (trimmed[i] == '\t')
+        printf("%c", trimmed[i]);
+      else
+        printf(" ");
     }
     for(int i = span.start.column; i < span.end.column; i ++){
       printf("^");
