@@ -252,11 +252,13 @@ LLVMValueRef create_binary(LLVMGenerator *lg, BinaryExpr expr) {
   case TYPE_F32:
   case TYPE_F64:
     lf = true;
+  default: lf = false;
   }
   switch(expr.right->type->kind){
   case TYPE_F32:
   case TYPE_F64:
     rf = true;
+  default: rf = false;
   }
   bool floating = rf || lf;
 
@@ -298,6 +300,7 @@ int get_struct_member_index(Type *pt, const char *member) {
   case TYPE_STRUCT:
     members = pt->Struct.members;
     break;
+  default: assert(0);
   }
 
   for(size_t i = 0; i < arrlen(members); i ++) {
@@ -359,7 +362,7 @@ LLVMValueRef generate_lvalue(LLVMGenerator *lg, Ast *expr) {
     return ptr;
   }
   case AST_INDEX: return create_index_expr(lg, expr->value.index_expr);
-    
+  default: assert(0);
   }
 }
 
@@ -452,7 +455,7 @@ LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
 
   case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.int_expr.value);
   case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.int_expr.value);
-
+  default: assert(0);
   }
   printf("%s\n", type_kind_name(stmt->type->kind));
   assert(0 && "Wrong type");
@@ -469,9 +472,9 @@ LLVMValueRef create_float_literal(LLVMGenerator *lg, Ast *stmt) {
   case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.float_expr.value, false);
   case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.float_expr.value, false);
 
-
   case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.float_expr.value);
   case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.float_expr.value);
+  default: assert(0);
   }
   assert(0 && "Wrong type");
 }

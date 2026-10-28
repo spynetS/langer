@@ -480,7 +480,7 @@ Ast *parse_postfix(Parser *p) {
       }
 
       Ast *left_ = left;
-      left = new_ast(AST_CALL, t.span);
+      left = new_ast(AST_CALL, span_combine(left->span, t.span));
       left->value.call_expr = (CallExpr){0};
       left->value.call_expr.left = left_;
 

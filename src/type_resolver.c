@@ -147,7 +147,8 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
     char* name = node->value.call_expr.left->value.identifer_expr.value;
     sym = symbol_lookup(resolver->scope, name);
     if(sym == NULL) {
-      log_span(node->span, "error: Symbol '%s' not found\n", name);
+      log_span(node->value.call_expr.left->span, "error: Symbol '%s' not found\n", name);
+
       assert(false);
     }
 
@@ -294,14 +295,18 @@ Type *resolve_func_decl (TypeResolver *resolver, Ast *node) {
 
   if (decl.is_extern == false){
     // FIXME not hardcode?
-    char name[516];
+    char package_name[512];
     debug_log("%s\n", decl.name);
     // if we resolve expretsions the resolve scope are inside the function
     // and therefore we need  to step back a step to retrive the package name
     // FIXME by making the get pcakage to this if necessary?
     SymbolTable *scope =  resolver->resolve_expr == false ? resolver->scope : resolver->scope->parent;
-    get_package_name(scope, name);
-    snprintf(ftype->Function.name, 516, "%s.%s", name, decl.name);
+    get_package_name(scope, package_name);
+
+    char name[516];
+    snprintf(name, 516, "%s.%s", package_name, decl.name);
+    free(ftype->Function.name);
+    ftype->Function.name = strdup(name);
   } else {
     snprintf(ftype->Function.name, 516, "%s", decl.name);
   }
