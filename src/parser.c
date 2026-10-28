@@ -377,13 +377,21 @@ Ast *parse_primary(Parser *p) {
     };
     return ast;
 
-  case TOKEN_FLOAT_LITERAL:
+  case TOKEN_FLOAT_LITERAL: {
     debug_log("Primary float\n");
+
     ast->kind = AST_FLOAT_LITERAL;
-    ast->value.float_expr = (FloatExpr){
-      atof(token.lexeme)
-    };
+
+    char *end;
+    double value = strtod(token.lexeme, &end);
+
+    if (end == token.lexeme || *end != '\0') {
+      // Report invalid floating-point literal.
+    }
+
+    ast->value.float_expr = (FloatExpr){ value };
     return ast;
+  }
   case TOKEN_FALSE:
     debug_log("Primary bool %s\n", token.lexeme);
     ast->kind = AST_BOOL_LITERAL;
@@ -437,16 +445,17 @@ Ast *parse_primary(Parser *p) {
 }
 
 Ast *parse_postfix(Parser *p) {
-  debug_log("TODO IMPLEMENT postfix\n");
   Ast *left = parse_primary(p);
   while (1) {
     Token token = parser_peek(p);
-    print_token(token);
     if (token.kind == TOKEN_DOT) {
       parser_advance(p);
       Token id = parser_expect(p, TOKEN_IDENTIFER);
       Ast *left_ = left;
-      left = new_ast(AST_MEMBER, id.span);
+
+      left = new_ast(AST_MEMBER, span_combine(left->span, id.span));
+      //left = new_ast(AST_MEMBER, left->span);
+
 
       left->value.member_expr = (MemberAccessExpr){0};
       left->value.member_expr.left = left_;
@@ -704,16 +713,15 @@ Ast *parse_expression(Parser *p) {
 }
 
 Ast *parse_return(Parser *p) {
+  Ast* ret = new_ast(AST_RETURN, parser_peek(p).span);
+
   if (!parser_is(p, TOKEN_RETURN))
     panic("TODO parse_return error");
 
-  Ast* ret = new_ast(AST_RETURN, parser_peek(p).span);
   ret->value.return_stmt = (ReturnStmt){0};
-
   ret->value.return_stmt.value = parse_expression(p);
 
-  ret->span = span_combine(ret->span, parser_peek(p).span);
-
+  ret->span = span_combine(ret->span, ret->value.return_stmt.value->span);
   return ret;
 }
 
@@ -759,6 +767,20 @@ Ast *parse_package_stmt(Parser *p) {
   package->span = span_combine(package->span, parser_peek(p).span);
 
   return package;
+}
+
+Ast *parse_while_stmt(Parser *p) {
+  Token wt = parser_expect(p, TOKEN_WHILE);
+  Ast *condition = parse_or(p);
+
+  Ast *block = parse_stmt(p);
+  assert(block != NULL);
+
+  Ast *while_stmt = new_ast(AST_WHILE, span_combine(wt.span, block->span));
+  while_stmt->value.while_stmt = (WhileStmt){0};
+  while_stmt->value.while_stmt.condition = condition;
+  while_stmt->value.while_stmt.block = block;
+  return while_stmt;
 }
 
 Ast *parse_if_stmt(Parser *p) {
@@ -816,8 +838,7 @@ Ast *parse_stmt(Parser *p) {
     assert(0);
   }
   else if (parser_peek(p).kind == TOKEN_WHILE) {
-    printf("TODO while parsing\n");
-    assert(0);
+    return parse_while_stmt(p);
   }
   else if (parser_peek(p).kind == TOKEN_RETURN) {
     return parse_return(p);
@@ -909,9 +930,15 @@ Ast *parse_function(Parser *p) {
   parser_expect(p, TOKEN_RPAR);
 
   // MAYBE be optional with return type
-  parser_expect(p, TOKEN_COLON);
-  Ast* ret_type = parse_type(p);
-  func->value.function_decl.return_type = ret_type;
+  if (parser_is(p, TOKEN_COLON)) {
+    Ast* ret_type = parse_type(p);
+    func->value.function_decl.return_type = ret_type;
+  } else {
+    log_span(parser_peek(p).span, "warning: no type specified, default void\n");
+    SourceSpan span = {0};
+    Ast* ret_type = new_ast(AST_TYPE_VOID, span);
+    func->value.function_decl.return_type = ret_type;
+  }
 
   if (parser_peek(p).kind == TOKEN_LCBRACK) {
     Ast *block = parse_block(p);

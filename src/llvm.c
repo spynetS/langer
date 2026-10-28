@@ -1,3 +1,4 @@
+
 #include <llvm-c/Core.h>
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Target.h>
@@ -98,6 +99,8 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
   switch (type->kind) {
   case TYPE_VOID:
     return LLVMVoidTypeInContext(lg->context);    
+  case TYPE_BOOL:
+    return lg->bool_t;
   case TYPE_BYTE:
     return lg->byte;
   case TYPE_I16:
@@ -130,7 +133,7 @@ LLVMTypeRef get_llvm_type(LLVMGenerator *lg, Type *type) {
     break;
   default:
     printf("=============\n");
-    printf("%s\n", ast_kind_to_string(type->kind));
+    printf("%s\n", type_kind_name(type->kind));
     printf("TODO NOT AN LLVM TYPE\n");
     printf("==============\n");
     assert(0);
@@ -182,7 +185,6 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   size_t pl = arrlen(expr.parameters);
   LLVMValueRef args[pl];
   for(size_t i = 0; i < pl; i ++ ) {
-    
     args[i] = create_stmt(lg, expr.parameters[i]);
   }
   
@@ -412,6 +414,31 @@ LLVMBasicBlockRef create_if(LLVMGenerator *lg, IfStmt stmt) {
   return body_bb;
 }
 
+void create_while(LLVMGenerator *lg, WhileStmt stmt) {
+  LLVMContextRef c = lg->context;
+  LLVMValueRef fn = lg->current_function;
+
+  LLVMBasicBlockRef cond_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.cond");
+  LLVMBasicBlockRef body_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.body");
+  LLVMBasicBlockRef end_bb =
+    LLVMAppendBasicBlockInContext(c, fn, "while.end");
+
+  LLVMBuildBr(lg->builder, cond_bb);
+  LLVMPositionBuilderAtEnd(lg->builder, cond_bb);
+
+  LLVMValueRef cond = create_stmt(lg, stmt.condition);
+
+  LLVMBuildCondBr(lg->builder, cond, body_bb, end_bb);
+
+  LLVMPositionBuilderAtEnd(lg->builder, body_bb);
+  create_stmt(lg, stmt.block);
+
+  LLVMBuildBr(lg->builder, cond_bb);
+  LLVMPositionBuilderAtEnd(lg->builder, end_bb);
+}
+
 LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
   assert(stmt != NULL);
   assert(stmt->kind == AST_INTEGER_LITERAL);
@@ -422,8 +449,121 @@ LLVMValueRef create_int_literal(LLVMGenerator *lg, Ast *stmt) {
   case TYPE_I16:  return LLVMConstInt(lg->i16,  stmt->value.int_expr.value, false);
   case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.int_expr.value, false);
   case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.int_expr.value, false);
+
+  case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.int_expr.value);
+  case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.int_expr.value);
+
+  }
+  printf("%s\n", type_kind_name(stmt->type->kind));
+  assert(0 && "Wrong type");
+}
+
+LLVMValueRef create_float_literal(LLVMGenerator *lg, Ast *stmt) {
+  assert(stmt != NULL);
+  assert(stmt->kind == AST_FLOAT_LITERAL);
+  assert(stmt->type != NULL);
+  
+  switch(stmt->type->kind) {
+  case TYPE_BYTE: return LLVMConstInt(lg->byte, stmt->value.float_expr.value, false);
+  case TYPE_I16:  return LLVMConstInt(lg->i16,  stmt->value.float_expr.value, false);
+  case TYPE_I32:  return LLVMConstInt(lg->i32,  stmt->value.float_expr.value, false);
+  case TYPE_I64:  return LLVMConstInt(lg->i64,  stmt->value.float_expr.value, false);
+
+
+  case TYPE_F32:  return LLVMConstReal(lg->f32,  stmt->value.float_expr.value);
+  case TYPE_F64:  return LLVMConstReal(lg->f64,  stmt->value.float_expr.value);
   }
   assert(0 && "Wrong type");
+}
+
+
+LLVMValueRef cast_float_to_float(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  if(from->kind == TYPE_F32 && to->kind == TYPE_F64) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMDoubleTypeInContext(lg->context),
+                     "fpext");
+    }
+  if(from->kind == TYPE_F64 && to->kind == TYPE_F32) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMFloatTypeInContext(lg->context),
+                     "fptrunc");
+    }
+  return value;
+}
+
+
+LLVMValueRef cast_int_to_int(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  if(from->kind == TYPE_F32 && to->kind == TYPE_F64) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMDoubleTypeInContext(lg->context),
+                     "fpext");
+    }
+  if(from->kind == TYPE_F64 && to->kind == TYPE_F32) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMFloatTypeInContext(lg->context),
+                     "fptrunc");
+    }
+  return value;
+}
+
+LLVMValueRef cast_float_to_int(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  printf("warning: TODO cast_float_to_int\n");
+  return value;
+}
+LLVMValueRef cast_int_to_float(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  LLVMTypeRef target = NULL;
+
+  switch (to->kind) {
+  case TYPE_F32:
+    target = LLVMFloatTypeInContext(lg->context);
+    break;
+
+  case TYPE_F64:
+    target = LLVMDoubleTypeInContext(lg->context);
+    break;
+
+  default:
+    return value;
+  }
+
+  switch (from->kind) {
+  case TYPE_BYTE:
+  case TYPE_I16:
+  case TYPE_I32:
+  case TYPE_I64:
+    return LLVMBuildSIToFP(
+                           lg->builder, value, target, "sitofp"
+                          );
+
+  default:
+    return value;
+  }
+}
+
+
+LLVMValueRef create_cast(LLVMGenerator *lg, CastExpr cast) {
+  LLVMValueRef value = create_stmt(lg, cast.expression);
+
+  // from -> to
+  value = cast_float_to_float(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_int_to_int(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_float_to_int(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_int_to_float(lg, value, cast.expression->type, cast.cast_type);
+
+  /* print_ast(cast.expression, 0); */
+  /* printf("%s\n", type_kind_name(cast.cast_type->kind)); */
+  /* assert(0); */
+
+
+  return value;
 }
 
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
@@ -433,7 +573,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_UNION_DECL       : assert(0); // TODO
   case AST_BLOCK            : return gen_block(lg, stmt->value.block_stmt);
   case AST_IF               : create_if(lg, stmt->value.if_stmt); return NULL;
-  case AST_WHILE            : assert(0); // TODO
+  case AST_WHILE            : create_while(lg, stmt->value.while_stmt); return NULL;
   case AST_FOR              : assert(0); // TODO
   case AST_EXPR_STMT        : assert(0); // TODO
   case AST_CHAR_LITERAL     : assert(0); // TODO
@@ -441,7 +581,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_UNARY            : assert(0); // TODO
   case AST_DECL             : assert(0); // TODO
   case AST_INDEX            : assert(0); // TODO
-  case AST_CAST             : assert(0); // TODO
+  case AST_CAST             : return create_cast(lg, stmt->value.cast_expr);
   case AST_COMPOUND_LITERAL : assert(0); // TODO
   case AST_MEMBER           :
     return LLVMBuildLoad2(
@@ -455,12 +595,21 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_RETURN           : return create_stmt(lg, stmt->value.return_stmt.value);
   case AST_BINARY           : return create_binary(lg, stmt->value.binary_expr);
   case AST_INTEGER_LITERAL  : return create_int_literal(lg, stmt);
-  case AST_FLOAT_LITERAL    : return LLVMConstReal(lg->f32, (double)stmt->value.float_expr.value);
+  case AST_FLOAT_LITERAL    : return create_float_literal(lg, stmt);
   case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_IDENTIFER:{
     char *name = stmt->value.identifer_expr.value;
+
+    /* printf("%s\n", type_kind_name(stmt->type->kind)); */
+
+    //LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMTypeRef type = get_type(lg, name);
     LLVMValueRef ptr = shget(lg->values, name);
+
+    /* if(strcmp(name, "d") == 0) { */
+      
+    /*   assert(0); */
+    /* } */
 
     assert(ptr != NULL);
     assert(type != NULL);
@@ -487,8 +636,8 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
 
-        char *name =
-        stmt->value.variable_decl.left->value.identifer_expr.value;
+    char *name =
+      stmt->value.variable_decl.left->value.identifer_expr.value;
 
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, name);
@@ -633,7 +782,7 @@ LLVMTypeRef create_struct_decl_type(LLVMGenerator *lg, struct StructType struc) 
 }
 
 
-void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
+void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main, bool should_return) {
     LLVMTypeRef i32 = LLVMInt32TypeInContext(lg->context);
 
     // int main()
@@ -669,14 +818,16 @@ void create_entry_point(LLVMGenerator *lg, LLVMValueRef user_main) {
         user_main,
         NULL,
         0,
-        "ret"
+        should_return ? "ret" : ""
     );
 
     // Return success to the operating system.
-    LLVMBuildRet(
-        lg->builder,
-        ret
-    );
+    if (should_return) {
+      LLVMBuildRet(lg->builder, ret);
+    } else {
+      LLVMValueRef default_return = LLVMConstInt(LLVMInt32TypeInContext(lg->context), 0, 0);
+      LLVMBuildRet(lg->builder, default_return);
+    }
 }
 
 char *gen_package(Package *package, SymbolTable *root) {
@@ -687,12 +838,13 @@ char *gen_package(Package *package, SymbolTable *root) {
                                       package->package.value,
                                       context
                                      );
-
+  LLVMSetTarget(module, LLVMGetDefaultTargetTriple());
   LLVMBuilderRef builder =
     LLVMCreateBuilderInContext(context);
 
   // Setting up the llvm generator and defining types
   LLVMGenerator lg = {0};
+  lg.bool_t = LLVMInt1TypeInContext(context);
   lg.byte = LLVMInt8TypeInContext(context);
   lg.i16 = LLVMInt16TypeInContext(context);
   lg.i32 = LLVMInt32TypeInContext(context);
@@ -718,8 +870,11 @@ char *gen_package(Package *package, SymbolTable *root) {
     case AST_FUNC_DECL:
       LLVMValueRef func = create_function(&lg, package->declarations[i]);
       lg.current_function = NULL;
-      if(strcmp(package->declarations[i]->value.function_decl.name, "main") == 0) {
-        create_entry_point(&lg, func);
+      if (strcmp(package->declarations[i]->value.function_decl.name, "main") ==
+          0) {
+        bool should_return = false;
+        //package->declarations[i]->value.function_decl.return_type->kind == TYPE_I32
+        create_entry_point(&lg, func, should_return);
       }
 
       break;

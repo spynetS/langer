@@ -1,10 +1,13 @@
 #include "lexer.h"
 #include "symbol_table.h"
 #include "ast.h"
+#include "utils.h"
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
 
 const char *token_kind_to_string(TokenKind kind)
 {
@@ -183,13 +186,58 @@ const char *symbol_kind_name(SymbolKind kind)
     }
 }
 
+char *get_line(SourcePos pos) {
+ 
+    FILE *file = fopen(pos.file, "r");
+    if (!file) {
+        perror("fopen");
+        exit(0);
+    }
+
+    char *line = NULL;
+    size_t capacity = 256*2;
+    ssize_t length;
+
+    for (int i = 1; i <= pos.line; i++) {
+      if (getline(&line, &capacity, file) == -1) {
+        break; // EOF or read error
+      }
+    }
+    fclose(file);
+    return line;
+}
+
+
 void log_span(SourceSpan span, const char* fmt, ...) {
+  char *line = get_line(span.start);
+  char *trimmed = line;
+  // remove newline
+  if (trimmed[strlen(line)] == '\0')
+    trimmed[strlen(line)-1] = '\0';
+
   va_list args;
   va_start(args, fmt);
   printf("%s:%d:%d: ", span.start.file, span.start.line, span.start.column);
   vprintf(fmt, args);
   va_end(args);
-  //exit(0);
+    printf("\n");
+  
+  if (line != NULL) {
+    printf("%s\n", trimmed);
+    for(int i = 0; i < span.start.column-1; i ++){
+      // if the char is tab we need to write a tab
+      if (trimmed[i] == '\t')
+        printf("%c", trimmed[i]);
+      else
+        printf(" ");
+    }
+    for(int i = span.start.column; i < span.end.column; i ++){
+      printf("%s^", RED);
+    }
+    
+    printf("%s\n", RESET);
+    free(line);
+  }
 }
 
 int panic(const char *err) {

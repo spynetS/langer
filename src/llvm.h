@@ -27,6 +27,7 @@ typedef struct {
   LLVMBuilderRef builder;
 
   // helpers to get types without generating them
+  LLVMTypeRef bool_t;
   LLVMTypeRef byte;
   LLVMTypeRef i16;
   LLVMTypeRef i32;

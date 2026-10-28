@@ -378,7 +378,7 @@ int lexer_tokenize(Lexer *lexer, Token **result) {
 SourceSpan span_combine(SourceSpan a, SourceSpan b) {
   return (SourceSpan){
     a.start,
-    b.start
+    b.end
   };
 }
 

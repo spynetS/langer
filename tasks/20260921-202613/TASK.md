@@ -1,6 +1,6 @@
 # How to handle un named scopes with resolver and symbol table?
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: BUG QUESTION
 
