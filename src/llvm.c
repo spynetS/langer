@@ -169,7 +169,14 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   LLVMValueRef function = LLVMGetNamedFunction(lg->module, name);
 
   if(function == NULL){
-    Symbol *sym = symbol_lookup_path(lg->sroot, expr.left->value.member_expr);
+    Symbol *sym = NULL;
+    if(expr.left->kind == AST_MEMBER) {
+      sym = symbol_lookup_path(lg->sroot, expr.left->value.member_expr);
+    } else if(expr.left->kind == AST_IDENTIFER) {
+      sym = symbol_lookup(lg->sroot, expr.left->value.identifer_expr.value);
+    }
+
+    print_ast(expr.left, 0);
     assert(sym != NULL);
     assert(sym->kind == SYMBOL_FUNCTION);
     return_type = sym->type->Function.return_type;

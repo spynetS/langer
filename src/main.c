@@ -16,7 +16,7 @@
 #include "../include/sb.h"
 
 
-char *std_path = "./std";
+char *std_path = "";
   
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);
@@ -143,6 +143,22 @@ int main(int argc, char** argv) {
   debug_log("### TYPE RESOLVER ###\n");
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
+
+    for (int i = 0; i < arrlen(package->imports); i++) {
+      ImportStmt stmt = package->imports[i];
+      Symbol *found = symbol_lookup_path_str(symbol_tables[i], stmt.value);
+      if(found != NULL) {
+        Symbol *sym = malloc(sizeof(Symbol));
+        sym->node = found->node;
+        sym->type = SYMBOL_FUNCTION;
+        sym->scope = NULL;
+        sym->key = "print";
+        sym->visibility = VIS_PRIVATE;
+
+        symbol_define(symbol_tables[i], sym);
+      }
+    }
+
 
     // here we don't care about the individual expressions
     resolver.resolve_expr = false;

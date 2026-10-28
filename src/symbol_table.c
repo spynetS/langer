@@ -54,9 +54,11 @@ Symbol *symbol_create(Ast *node) {
 }
 
 
-Symbol *symbol_define(SymbolTable *root, Ast *node) {
-  Symbol *sym = symbol_create(node);
+Symbol *symbol_define(SymbolTable *root, Symbol *sym) {
+  //Symbol *sym = symbol_create(node);
   if (sym == NULL) return NULL;
+
+  Ast *node = sym->node;
 
   // add scope to the ast nodes that have it
   SymbolTable *table;
@@ -179,7 +181,7 @@ SymbolTable *symbol_table_block(SymbolTable *root, BlockStmt *blockstmt) {
   table->parent = root;
   for (int i = 0; i < arrlen(blockstmt->stmts); i++) {
     //    print_ast( blockstmt->stmts[i], 0);
-    symbol_define(table, blockstmt->stmts[i]);
+    symbol_define(table, symbol_create(blockstmt->stmts[i]));      
   }
   return table;
 }
@@ -251,7 +253,7 @@ SymbolTable *symbol_table_package(
     if (!table) return NULL;
 
     for (int i = 0; i < arrlen(package->declarations); i++) {
-        symbol_define(table, package->declarations[i]);
+      symbol_define(table, symbol_create(package->declarations[i]));
     }
 
     return table;
@@ -261,6 +263,7 @@ SymbolTable *symbol_table_package(
 
 void symbol_table_resolve_types(TypeResolver *resolver, SymbolTable *table) {
   assert(table != NULL);
+
 
   for(int i = 0; i < arrlen(table->symbols); i ++) {
     debug_log("IN LOOP\n");
