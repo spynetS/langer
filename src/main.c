@@ -16,7 +16,7 @@
 #include "../include/sb.h"
 
 
-char *std_path = "";
+char *std_path = "./std";
   
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);

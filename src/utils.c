@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "symbol_table.h"
 #include "ast.h"
+#include "utils.h"
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -231,10 +232,10 @@ void log_span(SourceSpan span, const char* fmt, ...) {
         printf(" ");
     }
     for(int i = span.start.column; i < span.end.column; i ++){
-      printf("^");
+      printf("%s^", RED);
     }
-
-    printf("\n");
+    
+    printf("%s\n", RESET);
     free(line);
   }
 }
