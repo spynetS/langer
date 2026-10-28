@@ -68,8 +68,6 @@ typedef enum {
   AST_TYPE_POINTER,
   AST_TYPE_ARRAY,
 
-
-
 } AstKind;
 
 typedef struct {

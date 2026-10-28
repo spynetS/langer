@@ -180,11 +180,21 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
 
 
     Type *common = common_type(a, b);
+    /* printf("%s\n", type_kind_name(b->kind)); */
+    
     if(common == NULL) {
       log_span(node->span, "error: Expected '%s' got '%s' \n", type_kind_name(b->kind), type_kind_name(a->kind));
       assert(0);
     }
-    node->value.call_expr.parameters[i]->type = common;
+    /* printf("BAJS turn %s into %s\n", */
+    /*        type_kind_name(node->value.call_expr.parameters[i]->type->kind), */
+    /*        type_kind_name(common->kind)); */
+    /* print_ast(node->value.call_expr.parameters[i], 0); */
+    
+    // assert(0);
+    node->value.call_expr.parameters[i] =
+      implicit_cast(node->value.call_expr.parameters[i], common);
+    //node->value.call_expr.parameters[i]->type = common;
     //    printf("%s %s \n",node->value.call_expr.left, type_kind_name(node->value.call_expr.parameters[i]->type->kind));
   }
 

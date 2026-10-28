@@ -185,7 +185,6 @@ LLVMValueRef create_call(LLVMGenerator *lg, CallExpr expr) {
   size_t pl = arrlen(expr.parameters);
   LLVMValueRef args[pl];
   for(size_t i = 0; i < pl; i ++ ) {
-    
     args[i] = create_stmt(lg, expr.parameters[i]);
   }
   
@@ -477,6 +476,96 @@ LLVMValueRef create_float_literal(LLVMGenerator *lg, Ast *stmt) {
   assert(0 && "Wrong type");
 }
 
+
+LLVMValueRef cast_float_to_float(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  if(from->kind == TYPE_F32 && to->kind == TYPE_F64) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMDoubleTypeInContext(lg->context),
+                     "fpext");
+    }
+  if(from->kind == TYPE_F64 && to->kind == TYPE_F32) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMFloatTypeInContext(lg->context),
+                     "fptrunc");
+    }
+  return value;
+}
+
+
+LLVMValueRef cast_int_to_int(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  if(from->kind == TYPE_F32 && to->kind == TYPE_F64) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMDoubleTypeInContext(lg->context),
+                     "fpext");
+    }
+  if(from->kind == TYPE_F64 && to->kind == TYPE_F32) {
+    return
+      LLVMBuildFPExt(lg->builder,
+                     value,
+                     LLVMFloatTypeInContext(lg->context),
+                     "fptrunc");
+    }
+  return value;
+}
+
+LLVMValueRef cast_float_to_int(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  printf("warning: TODO cast_float_to_int\n");
+  return value;
+}
+LLVMValueRef cast_int_to_float(LLVMGenerator *lg, LLVMValueRef value, Type *from, Type *to) {
+  LLVMTypeRef target = NULL;
+
+  switch (to->kind) {
+  case TYPE_F32:
+    target = LLVMFloatTypeInContext(lg->context);
+    break;
+
+  case TYPE_F64:
+    target = LLVMDoubleTypeInContext(lg->context);
+    break;
+
+  default:
+    return value;
+  }
+
+  switch (from->kind) {
+  case TYPE_BYTE:
+  case TYPE_I16:
+  case TYPE_I32:
+  case TYPE_I64:
+    return LLVMBuildSIToFP(
+                           lg->builder, value, target, "sitofp"
+                          );
+
+  default:
+    return value;
+  }
+}
+
+
+LLVMValueRef create_cast(LLVMGenerator *lg, CastExpr cast) {
+  LLVMValueRef value = create_stmt(lg, cast.expression);
+
+  // from -> to
+  value = cast_float_to_float(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_int_to_int(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_float_to_int(lg, value, cast.expression->type, cast.cast_type);
+  value = cast_int_to_float(lg, value, cast.expression->type, cast.cast_type);
+
+  /* print_ast(cast.expression, 0); */
+  /* printf("%s\n", type_kind_name(cast.cast_type->kind)); */
+  /* assert(0); */
+
+
+  return value;
+}
+
 LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   print_ast(stmt, 0); 
   switch(stmt->kind) {
@@ -492,7 +581,7 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_UNARY            : assert(0); // TODO
   case AST_DECL             : assert(0); // TODO
   case AST_INDEX            : assert(0); // TODO
-  case AST_CAST             : assert(0); // TODO
+  case AST_CAST             : return create_cast(lg, stmt->value.cast_expr);
   case AST_COMPOUND_LITERAL : assert(0); // TODO
   case AST_MEMBER           :
     return LLVMBuildLoad2(
@@ -510,8 +599,17 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_ASSIGN           : return create_assign(lg, stmt->value.assign_expr);
   case AST_IDENTIFER:{
     char *name = stmt->value.identifer_expr.value;
+
+    /* printf("%s\n", type_kind_name(stmt->type->kind)); */
+
+    //LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMTypeRef type = get_type(lg, name);
     LLVMValueRef ptr = shget(lg->values, name);
+
+    /* if(strcmp(name, "d") == 0) { */
+      
+    /*   assert(0); */
+    /* } */
 
     assert(ptr != NULL);
     assert(type != NULL);
@@ -538,8 +636,8 @@ LLVMValueRef create_stmt(LLVMGenerator *lg, Ast *stmt) {
   case AST_VAR_DECL: {
     assert(stmt->type != NULL);
 
-        char *name =
-        stmt->value.variable_decl.left->value.identifer_expr.value;
+    char *name =
+      stmt->value.variable_decl.left->value.identifer_expr.value;
 
     LLVMTypeRef type = get_llvm_type(lg, stmt->type);
     LLVMValueRef var = LLVMBuildAlloca(lg->builder, type, name);
