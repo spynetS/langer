@@ -1,20 +1,13 @@
 package std.mem;
 
 extern func malloc(size: int): *byte;
-extern func free(ptr: *void): void;
+extern func free(ptr: *void): int;
 
-struct Person {
-age: int
+
+func alloc(size: int): *byte {
+    return malloc(size);
 }
 
-
-extern func printf(fmt: *byte, age: int): void;
-
-public func print(age: int): void {
-printf("%d\n", age);
+func free(size: int): int {
+    return free(size);
 }
-
-public func alloc(size: int): *byte {
-return malloc(size);
-}
-

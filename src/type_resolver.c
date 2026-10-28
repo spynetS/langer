@@ -185,7 +185,7 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
       assert(0);
     }
     node->value.call_expr.parameters[i]->type = common;
-    printf("%s %s \n",node->value.call_expr.left, type_kind_name(node->value.call_expr.parameters[i]->type->kind));
+    //    printf("%s %s \n",node->value.call_expr.left, type_kind_name(node->value.call_expr.parameters[i]->type->kind));
   }
 
   Type* t = sym->type->Function.return_type;

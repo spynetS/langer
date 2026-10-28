@@ -445,7 +445,6 @@ Ast *parse_primary(Parser *p) {
 }
 
 Ast *parse_postfix(Parser *p) {
-  debug_log("TODO IMPLEMENT postfix\n");
   Ast *left = parse_primary(p);
   while (1) {
     Token token = parser_peek(p);
@@ -819,7 +818,6 @@ Ast *parse_stmt(Parser *p) {
     assert(0);
   }
   else if (parser_peek(p).kind == TOKEN_WHILE) {
-    printf("TODO while parsing\n");
     return parse_while_stmt(p);
   }
   else if (parser_peek(p).kind == TOKEN_RETURN) {
