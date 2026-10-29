@@ -16,7 +16,7 @@
 #include "../include/sb.h"
 
 
-char *std_path = "";
+char *std_path = "./std/";
   
 void print_package(Package *package) {
   debug_log("package %s\n", package->package.value);
@@ -144,18 +144,24 @@ int main(int argc, char** argv) {
   for (int i = 0; i < arrlen(files); i++) {
     Package *package = packages[i];
 
-    for (int i = 0; i < arrlen(package->imports); i++) {
-      ImportStmt stmt = package->imports[i];
-      Symbol *found = symbol_lookup_path_str(symbol_tables[i], stmt.value);
+    for (int j = 0; j < arrlen(package->imports); j++) {
+      ImportStmt stmt = package->imports[j]->value.import_stmt;
+      Symbol *found = symbol_lookup_path_str(symbol_tables[i], stmt.package);
       if(found != NULL) {
         Symbol *sym = malloc(sizeof(Symbol));
         sym->node = found->node;
+        sym->kind = SYMBOL_FUNCTION;
         sym->type = SYMBOL_FUNCTION;
         sym->scope = NULL;
-        sym->key = "print";
+        sym->key = strdup(stmt.identifier);
         sym->visibility = VIS_PRIVATE;
 
         symbol_define(symbol_tables[i], sym);
+
+        //free(stmt.identifier);
+      } else {
+        log_span(package->imports[j]->span, "error: symbol '%s' not found \n", stmt.package);
+        assert(0);
       }
     }
 
@@ -197,4 +203,5 @@ int main(int argc, char** argv) {
 
   int status = compile_backend(irl_files);
   return status;
+  return 0;
 }

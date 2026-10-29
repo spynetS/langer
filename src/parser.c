@@ -732,17 +732,25 @@ Ast *parse_import_stmt(Parser *p) {
   StringBuilder sb = {0};
   Token t = parser_expect(p, TOKEN_IDENTIFER);
   if (t.kind == TOKEN_INVALID) import->kind = AST_INVALID;
+
+  char *identifer = NULL;
   
   sb_append(&sb, t.lexeme);
   while (parser_advance(p).kind == TOKEN_DOT) {
     sb_append(&sb, ".");
     t = parser_expect(p, TOKEN_IDENTIFER);
-    sb_append(&sb, t.lexeme);
+    identifer = t.lexeme;
+    sb_append(&sb, identifer);
     if (t.kind == TOKEN_INVALID) import->kind = AST_INVALID;
   }
-  import->value.import_stmt.value = sb_concat(&sb);
+  import->value.import_stmt.package = sb_concat(&sb);
+  import->value.import_stmt.identifier = strdup(identifer);
+  import->value.import_stmt.alias = NULL;
+  
+  // TODO this apan seems wrong
+  import->span = span_combine(it.span, parser_peek(p).span);
 
-  import->span = span_combine(import->span, parser_peek(p).span);
+
   return import;
 }
 
@@ -1006,7 +1014,7 @@ Package *parse_package(Parser *p) {
       Ast *import = parse_import_stmt(p);
       assert(import != NULL);
       assert(import->kind == AST_IMPORT);
-      arrput(package->imports, import->value.import_stmt);
+      arrput(package->imports, import);
     }
     else {
       log_span(parser_peek(p).span,"unexpected token when parsing package '%s'\n", parser_peek(p).lexeme);

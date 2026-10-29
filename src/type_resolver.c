@@ -56,7 +56,7 @@ Type *convert_type(TypeResolver *resolver, Ast* atype) {
     Ast *name = atype->value.named_type.name;
     Symbol *sym = NULL;
     if (name->kind == AST_IDENTIFER) {
-      debug_log("IDENTIFER \n");
+      debug_log("IDENTIFER %s\n", name->value.identifer_expr.value);
       sym = symbol_lookup(resolver->scope, name->value.identifer_expr.value);
     } else {
       print_ast(name, 0);
@@ -163,7 +163,6 @@ Type *resolve_call(TypeResolver *resolver, Ast *node) {
   }
 
   
-
   if (sym->type == NULL) {
     assert(0);
     return new_type(TYPE_RESOLVING);

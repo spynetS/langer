@@ -130,7 +130,9 @@ typedef struct {
 } ReturnStmt;
 
 typedef struct {
-  char *value; // std.mem.alloc;
+    char *package;
+    char *identifier; // NULL when importing the entire package
+    char *alias;      // NULL when no alias is specified
 } ImportStmt;
 
 typedef struct {
@@ -211,7 +213,7 @@ typedef struct {
 typedef struct {
   PackageStmt package;
   Ast **declarations;
-  ImportStmt *imports;// stb array
+  Ast **imports;// stb array
 } Package;
 
 
